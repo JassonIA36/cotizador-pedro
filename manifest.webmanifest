@@ -1,0 +1,59 @@
+{
+  "name": "Pedro Roa - Cotizador Profesional",
+  "short_name": "Cotizador",
+  "description": "Cotizador móvil profesional para Pedro Roa - Generación de cotizaciones y envío directo de PDF por WhatsApp",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0d12",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/favicon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Nueva Cotización",
+      "short_name": "Nueva",
+      "description": "Crear una nueva cotización rápidamente",
+      "url": "./index.html#nueva",
+      "icons": [{ "src": "assets/favicon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Catálogo de Precios",
+      "short_name": "Catálogo",
+      "description": "Ver y editar catálogo de servicios y productos",
+      "url": "./index.html#catalogo",
+      "icons": [{ "src": "assets/favicon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}
