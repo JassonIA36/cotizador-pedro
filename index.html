@@ -26,21 +26,38 @@
 </head>
 <body>
 
+  <!-- TopBar Stitch Design -->
+  <div class="topbar-status np">
+    <div class="topbar-status-inner">
+      <div class="topbar-sync-status">
+        <span class="sync-dot"></span>
+        <span class="sync-text">Sistema sincronizado · Modo offline listo · Almacenamiento local</span>
+      </div>
+      <div class="topbar-contact-info">
+        <a href="tel:+573024555428" class="topbar-link">📞 +57 302 4555428</a>
+        <a href="mailto:pedroroae@gmail.com" class="topbar-link topbar-email">✉️ pedroroae@gmail.com</a>
+        <span class="topbar-badge-active">
+          <span class="pulse-emerald"></span> Atención Activa & Remota
+        </span>
+      </div>
+    </div>
+  </div>
+
   <!-- Encabezado de la App -->
-  <header class="app-header">
+  <header class="app-header np">
     <div class="header-inner">
       <div class="brand-wrapper">
         <img src="assets/logo.png" alt="Logo Pedro Roa" class="brand-logo" width="44" height="44">
         <div class="brand-info">
-          <h1>Pedro Roa <span class="card-badge">PRO</span></h1>
-          <div class="brand-subtitle">Servicio Técnico & Computadores</div>
+          <h1><span class="brand-name-gradient">Pedro Roa</span> <span class="card-badge brand-badge-pro">PRO</span></h1>
+          <div class="brand-subtitle">Servicio Técnico Especializado</div>
         </div>
       </div>
       <div class="header-actions">
-        <button id="btn-install-app" class="btn-primary" style="display: none; padding: 6px 12px; font-size: 0.8rem;">
+        <button id="btn-install-app" class="btn-primary btn-install-glow" style="display: none; padding: 7px 14px; font-size: 0.8rem;">
           📲 Instalar App
         </button>
-        <button id="theme-toggle" class="btn-icon" title="Cambiar tema día/noche" aria-label="Cambiar tema">
+        <button id="theme-toggle" class="btn-icon header-theme-btn" title="Cambiar tema día/noche" aria-label="Cambiar tema">
           ☀️
         </button>
       </div>
@@ -119,47 +136,108 @@
 
         <div class="hub-cards-grid">
           <!-- Opción 1: Cotizaciones -->
-          <button type="button" id="btn-main-cotizaciones" class="hub-action-card" data-section="cotizaciones">
-            <div class="hub-card-header-mobile">
-              <div class="hub-card-icon-wrap icon-cotizaciones">
-                <span class="hub-big-icon">📋</span>
+          <button type="button" id="btn-main-cotizaciones" class="hub-action-card card-cotizaciones" data-section="cotizaciones">
+            <div class="hub-card-top-row">
+              <div class="hub-card-title-group">
+                <div class="hub-card-icon-wrap icon-cotizaciones">
+                  <span class="hub-big-icon">📋</span>
+                </div>
+                <div class="hub-card-meta">
+                  <div class="hub-card-heading-wrap">
+                    <h3 class="hub-card-heading">Cotizaciones</h3>
+                    <span class="hub-status-pill pill-active">ACTIVO</span>
+                  </div>
+                  <span class="hub-card-subheading">Servicios técnicos & hardware</span>
+                </div>
               </div>
-              <h3 class="hub-card-heading">Cotizaciones</h3>
-            </div>
-            <div class="hub-card-info">
-              <p class="hub-card-desc">Crea cotizaciones para tus clientes, revisa el historial, actualiza precios y personaliza tu negocio.</p>
-              <div class="hub-card-pills">
-                <span class="hub-pill">✨ Nueva cotización</span>
-                <span class="hub-pill">📜 Historial</span>
-                <span class="hub-pill">📦 Catálogo</span>
-                <span class="hub-pill">⚙️ Mi Negocio</span>
+              <div class="hub-card-status-badge">
+                <span class="status-badge-label">ESTADO</span>
+                <span class="status-badge-val val-green">Al día</span>
               </div>
             </div>
+            
+            <p class="hub-card-desc">Crea cotizaciones para tus clientes, revisa el historial, actualiza precios y personaliza tu negocio con presupuestos profesionales.</p>
+            
+            <div class="hub-card-pills">
+              <span class="hub-pill">✨ Nueva cotización</span>
+              <span class="hub-pill">📜 Historial</span>
+              <span class="hub-pill">📦 Catálogo</span>
+              <span class="hub-pill">⚙️ Mi Negocio</span>
+            </div>
+
             <div class="hub-card-action">
-              <span class="btn-hub-open">Entrar a Cotizaciones ➔</span>
+              <span class="btn-hub-open">Entrar a Cotizaciones →</span>
             </div>
           </button>
 
           <!-- Opción 2: Cuentas de Cobro -->
-          <button type="button" id="btn-main-cobro" class="hub-action-card" data-section="cuentas-cobro">
-            <div class="hub-card-header-mobile">
-              <div class="hub-card-icon-wrap icon-cobro">
-                <span class="hub-big-icon">💼</span>
+          <button type="button" id="btn-main-cobro" class="hub-action-card card-cobro" data-section="cuentas-cobro">
+            <div class="hub-card-top-row">
+              <div class="hub-card-title-group">
+                <div class="hub-card-icon-wrap icon-cobro">
+                  <span class="hub-big-icon">💼</span>
+                </div>
+                <div class="hub-card-meta">
+                  <div class="hub-card-heading-wrap">
+                    <h3 class="hub-card-heading">Cuentas de cobro</h3>
+                    <span class="hub-status-pill pill-legal">LEGAL</span>
+                  </div>
+                  <span class="hub-card-subheading">Facturación & recibos oficiales</span>
+                </div>
               </div>
-              <h3 class="hub-card-heading">Cuentas de cobro</h3>
-            </div>
-            <div class="hub-card-info">
-              <p class="hub-card-desc">Emite cuentas de cobro con formato legal y firma, controla saldos pendientes, genera PDFs y envía por WhatsApp.</p>
-              <div class="hub-card-pills">
-                <span class="hub-pill">✨ Nueva cuenta</span>
-                <span class="hub-pill">📜 Historial con pagos</span>
-                <span class="hub-pill">👤 Mis Datos</span>
+              <div class="hub-card-status-badge">
+                <span class="status-badge-label label-pending">PENDIENTES</span>
+                <span class="status-badge-val val-amber" id="hub-badge-pending-val">$0</span>
               </div>
             </div>
+
+            <p class="hub-card-desc">Emite cuentas de cobro con formato legal y firma, controla saldos pendientes, genera PDFs listos y envía directamente por WhatsApp.</p>
+            
+            <div class="hub-card-pills">
+              <span class="hub-pill">✨ Nueva cuenta</span>
+              <span class="hub-pill">📜 Historial con pagos</span>
+              <span class="hub-pill">👤 Mis Datos</span>
+            </div>
+
             <div class="hub-card-action">
-              <span class="btn-hub-open">Entrar a Cuentas de cobro ➔</span>
+              <span class="btn-hub-open">Entrar a Cuentas de cobro →</span>
             </div>
           </button>
+        </div>
+
+        <!-- Widgets de resumen rápido y soporte (según diseño Stitch) -->
+        <div class="hub-quick-widgets">
+          <div class="hub-stat-card">
+            <div class="stat-card-header">
+              <span class="stat-card-title">COTIZACIONES MES</span>
+              <span class="stat-card-icon">📋</span>
+            </div>
+            <div class="stat-card-number" id="hub-stat-quotes-count">0</div>
+            <div class="stat-card-foot" id="hub-stat-quotes-approved">registradas en historial</div>
+          </div>
+
+          <div class="hub-stat-card">
+            <div class="stat-card-header">
+              <span class="stat-card-title">POR COBRAR</span>
+              <span class="stat-card-icon">💼</span>
+            </div>
+            <div class="stat-card-number stat-amber" id="hub-stat-cobros-pending">$0</div>
+            <div class="stat-card-foot" id="hub-stat-cobros-active-count">0 cuentas con saldo</div>
+          </div>
+        </div>
+
+        <!-- Banner de Soporte Técnico WhatsApp -->
+        <div class="hub-support-card">
+          <div class="support-card-info">
+            <span class="support-card-icon">💬</span>
+            <div class="support-card-text">
+              <strong class="support-title">Soporte y Atención Técnica</strong>
+              <span class="support-sub">+57 302 455 5428</span>
+            </div>
+          </div>
+          <a href="https://wa.me/573024555428?text=Hola%20Pedro,%20necesito%20asistencia%20t%C3%A9cnica%20especializada" target="_blank" rel="noopener noreferrer" class="btn-support-contact">
+            Contactar ↗
+          </a>
         </div>
       </div>
     </section>

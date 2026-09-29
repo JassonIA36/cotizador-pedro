@@ -584,12 +584,36 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     updateBadges();
   }
 
-  // Actualizar contadores en badges de navegación
+  // Actualizar contadores en badges de navegación y widgets del Hub
   function updateBadges() {
+    const qCount = (state.history && state.history.length) || 0;
+    const cCount = (state.cobroHistory && state.cobroHistory.length) || 0;
+
     const qBadge = $('badge-quotes-count');
-    if (qBadge) qBadge.textContent = state.history.length;
+    if (qBadge) qBadge.textContent = qCount;
     const cBadge = $('badge-cobros-count');
-    if (cBadge) cBadge.textContent = state.cobroHistory.length;
+    if (cBadge) cBadge.textContent = cCount;
+
+    // Actualizar contadores en widgets del Menú Principal si existen en el DOM
+    if ($('hub-stat-quotes-count')) $('hub-stat-quotes-count').textContent = qCount;
+
+    let pendingCobrosCount = 0;
+    let pendingCobrosTotal = 0;
+    if (Array.isArray(state.cobroHistory)) {
+      state.cobroHistory.forEach(item => {
+        const saldo = parseFloat(item.saldo) || 0;
+        if (item.status !== 'pagada' && saldo > 0) {
+          pendingCobrosCount++;
+          pendingCobrosTotal += saldo;
+        }
+      });
+    }
+
+    if ($('hub-stat-cobros-pending')) $('hub-stat-cobros-pending').textContent = formatMoney(pendingCobrosTotal);
+    if ($('hub-badge-pending-val')) $('hub-badge-pending-val').textContent = formatMoney(pendingCobrosTotal);
+    if ($('hub-stat-cobros-active-count')) {
+      $('hub-stat-cobros-active-count').textContent = `${pendingCobrosCount} ${pendingCobrosCount === 1 ? 'cuenta activa' : 'cuentas activas'}`;
+    }
   }
 
   // --- Toast Notification ---
