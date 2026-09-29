@@ -1850,19 +1850,29 @@ button.btn-icon {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
-  background: var(--bg-card);
+  background: #12131a;
   border: 1px solid var(--border);
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .preview-header-bar {
+  background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 .preview-heading {
   font-size: 1.02rem;
-  font-weight: 700;
-  color: var(--text-main);
+  font-weight: 800;
+  color: #ffffff;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+[data-theme="light"] .preview-heading {
+  color: #0f172a;
 }
 
 .btn-toggle-preview {
@@ -1874,9 +1884,9 @@ button.btn-icon {
   font-size: 0.85rem;
   font-weight: 700;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-  background: var(--bg-input);
-  color: var(--cyan);
+  border: 1px solid var(--border);
+  background: #090a0f;
+  color: #cbd5e1;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
@@ -1885,10 +1895,17 @@ button.btn-icon {
   -webkit-tap-highlight-color: transparent;
 }
 
+[data-theme="light"] .btn-toggle-preview {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
 .btn-toggle-preview:hover {
-  background: var(--cyan);
-  border-color: var(--cyan);
-  color: #fff;
+  background: #181924;
+  border-color: var(--primary);
+  color: var(--primary-neon);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
   transform: translateY(-1px);
 }
 
@@ -1897,14 +1914,15 @@ button.btn-icon {
 }
 
 .btn-toggle-preview.is-collapsed {
-  background: linear-gradient(135deg, var(--primary) 0%, #6d28d9 100%);
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
   color: #fff;
-  border-color: var(--primary);
-  box-shadow: 0 4px 14px var(--primary-glow);
+  border: none;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);
 }
 
 .btn-toggle-preview.is-collapsed:hover {
-  background: linear-gradient(135deg, var(--primary-hover) 0%, #5b21b6 100%);
+  background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
 }
 
 #preview-toggle-icon {
@@ -2242,10 +2260,21 @@ button.btn-icon {
   grid-template-columns: 130px 1fr 115px 36px;
   gap: 8px;
   align-items: center;
-  background: var(--bg-input);
-  padding: 8px 10px;
+  background: #090a0f;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+[data-theme="light"] .catalog-item-row {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.catalog-item-row:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: #0e1018;
 }
 
 @media (max-width: 640px) {
@@ -2275,51 +2304,70 @@ button.btn-icon {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .history-card {
-  background: var(--bg-input);
+  background: #12131a;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  transition: all 0.2s ease;
+  gap: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .history-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 .history-card:hover {
-  border-color: var(--border-light);
-  transform: translateX(2px);
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(168, 85, 247, 0.2);
+  background: #181924;
+}
+
+[data-theme="light"] .history-card:hover {
+  background: #fdfcff;
+  border-color: #a855f7;
 }
 
 .history-meta h4 {
-  font-size: 0.95rem;
-  margin-bottom: 2px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
+[data-theme="light"] .history-meta h4 {
+  color: #0f172a;
+}
+
 .history-meta p {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .history-side {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex-shrink: 0;
 }
 
 .history-price {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--cyan);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary-neon);
   text-align: right;
   white-space: nowrap;
 }
@@ -2685,15 +2733,22 @@ button.btn-icon {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-input);
-  padding: 8px 10px;
+  background: #090a0f;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  transition: border-color 0.2s;
+  transition: all 0.25s ease;
+}
+
+[data-theme="light"] .cc-line-row {
+  background: #f8fafc;
+  border-color: #e2e8f0;
 }
 
 .cc-line-row:focus-within {
-  border-color: var(--border-focus);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
+  background: #0e1018;
 }
 
 .cc-line-desc {
@@ -2708,6 +2763,7 @@ button.btn-icon {
 @media (max-width: 520px) {
   .cc-line-row {
     flex-wrap: wrap;
+    padding: 10px;
   }
   .cc-line-desc {
     width: 100%;
@@ -2720,40 +2776,48 @@ button.btn-icon {
 }
 
 .warning-banner {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid var(--warning);
-  color: var(--warning);
-  padding: 10px 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   font-size: 0.84rem;
   line-height: 1.4;
 }
 
 /* ==========================================================================
-   Cuentas de Cobro - Historial, Estadísticas y Filtros
+   Cuentas de Cobro - Historial, Estadísticas y Filtros (Stitch Theme)
    ========================================================================== */
 
 /* Tarjetas de Estadísticas */
 .cobro-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .stat-card {
-  background: var(--bg-input);
+  background: #12131a;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .stat-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 .stat-card:hover {
-  border-color: var(--border-light);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(168, 85, 247, 0.18);
 }
 
 .stat-card-pending {
@@ -2761,35 +2825,39 @@ button.btn-icon {
 }
 
 .stat-card-paid {
-  border-left: 4px solid var(--success);
+  border-left: 4px solid #10b981;
 }
 
 .stat-label {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.05em;
 }
 
 .stat-value {
-  font-size: 1.45rem;
-  font-weight: 800;
-  color: var(--text-main);
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
   line-height: 1.2;
 }
 
+[data-theme="light"] .stat-value {
+  color: #0f172a;
+}
+
 .stat-sub {
-  font-size: 0.72rem;
-  color: var(--text-dim);
+  font-size: 0.74rem;
+  color: var(--text-muted);
 }
 
 .text-amber {
-  color: #f59e0b !important;
+  color: #fbbf24 !important;
 }
 
 .text-emerald {
-  color: #10b981 !important;
+  color: #34d399 !important;
 }
 
 /* Barra de Filtros */
@@ -2799,10 +2867,15 @@ button.btn-icon {
   flex-wrap: wrap;
   align-items: center;
   margin-bottom: 16px;
-  background: var(--bg-input);
-  padding: 12px;
+  background: #12131a;
+  padding: 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+}
+
+[data-theme="light"] .cobro-filters-bar {
+  background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 .cobro-filters-bar .filter-input-wrap {
@@ -2831,18 +2904,27 @@ button.btn-icon {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.02);
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  background: #12131a;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
+[data-theme="light"] .cobro-backup-bar {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
 .cobro-backup-bar .backup-info {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-weight: 600;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+[data-theme="light"] .cobro-backup-bar .backup-info {
+  color: #334155;
 }
 
 .cobro-backup-bar .backup-actions {
@@ -2855,28 +2937,41 @@ button.btn-icon {
 .cobro-history-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .cobro-history-card {
-  background: var(--bg-card);
+  background: #12131a;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   transition: all 0.25s ease;
   position: relative;
-}
-
-.cobro-history-card:hover {
-  border-color: var(--border-light);
   box-shadow: var(--shadow-sm);
 }
 
+[data-theme="light"] .cobro-history-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.cobro-history-card:hover {
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 10px 25px -4px rgba(168, 85, 247, 0.2);
+  transform: translateY(-2px);
+  background: #181924;
+}
+
+[data-theme="light"] .cobro-history-card:hover {
+  background: #fdfcff;
+  border-color: #a855f7;
+}
+
 .cobro-history-card.is-paid {
-  border-left: 4px solid var(--success);
+  border-left: 4px solid #10b981;
 }
 
 .cobro-history-card.is-pending {
@@ -2894,42 +2989,42 @@ button.btn-icon {
 .cobro-history-identity {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .cobro-num-badge {
   font-size: 0.82rem;
   font-weight: 800;
-  padding: 3px 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  color: var(--cyan);
+  padding: 4px 10px;
+  background: #090a0f;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 8px;
+  color: var(--primary-neon);
 }
 
 .badge-status {
   font-size: 0.74rem;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 3px 10px;
   border-radius: var(--radius-full);
 }
 
 .badge-pending {
   background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .badge-paid {
   background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .cobro-history-amount {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--whatsapp);
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #34d399;
 }
 
 .cobro-history-body {
@@ -2939,14 +3034,18 @@ button.btn-icon {
 }
 
 .cobro-history-client {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-main);
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #ffffff;
   margin: 0;
 }
 
+[data-theme="light"] .cobro-history-client {
+  color: #0f172a;
+}
+
 .cobro-history-nit {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-dim);
 }
 
@@ -2954,7 +3053,7 @@ button.btn-icon {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   margin-top: 4px;
   flex-wrap: wrap;
@@ -2965,7 +3064,7 @@ button.btn-icon {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 
@@ -2975,54 +3074,64 @@ button.btn-icon {
   justify-content: center;
   gap: 6px;
   min-height: 44px;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  font-weight: 600;
-  border: 1px solid var(--border-light);
-  background: var(--bg-input);
-  color: var(--text-main);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: #090a0f;
+  color: #cbd5e1;
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
 }
 
+[data-theme="light"] .btn-cobro-action {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
 .btn-cobro-action:hover {
-  background: var(--bg-card-solid);
+  background: #181924;
   border-color: var(--primary);
+  color: #ffffff;
 }
 
 .btn-cobro-toggle-status {
   background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
 }
 
 .btn-cobro-toggle-status.is-paid {
   background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
 }
 
 .btn-cobro-open {
-  background: var(--primary);
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
   color: #ffffff;
-  border-color: var(--primary);
+  border: none;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);
 }
 
 .btn-cobro-open:hover {
-  background: var(--primary-hover);
+  background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
 }
 
 .btn-icon-danger {
-  color: var(--danger);
-  border-color: rgba(239, 68, 68, 0.25);
-  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .btn-icon-danger:hover {
-  background: var(--danger);
+  background: #dc2626;
   color: #ffffff;
+  border-color: #dc2626;
 }
 
 /* Empty State */
