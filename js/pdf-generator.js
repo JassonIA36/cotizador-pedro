@@ -272,14 +272,282 @@
     doc.save(fileName);
   }
 
-  // Open in new tab preview
-  function previewPdf(data) {
-    const { blob } = generatePdfFile(data);
+  // Shared helper to open PDF preview in a new window/tab (with mobile/popup fallback)
+  function previewPdfBlob(blob) {
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    const win = window.open(url, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 100);
+    }
   }
 
-  // Share via WhatsApp with PDF
+  // Open Quote in preview
+  function previewPdf(data) {
+    const { blob } = generatePdfFile(data);
+    previewPdfBlob(blob);
+  }
+
+  // ==========================================================================
+  // CUENTAS DE COBRO - MOTOR DE GENERACIÓN PDF (TAMAÑO CARTA, 1 PÁGINA)
+  // ==========================================================================
+  function createCobroPdfDocument(data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'letter'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();   // 215.9 mm
+    const margin = 16;
+    const contentWidth = pageWidth - (margin * 2);
+
+    let yPos = 14;
+
+    // 0. Logo Oficial Pedro Roa arriba (si está activado y existe)
+    if (data.includeLogo !== false && window.PEDRO_ROA_LOGO) {
+      try {
+        const logoSize = 22;
+        const logoX = (pageWidth - logoSize) / 2;
+        doc.addImage(window.PEDRO_ROA_LOGO, 'PNG', logoX, yPos, logoSize, logoSize);
+        yPos += logoSize + 5;
+      } catch (e) {
+        console.warn('Could not add logo image to Cuenta de Cobro:', e);
+        yPos += 4;
+      }
+    } else {
+      yPos += 4;
+    }
+
+    // 1. Ciudad y fecha (en negrita, alineado a la izquierda)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 0, 0);
+    const dateText = `${data.city || 'Bogotá'}, ${data.dateFormatted || ''}`;
+    doc.text(dateText, margin, yPos);
+    yPos += 9;
+
+    // 2. "Cuenta de cobro 012" (centrado y en negrita)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Cuenta de cobro ${data.cobroNumber || '001'}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 9;
+
+    // 3. Nombre de la empresa o cliente en letra grande y negrita, con "Nit." debajo. Centrado.
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12.5);
+    doc.text(data.clientName || 'Cliente General', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text(data.clientNit ? `Nit. ${data.clientNit}` : 'Nit. (Por registrar)', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    // 4. "DEBE A:" centrado, en negrita
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('DEBE A:', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 6;
+
+    // 5. Nombre de quien cobra en mayúsculas y "C.C. ... de Bogotá" debajo. Centrado
+    const emisor = data.emisor || {};
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text((emisor.name || 'PEDRO LUIS ROA MORA').toUpperCase(), pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text(`C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    // 6. "LA SUMA DE:" centrado, en negrita
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('LA SUMA DE:', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 6;
+
+    // 7. El saldo en letras y número, en negrita y centrado
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    const amountText = data.saldoLetras || 'Cero pesos m/cte. ($0.oo)';
+    const splitAmount = doc.splitTextToSize(amountText, contentWidth - 10);
+    doc.text(splitAmount, pageWidth / 2, yPos, { align: 'center' });
+    yPos += (splitAmount.length * 5) + 5;
+
+    // 8. "Por concepto de:" y cada concepto como viñeta
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('Por concepto de:', margin, yPos);
+    yPos += 5.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const conceptos = data.conceptos && data.conceptos.length > 0 ? data.conceptos : [{ desc: 'Servicio técnico', amount: 0 }];
+    conceptos.forEach(c => {
+      const lineText = `•   ${c.desc || 'Servicio'} por ${formatMoney(c.amount || 0)}`;
+      const splitLines = doc.splitTextToSize(lineText, contentWidth - 8);
+      doc.text(splitLines, margin + 4, yPos);
+      yPos += (splitLines.length * 4.8);
+    });
+
+    // 9. Resumen de adelantos si los hay
+    const adelantos = data.adelantos || [];
+    if (adelantos.length > 0) {
+      yPos += 2;
+      const boxWidth = 92;
+      const boxHeight = 20;
+      const boxX = margin + 4;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(boxX, yPos, boxWidth, boxHeight, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(75, 85, 99);
+      doc.text('Total de conceptos:', boxX + 4, yPos + 5.5);
+      doc.text(formatMoney(data.totals ? data.totals.totalConceptos : 0), boxX + boxWidth - 4, yPos + 5.5, { align: 'right' });
+
+      doc.text('Menos adelantos / anticipos:', boxX + 4, yPos + 10.5);
+      doc.text('-' + formatMoney(data.totals ? data.totals.totalAdelantos : 0), boxX + boxWidth - 4, yPos + 10.5, { align: 'right' });
+
+      doc.setDrawColor(203, 213, 225);
+      doc.line(boxX + 4, yPos + 13, boxX + boxWidth - 4, yPos + 13);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Saldo a cobrar:', boxX + 4, yPos + 17.5);
+      doc.text(formatMoney(data.totals ? data.totals.saldo : 0), boxX + boxWidth - 4, yPos + 17.5, { align: 'right' });
+
+      yPos += boxHeight + 4;
+    } else {
+      yPos += 2;
+    }
+
+    // 10. Texto legal (si está activado)
+    if (data.includeLegal !== false && data.legalText) {
+      doc.setDrawColor(203, 213, 225);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      doc.setTextColor(55, 65, 81);
+      const paragraphs = data.legalText.split('\n').filter(p => p.trim());
+      paragraphs.forEach(p => {
+        const splitP = doc.splitTextToSize(p.trim(), contentWidth);
+        doc.text(splitP, margin, yPos);
+        yPos += (splitP.length * 3.3) + 1.2;
+      });
+      doc.setTextColor(0, 0, 0);
+      yPos += 2;
+    }
+
+    // 11. "Cordialmente,", la firma, el nombre, C.C., teléfono y dirección
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Cordialmente,', margin, yPos);
+    yPos += 4;
+
+    if (data.firma) {
+      try {
+        doc.addImage(data.firma, 'PNG', margin, yPos, 45, 14);
+        yPos += 16;
+      } catch (err) {
+        console.warn('Could not add signature image to PDF:', err);
+        yPos += 12;
+      }
+    } else {
+      yPos += 12;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.2);
+    doc.text(emisor.name || 'Pedro Luis Roa Mora', margin, yPos);
+    yPos += 4.2;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text(`C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`, margin, yPos);
+    yPos += 4.2;
+    doc.text(`Teléfono: ${emisor.phone || '3024555428'}`, margin, yPos);
+    yPos += 4.2;
+    doc.text(`Dirección: ${emisor.address || 'Carrera 70g 78a-80'}`, margin, yPos);
+
+    return doc;
+  }
+
+  // Generate Cuenta de Cobro File & Blob
+  function generateCobroPdfFile(data) {
+    const doc = createCobroPdfDocument(data);
+    const sanitizedNumber = String(data.cobroNumber || '001').padStart(3, '0');
+    const clientSlug = (data.clientName || 'Cliente').replace(/\s+/g, '_').substring(0, 15);
+    const fileName = `CuentaDeCobro_${sanitizedNumber}_${clientSlug}.pdf`;
+
+    const blob = doc.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf', lastModified: Date.now() });
+
+    return { doc, blob, file, fileName };
+  }
+
+  // Download Cuenta de Cobro PDF directly
+  function downloadCobroPdf(data) {
+    const { doc, fileName } = generateCobroPdfFile(data);
+    doc.save(fileName);
+  }
+
+  // Open Cuenta de Cobro in browser PDF preview
+  function previewCobroPdf(data) {
+    const { blob } = generateCobroPdfFile(data);
+    previewPdfBlob(blob);
+  }
+
+  // Share Cuenta de Cobro via WhatsApp with PDF
+  async function shareCobroPdfViaWhatsApp(data, onDesktopFallback) {
+    const { file, fileName, doc } = generateCobroPdfFile(data);
+    const messageText = data.fullMessageText || '';
+
+    // 1. Mobile Native Web Share API with Files
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Cuenta de Cobro ${data.cobroNumber} - Pedro Roa`,
+          text: messageText
+        });
+        return { success: true, method: 'native-share' };
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return { success: false, aborted: true };
+        }
+        console.warn('Web Share API failed, falling back:', err);
+      }
+    }
+
+    // 2. Desktop or Browser without file sharing support: download PDF and open WhatsApp
+    doc.save(fileName);
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+    window.open(waUrl, '_blank');
+
+    if (typeof onDesktopFallback === 'function') {
+      onDesktopFallback(fileName);
+    }
+
+    return { success: true, method: 'download-and-chat', fileName };
+  }
+
+  // Share via WhatsApp with PDF (Quote)
   async function sharePdfViaWhatsApp(data, onDesktopFallback) {
     const { file, fileName, doc } = generatePdfFile(data);
     
@@ -337,6 +605,12 @@
     downloadPdf,
     previewPdf,
     sharePdfViaWhatsApp,
+    createCobroPdfDocument,
+    generateCobroPdfFile,
+    downloadCobroPdf,
+    previewCobroPdf,
+    shareCobroPdfViaWhatsApp,
+    previewPdfBlob,
     formatMoney
   };
 

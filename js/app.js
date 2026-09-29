@@ -177,6 +177,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     cobroDocCity: getStorage('pr_cobro_doc_city', 'Bogotá'),
     cobroDocDate: getStorage('pr_cobro_doc_date', new Date().toISOString().split('T')[0]),
     cobroIncludeLegal: getStorage('pr_cobro_include_legal', true),
+    cobroIncludeLogo: getStorage('pr_cobro_include_logo', true),
     cobroClientName: getStorage('pr_cobro_client_name', ''),
     cobroClientNit: getStorage('pr_cobro_client_nit', ''),
     cobroClients: getStorage('pr_cobro_clients', [
@@ -750,6 +751,44 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     };
   }
 
+  // Recopilar todos los datos de la Cuenta de Cobro para exportación y renderizado
+  function getFullCobroData() {
+    const totals = calculateCobroTotals();
+    const emisor = state.cobroEmisor || DEFAULT_COBRO_EMISOR;
+    const numFormatted = String(state.cobroNum || 1).padStart(3, '0');
+    const city = state.cobroDocCity || 'Bogotá';
+    const dateFormatted = formatCobroDate(state.cobroDocDate);
+    const clientName = state.cobroClientName.trim() || 'Nombre del Cliente o Empresa';
+    const clientNit = state.cobroClientNit.trim();
+    const validConceptos = (state.cobroConceptos || []).filter(c => (c.desc && c.desc.trim()) || (parseFloat(c.amount) > 0));
+    const validAdelantos = (state.cobroAdelantos || []).filter(a => (a.desc && a.desc.trim()) || (parseFloat(a.amount) > 0));
+
+    return {
+      cobroNumber: numFormatted,
+      city,
+      dateIso: state.cobroDocDate,
+      dateFormatted,
+      clientName,
+      clientNit,
+      emisor: {
+        name: emisor.name || 'Pedro Luis Roa Mora',
+        cc: emisor.cc || '1.015.409.172',
+        city: emisor.city || 'Bogotá',
+        phone: emisor.phone || '3024555428',
+        address: emisor.address || 'Carrera 70g 78a-80'
+      },
+      conceptos: validConceptos.length > 0 ? validConceptos : [{ desc: 'Concepto pendiente por especificar', amount: 0 }],
+      adelantos: validAdelantos,
+      totals,
+      saldoLetras: numeroALetras(totals.saldo),
+      includeLegal: state.cobroIncludeLegal !== false,
+      legalText: state.cobroLegalText || DEFAULT_LEGAL_TEXT,
+      includeLogo: state.cobroIncludeLogo !== false,
+      firma: state.cobroFirma || '',
+      fullMessageText: generateCobroPlainText()
+    };
+  }
+
   // Clientes frecuentes sugeridos
   function saveCobroClient(name, nit) {
     name = (name || '').trim();
@@ -905,6 +944,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       $('cc-warning-box').style.display = totals.hasOverAdelanto ? 'block' : 'none';
     }
 
+    // 0. Logo oficial arriba
+    if ($('cc-doc-preview-logo-wrap')) {
+      $('cc-doc-preview-logo-wrap').style.display = (state.cobroIncludeLogo !== false) ? 'block' : 'none';
+    }
+
     // 1. Ciudad y fecha, en negrita, alineado a la izquierda
     if ($('cc-doc-preview-date-city')) {
       $('cc-doc-preview-date-city').innerHTML = `<strong>${escapeHtml(city)}, ${escapeHtml(dateFormatted)}</strong>`;
@@ -1048,7 +1092,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       if (countLabel) countLabel.textContent = `Cuenta ${String(state.cobroNum || 1).padStart(3, '0')}`;
       if (amountLabel) amountLabel.textContent = formatMoney(totals.saldo);
       if (btnSticky) {
-        btnSticky.innerHTML = '<span>🖨️</span> Imprimir / PDF';
+        btnSticky.innerHTML = '<span>👁️</span> Ver PDF';
       }
     } else if (activeSection && activeSection.id === 'view-cotizador') {
       stickyBar.style.display = 'flex';
@@ -1078,6 +1122,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     $('cc-emisor-address').value = state.cobroEmisor.address || 'Carrera 70g 78a-80';
     $('cc-legal-text').value = state.cobroLegalText || DEFAULT_LEGAL_TEXT;
     $('cc-include-legal').checked = state.cobroIncludeLegal !== false;
+    if ($('cc-include-logo')) $('cc-include-logo').checked = state.cobroIncludeLogo !== false;
     $('cc-num').value = state.cobroNum || 12;
     $('cc-doc-city').value = state.cobroDocCity || 'Bogotá';
     $('cc-doc-date').value = state.cobroDocDate || new Date().toISOString().split('T')[0];
@@ -1346,6 +1391,57 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       }
     });
 
+    // Casilla Incluir Logo
+    const chkIncludeLogo = $('cc-include-logo');
+    if (chkIncludeLogo) {
+      chkIncludeLogo.addEventListener('change', (e) => {
+        state.cobroIncludeLogo = e.target.checked;
+        setStorage('pr_cobro_include_logo', state.cobroIncludeLogo);
+        renderCobroPreview();
+      });
+    }
+
+    // Botón Ver PDF de Cuenta de Cobro (Visor en nueva pestaña con opciones completas)
+    const btnCobroPreview = $('btn-cc-preview-pdf');
+    if (btnCobroPreview) {
+      btnCobroPreview.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const data = getFullCobroData();
+        window.PedroRoaPdf.previewCobroPdf(data);
+      });
+    }
+
+    // Botón Descargar PDF de Cuenta de Cobro
+    const btnCobroDownload = $('btn-cc-download-pdf');
+    if (btnCobroDownload) {
+      btnCobroDownload.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const data = getFullCobroData();
+        showToast('Descargando archivo PDF...', '📥');
+        window.PedroRoaPdf.downloadCobroPdf(data);
+      });
+    }
+
+    // Botón Enviar PDF por WhatsApp de Cuenta de Cobro
+    const btnCobroWhatsAppPdf = $('btn-cc-whatsapp-pdf');
+    if (btnCobroWhatsAppPdf) {
+      btnCobroWhatsAppPdf.addEventListener('click', async () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const data = getFullCobroData();
+        const result = await window.PedroRoaPdf.shareCobroPdfViaWhatsApp(data, (fileName) => {
+          showModal(
+            '📄 Archivo PDF Descargado',
+            `<p>Se descargó el archivo <strong>${fileName}</strong> en tu dispositivo.</p>
+             <p>Se ha abierto WhatsApp para que puedas adjuntar el PDF descargado y enviarlo a tu cliente.</p>`,
+            'Entendido'
+          );
+        });
+        if (result && result.success && result.method === 'native-share') {
+          showToast('Compartiendo PDF directamente en WhatsApp...', '🚀');
+        }
+      });
+    }
+
     // Botón Imprimir / Guardar en PDF
     const btnPrint = $('btn-cc-print');
     if (btnPrint) {
@@ -1355,7 +1451,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       });
     }
 
-    // Botón WhatsApp
+    // Botón WhatsApp Solo Texto
     const btnWhatsApp = $('btn-cc-whatsapp');
     if (btnWhatsApp) {
       btnWhatsApp.addEventListener('click', () => {
@@ -1816,7 +1912,8 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       const activeSection = document.querySelector('.view-section.active');
       if (activeSection && activeSection.id === 'view-cuentas-cobro') {
         saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        window.print();
+        const data = getFullCobroData();
+        window.PedroRoaPdf.previewCobroPdf(data);
       } else {
         handleSendPdfWhatsApp();
       }

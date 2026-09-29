@@ -1625,6 +1625,18 @@ button.btn-icon {
   }
 }
 
+.doc-cobro-logo-wrap {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.doc-cobro-logo-img {
+  max-height: 52px;
+  max-width: 160px;
+  object-fit: contain;
+  display: inline-block;
+}
+
 .doc-cobro-line-left {
   text-align: left;
   font-size: 0.94rem;
@@ -1914,6 +1926,16 @@ button.btn-icon {
     font-size: 10.5pt !important;
     line-height: 1.38 !important;
     color: #000000 !important;
+  }
+  .doc-cobro-logo-wrap {
+    text-align: center !important;
+    margin-bottom: 10pt !important;
+  }
+  .doc-cobro-logo-img {
+    max-height: 48pt !important;
+    max-width: 150pt !important;
+    object-fit: contain !important;
+    display: inline-block !important;
   }
   .doc-cobro-line-left {
     margin-bottom: 14pt !important;

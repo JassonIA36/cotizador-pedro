@@ -463,6 +463,14 @@
                 <input id="cc-client-nit" type="text" placeholder="Ej: 900.123.456-7">
               </div>
 
+              <!-- Casilla Incluir Logo -->
+              <div class="input-group full-width" style="margin-top: 4px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="cc-include-logo" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir logo en el documento</span>
+                </label>
+              </div>
+
               <!-- Casilla Texto Legal -->
               <div class="input-group full-width" style="margin-top: 4px;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
@@ -538,17 +546,26 @@
               </div>
             </div>
 
-            <div class="actions-grid">
-              <button id="btn-cc-print" type="button" class="btn-primary" style="background: linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%);">
-                <span>🖨️</span> Imprimir / Guardar en PDF
+            <div class="action-bar">
+              <button id="btn-cc-whatsapp-pdf" type="button" class="btn-whatsapp action-main-btn">
+                <span>📲</span> Enviar PDF por WhatsApp
               </button>
-              <button id="btn-cc-whatsapp" type="button" class="btn-whatsapp">
-                <span>📲</span> Enviar por WhatsApp
+              <button id="btn-cc-download-pdf" type="button" class="btn-primary">
+                <span>📥</span> Descargar PDF
               </button>
-              <button id="btn-cc-copy" type="button" class="btn-secondary">
+              <button id="btn-cc-preview-pdf" type="button">
+                <span>👁️</span> Ver PDF
+              </button>
+              <button id="btn-cc-whatsapp" type="button">
+                <span>💬</span> WhatsApp Solo Texto
+              </button>
+              <button id="btn-cc-copy" type="button">
                 <span>📋</span> Copiar Texto
               </button>
-              <button id="btn-cc-new" type="button" class="btn-danger" style="background: transparent; border: 1px solid var(--border-light); color: var(--text-main);">
+              <button id="btn-cc-print" type="button">
+                <span>🖨️</span> Imprimir
+              </button>
+              <button id="btn-cc-new" type="button" class="btn-danger">
                 <span>✨</span> Nueva Cuenta de Cobro
               </button>
             </div>
@@ -575,6 +592,11 @@
               <div class="preview-collapsible-inner">
                 <div class="doc-paper doc-cobro-paper" id="cobro-document">
                   
+                  <!-- 0. Logo Oficial de Pedro Roa arriba -->
+                  <div id="cc-doc-preview-logo-wrap" class="doc-cobro-logo-wrap">
+                    <img id="cc-doc-preview-logo-img" src="assets/logo.png" alt="Logo Pedro Roa" class="doc-cobro-logo-img">
+                  </div>
+
                   <!-- 1. Ciudad y fecha, en negrita, alineado a la izquierda -->
                   <div class="doc-cobro-line-left" id="cc-doc-preview-date-city">
                     <strong>Bogotá, 28 de julio de 2026</strong>
