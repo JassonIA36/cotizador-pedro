@@ -436,22 +436,22 @@
     }
 
     // 9.5 Garantías y observaciones (si está activado y tiene texto)
-    const hasNotes = data.includeNotes !== false && !!(data.notes && data.notes.trim());
+    const notesClean = (typeof data.notes === 'string') ? data.notes.trim() : '';
+    const hasNotes = (data.includeNotes !== false) && (notesClean.length > 0);
     if (hasNotes) {
-      const notesClean = data.notes.trim();
       const isLongDoc = notesClean.length > 150 || (data.conceptos && data.conceptos.length > 2) || (data.adelantos && data.adelantos.length > 0);
-      const notesFontSize = isLongDoc ? 7.6 : 8.4;
-      const notesLineHeight = isLongDoc ? 3.3 : 3.8;
+      const notesFontSize = isLongDoc ? 7.6 : 8.5;
+      const notesLineHeight = isLongDoc ? 3.4 : 3.9;
 
       doc.setDrawColor(203, 213, 225);
       doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 3;
+      yPos += 4.5;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(notesFontSize);
       doc.setTextColor(0, 0, 0);
       doc.text('Garantías y observaciones:', margin, yPos);
-      yPos += (notesFontSize * 0.42);
+      yPos += 4.2;
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(notesFontSize);
@@ -463,13 +463,13 @@
         if (trimmed) {
           const splitP = doc.splitTextToSize(trimmed, contentWidth);
           doc.text(splitP, margin, yPos);
-          yPos += (splitP.length * notesLineHeight) + 0.6;
+          yPos += (splitP.length * notesLineHeight) + 0.8;
         } else {
-          yPos += 1.8;
+          yPos += 2.2;
         }
       });
       doc.setTextColor(0, 0, 0);
-      yPos += 1.5;
+      yPos += 2.5;
     }
 
     // 10. Texto legal (si está activado)

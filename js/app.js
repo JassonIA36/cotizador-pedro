@@ -771,6 +771,57 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
   // Recopilar todos los datos de la Cuenta de Cobro para exportación y renderizado
   function getFullCobroData() {
+    // Sincronizar primero directamente con los valores actuales en pantalla
+    if ($('cc-num')) {
+      const n = parseInt($('cc-num').value, 10);
+      if (!isNaN(n) && n > 0) {
+        state.cobroNum = n;
+        setStorage('pr_cobro_num', n);
+      }
+    }
+    if ($('cc-doc-city')) {
+      state.cobroDocCity = $('cc-doc-city').value;
+      setStorage('pr_cobro_doc_city', state.cobroDocCity);
+    }
+    if ($('cc-doc-date')) {
+      state.cobroDocDate = $('cc-doc-date').value;
+      setStorage('pr_cobro_doc_date', state.cobroDocDate);
+    }
+    if ($('cc-client-name')) {
+      state.cobroClientName = $('cc-client-name').value;
+      setStorage('pr_cobro_client_name', state.cobroClientName);
+    }
+    if ($('cc-client-nit')) {
+      state.cobroClientNit = $('cc-client-nit').value;
+      setStorage('pr_cobro_client_nit', state.cobroClientNit);
+    }
+    if ($('cc-include-logo')) {
+      state.cobroIncludeLogo = $('cc-include-logo').checked;
+      setStorage('pr_cobro_include_logo', state.cobroIncludeLogo);
+    }
+    if ($('cc-include-legal')) {
+      state.cobroIncludeLegal = $('cc-include-legal').checked;
+      setStorage('pr_cobro_include_legal', state.cobroIncludeLegal);
+    }
+    if ($('cc-legal-text')) {
+      state.cobroLegalText = $('cc-legal-text').value;
+      setStorage('pr_cobro_legal_text', state.cobroLegalText);
+    }
+
+    // Campo de notas y casilla: lectura DIRECTA e INMEDIATA del DOM
+    const notesInput = $('cc-notes');
+    const chkIncludeNotes = $('cc-include-notes');
+
+    const liveIncludeNotes = chkIncludeNotes ? chkIncludeNotes.checked : (state.cobroIncludeNotes !== false);
+    const liveNotes = notesInput
+      ? notesInput.value
+      : ((typeof state.cobroNotes === 'string') ? state.cobroNotes : (state.cobroDefaultNotes || DEFAULT_COBRO_NOTES));
+
+    state.cobroIncludeNotes = liveIncludeNotes;
+    state.cobroNotes = liveNotes;
+    setStorage('pr_cobro_include_notes', state.cobroIncludeNotes);
+    setStorage('pr_cobro_notes', state.cobroNotes);
+
     const totals = calculateCobroTotals();
     const emisor = state.cobroEmisor || DEFAULT_COBRO_EMISOR;
     const numFormatted = String(state.cobroNum || 1).padStart(3, '0');
@@ -781,7 +832,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const validConceptos = (state.cobroConceptos || []).filter(c => (c.desc && c.desc.trim()) || (parseFloat(c.amount) > 0));
     const validAdelantos = (state.cobroAdelantos || []).filter(a => (a.desc && a.desc.trim()) || (parseFloat(a.amount) > 0));
 
-    return {
+    const cobroData = {
       cobroNumber: numFormatted,
       city,
       dateIso: state.cobroDocDate,
@@ -802,11 +853,12 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       includeLegal: state.cobroIncludeLegal !== false,
       legalText: state.cobroLegalText || DEFAULT_LEGAL_TEXT,
       includeLogo: state.cobroIncludeLogo !== false,
-      includeNotes: state.cobroIncludeNotes !== false,
-      notes: (typeof state.cobroNotes === 'string') ? state.cobroNotes : (state.cobroDefaultNotes || DEFAULT_COBRO_NOTES),
-      firma: state.cobroFirma || '',
-      fullMessageText: generateCobroPlainText()
+      includeNotes: liveIncludeNotes,
+      notes: liveNotes,
+      firma: state.cobroFirma || ''
     };
+    cobroData.fullMessageText = generateCobroPlainText(cobroData);
+    return cobroData;
   }
 
   // Clientes frecuentes sugeridos
@@ -942,15 +994,16 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     setStorage('pr_cobro_preview_collapsed', willCollapse);
   }
 
-  // Renderizar la vista previa del documento oficial de Cuenta de Cobro
-  function renderCobroPreview() {
-    const totals = calculateCobroTotals();
-    const numFormatted = String(state.cobroNum || 1).padStart(3, '0');
-    const city = state.cobroDocCity || 'Bogotá';
-    const dateFormatted = formatCobroDate(state.cobroDocDate);
-    const clientName = state.cobroClientName.trim() || 'Nombre del Cliente o Empresa';
-    const clientNit = state.cobroClientNit.trim();
-    const emisor = state.cobroEmisor || DEFAULT_COBRO_EMISOR;
+  // Renderizar la vista previa del documento oficial de Cuenta de Cobro (Una sola fuente de datos para pantalla, PDF e impresión)
+  function renderCobroPreview(data) {
+    if (!data) data = getFullCobroData();
+    const totals = data.totals || calculateCobroTotals();
+    const numFormatted = String(data.cobroNumber || state.cobroNum || 1).padStart(3, '0');
+    const city = data.city || state.cobroDocCity || 'Bogotá';
+    const dateFormatted = data.dateFormatted || formatCobroDate(data.dateIso || state.cobroDocDate);
+    const clientName = (data.clientName || 'Nombre del Cliente o Empresa').trim();
+    const clientNit = (data.clientNit || '').trim();
+    const emisor = data.emisor || state.cobroEmisor || DEFAULT_COBRO_EMISOR;
 
     // Actualizar badges y tarjeta de totales
     if ($('cc-badge-number')) $('cc-badge-number').textContent = `Cuenta ${numFormatted}`;
@@ -966,7 +1019,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     // 0. Logo oficial arriba
     if ($('cc-doc-preview-logo-wrap')) {
-      $('cc-doc-preview-logo-wrap').style.display = (state.cobroIncludeLogo !== false) ? 'block' : 'none';
+      $('cc-doc-preview-logo-wrap').style.display = (data.includeLogo !== false) ? 'block' : 'none';
     }
 
     // 1. Ciudad y fecha, en negrita, alineado a la izquierda
@@ -1002,7 +1055,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     // 8. "Por concepto de:" y cada concepto como viñeta
     if ($('cc-doc-preview-conceptos-list')) {
-      const validConceptos = state.cobroConceptos.filter(c => (c.desc && c.desc.trim()) || c.amount > 0);
+      const validConceptos = (data.conceptos || state.cobroConceptos || []).filter(c => (c.desc && c.desc.trim()) || c.amount > 0);
       if (validConceptos.length > 0) {
         $('cc-doc-preview-conceptos-list').innerHTML = validConceptos.map(c => `
           <li>${escapeHtml(c.desc || 'Servicio')} por ${formatMoney(c.amount)}</li>
@@ -1013,7 +1066,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     }
 
     // Resumen de adelantos si los hay
-    const validAdelantos = state.cobroAdelantos.filter(a => (a.desc && a.desc.trim()) || a.amount > 0);
+    const validAdelantos = (data.adelantos || state.cobroAdelantos || []).filter(a => (a.desc && a.desc.trim()) || a.amount > 0);
     if ($('cc-doc-preview-resumen-box')) {
       if (validAdelantos.length > 0) {
         $('cc-doc-preview-resumen-box').style.display = 'block';
@@ -1028,12 +1081,12 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // 8.5 Garantías y observaciones (debajo de conceptos/adelantos y antes del texto legal)
     const notesBox = $('cc-doc-preview-notes-box');
     const notesText = $('cc-doc-preview-notes-text');
-    const currentNotes = (typeof state.cobroNotes === 'string') ? state.cobroNotes.trim() : '';
-    const hasCobroNotes = (state.cobroIncludeNotes !== false) && !!currentNotes;
+    const notesClean = (typeof data.notes === 'string') ? data.notes.trim() : '';
+    const hasCobroNotes = (data.includeNotes !== false) && (notesClean.length > 0);
     if (notesBox && notesText) {
       if (hasCobroNotes) {
         notesBox.style.display = 'block';
-        notesText.textContent = currentNotes;
+        notesText.textContent = notesClean;
       } else {
         notesBox.style.display = 'none';
         notesText.textContent = '';
@@ -1042,9 +1095,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     // 9. Texto legal en letra pequeña (si está activado)
     if ($('cc-doc-preview-legal-box')) {
-      if (state.cobroIncludeLegal) {
+      if (data.includeLegal !== false) {
         $('cc-doc-preview-legal-box').style.display = 'block';
-        const paragraphs = (state.cobroLegalText || DEFAULT_LEGAL_TEXT).split('\n').filter(p => p.trim());
+        const paragraphs = (data.legalText || state.cobroLegalText || DEFAULT_LEGAL_TEXT).split('\n').filter(p => p.trim());
         $('cc-doc-preview-legal-box').innerHTML = paragraphs.map(p => `<p>${escapeHtml(p.trim())}</p>`).join('');
       } else {
         $('cc-doc-preview-legal-box').style.display = 'none';
@@ -1052,9 +1105,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     }
 
     // 10. "Cordialmente,", la firma, el nombre, C.C., teléfono y dirección
+    const firmaSrc = data.firma || state.cobroFirma;
     if ($('cc-doc-preview-firma-wrap') && $('cc-doc-preview-firma-blank') && $('cc-doc-preview-firma-img')) {
-      if (state.cobroFirma) {
-        $('cc-doc-preview-firma-img').src = state.cobroFirma;
+      if (firmaSrc) {
+        $('cc-doc-preview-firma-img').src = firmaSrc;
         $('cc-doc-preview-firma-wrap').style.display = 'flex';
         $('cc-doc-preview-firma-blank').style.display = 'none';
       } else {
@@ -1073,29 +1127,31 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
   }
 
   // Texto plano para WhatsApp y portapapeles
-  function generateCobroPlainText() {
-    const totals = calculateCobroTotals();
-    const numStr = String(state.cobroNum || 1).padStart(3, '0');
-    const dateFormatted = formatCobroDate(state.cobroDocDate);
-    const clientName = state.cobroClientName.trim() || 'Cliente';
-    const clientNit = state.cobroClientNit.trim() ? ` (NIT/C.C.: ${state.cobroClientNit.trim()})` : '';
+  function generateCobroPlainText(data) {
+    if (!data) data = getFullCobroData();
+    const totals = data.totals || calculateCobroTotals();
+    const numStr = String(data.cobroNumber || state.cobroNum || 1).padStart(3, '0');
+    const dateFormatted = data.dateFormatted || formatCobroDate(data.dateIso || state.cobroDocDate);
+    const clientName = (data.clientName || state.cobroClientName || 'Cliente').trim();
+    const clientNit = (data.clientNit || state.cobroClientNit || '').trim() ? ` (NIT/C.C.: ${(data.clientNit || state.cobroClientNit).trim()})` : '';
 
     let text = `*CUENTA DE COBRO N° ${numStr}*\n`;
-    text += `*${(state.cobroEmisor.name || 'Pedro Luis Roa Mora').toUpperCase()}*\n`;
-    text += `C.C. ${state.cobroEmisor.cc || '1.015.409.172'} de ${state.cobroEmisor.city || 'Bogotá'}\n\n`;
-    text += `📅 *Fecha:* ${state.cobroDocCity || 'Bogotá'}, ${dateFormatted}\n`;
+    text += `*${(data.emisor?.name || state.cobroEmisor.name || 'Pedro Luis Roa Mora').toUpperCase()}*\n`;
+    text += `C.C. ${data.emisor?.cc || state.cobroEmisor.cc || '1.015.409.172'} de ${data.emisor?.city || state.cobroEmisor.city || 'Bogotá'}\n\n`;
+    text += `📅 *Fecha:* ${data.city || state.cobroDocCity || 'Bogotá'}, ${dateFormatted}\n`;
     text += `🏢 *Cliente:* ${clientName}${clientNit}\n\n`;
 
     text += `*Por concepto de:*\n`;
-    state.cobroConceptos.forEach(c => {
+    (data.conceptos || state.cobroConceptos || []).forEach(c => {
       if (c.desc || c.amount) {
         text += `• ${c.desc || 'Servicio'}: ${formatMoney(c.amount)}\n`;
       }
     });
 
-    if (state.cobroAdelantos.length > 0) {
+    const adelantos = data.adelantos || state.cobroAdelantos || [];
+    if (adelantos.length > 0) {
       text += `\n*Total conceptos:* ${formatMoney(totals.totalConceptos)}\n`;
-      state.cobroAdelantos.forEach(a => {
+      adelantos.forEach(a => {
         if (a.desc || a.amount) {
           text += `• Anticipo (${a.desc || 'Abono'}): -${formatMoney(a.amount)}\n`;
         }
@@ -1106,15 +1162,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     text += `\n💰 *SALDO A COBRAR: ${formatMoney(totals.saldo)}*\n`;
     text += `_${numeroALetras(totals.saldo)}_\n\n`;
 
-    const notesMsg = (typeof state.cobroNotes === 'string') ? state.cobroNotes.trim() : '';
-    if (state.cobroIncludeNotes !== false && notesMsg) {
+    const notesMsg = (typeof data.notes === 'string') ? data.notes.trim() : '';
+    if (data.includeNotes !== false && notesMsg) {
       text += `*Garantías y observaciones:*\n${notesMsg}\n\n`;
     }
 
     text += `Cordialmente,\n`;
-    text += `${state.cobroEmisor.name || 'Pedro Luis Roa Mora'}\n`;
-    text += `Tel: ${state.cobroEmisor.phone || '3024555428'}\n`;
-    text += `Dirección: ${state.cobroEmisor.address || 'Carrera 70g 78a-80'}`;
+    text += `${data.emisor?.name || state.cobroEmisor.name || 'Pedro Luis Roa Mora'}\n`;
+    text += `Tel: ${data.emisor?.phone || state.cobroEmisor.phone || '3024555428'}\n`;
+    text += `Dirección: ${data.emisor?.address || state.cobroEmisor.address || 'Carrera 70g 78a-80'}`;
     return text;
   }
 
@@ -1489,9 +1545,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnCobroPreview = $('btn-cc-preview-pdf');
     if (btnCobroPreview) {
       btnCobroPreview.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentCobroToHistory(false);
+        renderCobroPreview(data);
         window.PedroRoaPdf.previewCobroPdf(data);
       });
     }
@@ -1500,9 +1557,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnCobroDownload = $('btn-cc-download-pdf');
     if (btnCobroDownload) {
       btnCobroDownload.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentCobroToHistory(false);
+        renderCobroPreview(data);
         showToast('Descargando archivo PDF...', '📥');
         window.PedroRoaPdf.downloadCobroPdf(data);
       });
@@ -1512,9 +1570,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnCobroWhatsAppPdf = $('btn-cc-whatsapp-pdf');
     if (btnCobroWhatsAppPdf) {
       btnCobroWhatsAppPdf.addEventListener('click', async () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentCobroToHistory(false);
+        renderCobroPreview(data);
         const result = await window.PedroRoaPdf.shareCobroPdfViaWhatsApp(data, (fileName) => {
           showModal(
             '📄 Archivo PDF Descargado',
@@ -1541,8 +1600,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnPrint = $('btn-cc-print');
     if (btnPrint) {
       btnPrint.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
         saveCurrentCobroToHistory(false);
+        renderCobroPreview(data);
         window.print();
       });
     }
@@ -1551,8 +1612,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnWhatsApp = $('btn-cc-whatsapp');
     if (btnWhatsApp) {
       btnWhatsApp.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        const text = generateCobroPlainText();
+        const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        const text = data.fullMessageText;
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
       });
@@ -1562,8 +1624,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnCopy = $('btn-cc-copy');
     if (btnCopy) {
       btnCopy.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-        const text = generateCobroPlainText();
+        const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        const text = data.fullMessageText;
         if (navigator.clipboard) {
           navigator.clipboard.writeText(text).then(() => {
             showToast('Texto de cuenta de cobro copiado al portapapeles', '📋');
@@ -2815,8 +2878,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     $('sticky-btn-pdf').addEventListener('click', () => {
       const activeSection = document.querySelector('.view-section.active');
       if (activeSection && activeSection.id === 'view-cuentas-cobro') {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
         const data = getFullCobroData();
+        saveCobroClient(data.clientName, data.clientNit);
+        renderCobroPreview(data);
         window.PedroRoaPdf.previewCobroPdf(data);
       } else {
         handleSendPdfWhatsApp();
