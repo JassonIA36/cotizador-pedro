@@ -480,18 +480,20 @@ p, span, label {
 .section-top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 0;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-back-main {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 18px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  height: 48px;
+  padding: 0 16px;
   border-radius: var(--radius-md);
   background: #181924;
   border: 1px solid var(--border);
@@ -503,6 +505,17 @@ p, span, label {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.back-text-full {
+  display: inline;
+}
+
+.back-text-short {
+  display: none;
 }
 
 [data-theme="light"] .btn-back-main {
@@ -529,15 +542,33 @@ p, span, label {
   transform: translateX(-3px);
 }
 
+.section-badge-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
 .section-active-badge {
-  font-size: 0.84rem;
-  font-weight: 700;
-  padding: 8px 16px;
-  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
   background: rgba(168, 85, 247, 0.12);
   border: 1px solid rgba(168, 85, 247, 0.35);
   color: var(--primary-neon);
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.15);
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 [data-theme="light"] .section-active-badge {
@@ -546,15 +577,55 @@ p, span, label {
   color: #6d28d9;
 }
 
-/* Submenús Propios (Pills de navegación moderna) */
+/* Contenedor de submenús con pista de desplazamiento y scroll-snap */
+.submenu-scroll-container {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.submenu-scroll-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 38px;
+  background: linear-gradient(90deg, rgba(18, 19, 26, 0) 0%, rgba(18, 19, 26, 0.95) 100%);
+  pointer-events: none;
+  z-index: 4;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  transition: opacity 0.2s ease;
+}
+
+[data-theme="light"] .submenu-scroll-container::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+
+@media (min-width: 900px) {
+  .submenu-scroll-container::after {
+    display: none;
+  }
+}
+
+/* Submenús Propios (Pills de navegación moderna con scroll-snap) */
 .submenu-nav-group {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 2px 4px 2px;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   width: 100%;
+  padding: 4px 44px 6px 2px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+  .submenu-nav-group {
+    padding-right: 2px;
+  }
 }
 
 .submenu-nav-group::-webkit-scrollbar {
@@ -566,8 +637,9 @@ p, span, label {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 8px 18px;
+  min-height: 48px;
+  height: 48px;
+  padding: 0 18px;
   border: 1px solid var(--border);
   background: #12131a;
   color: var(--text-muted);
@@ -578,6 +650,9 @@ p, span, label {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   flex-shrink: 0;
+  scroll-snap-align: start;
+  user-select: none;
+  box-sizing: border-box;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -3450,6 +3525,140 @@ html, body {
 
 /* En pantallas de hasta 600px */
 @media (max-width: 600px) {
+  /* Limpieza del encabezado y barra de estado superior */
+  .brand-badge-pro {
+    display: none !important;
+  }
+
+  .topbar-contact-info {
+    display: none !important;
+  }
+
+  .topbar-status {
+    padding: 4px 10px !important;
+    font-size: 0.68rem !important;
+  }
+
+  .topbar-sync-status {
+    width: 100% !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .header-inner {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .brand-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .brand-logo {
+    width: 36px !important;
+    height: 36px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .brand-info {
+    min-width: 0 !important;
+  }
+
+  .brand-info h1 {
+    font-size: 1.05rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  .brand-subtitle {
+    font-size: 0.62rem !important;
+    letter-spacing: 0.08em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .header-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-install-glow {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+    min-height: 38px !important;
+    white-space: nowrap !important;
+  }
+
+  .header-theme-btn {
+    min-width: 38px !important;
+    min-height: 38px !important;
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+  }
+
+  /* Barra superior de sección activa: distribución compacta y sin recortes */
+  .section-top-bar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+
+  .btn-back-main {
+    min-height: 48px !important;
+    height: 48px !important;
+    padding: 0 14px !important;
+    font-size: 0.86rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .back-text-full {
+    display: none !important;
+  }
+
+  .back-text-short {
+    display: inline !important;
+  }
+
+  .section-badge-wrap {
+    display: flex !important;
+    align-items: center !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .section-active-badge {
+    min-height: 48px !important;
+    height: 48px !important;
+    padding: 0 12px !important;
+    font-size: 0.84rem !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
   /* 1. Formularios en una sola columna */
   .form-grid,
   .form-grid-3,

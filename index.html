@@ -82,40 +82,45 @@
       <!-- Barra superior: Botón claro para volver al Menú Principal + Indicador de Sección Activa -->
       <div class="section-top-bar">
         <button type="button" id="btn-back-to-main-menu" class="btn-back-main" title="Volver al menú principal">
-          <span class="back-arrow">←</span> Menú Principal
+          <span class="back-arrow">←</span>
+          <span class="back-text-full">Menú Principal</span>
+          <span class="back-text-short">Menú</span>
         </button>
         <div class="section-badge-wrap">
           <span id="section-active-badge" class="section-active-badge">📋 Cotizaciones</span>
         </div>
       </div>
 
-      <!-- Submenú Cotizaciones -->
-      <div id="submenu-cotizaciones" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cotizaciones" style="display: none;">
-        <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
-          <span>✨</span> Nueva Cotización
-        </button>
-        <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">
-          <span>📜</span> Historial <span class="badge-count" id="badge-quotes-count">0</span>
-        </button>
-        <button type="button" class="subnav-btn tab-btn" data-subview="view-catalogo" data-view="view-catalogo" role="tab" aria-selected="false">
-          <span>📦</span> Catálogo de Precios
-        </button>
-        <button type="button" class="subnav-btn tab-btn" data-subview="view-config" data-view="view-config" role="tab" aria-selected="false">
-          <span>⚙️</span> Mi Negocio
-        </button>
-      </div>
+      <!-- Contenedor con degradado de desplazamiento y scroll-snap -->
+      <div class="submenu-scroll-container">
+        <!-- Submenú Cotizaciones -->
+        <div id="submenu-cotizaciones" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cotizaciones" style="display: none;">
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
+            <span>✨</span> Nueva Cotización
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">
+            <span>📜</span> Historial <span class="badge-count" id="badge-quotes-count">0</span>
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-catalogo" data-view="view-catalogo" role="tab" aria-selected="false">
+            <span>📦</span> Catálogo de Precios
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-config" data-view="view-config" role="tab" aria-selected="false">
+            <span>⚙️</span> Mi Negocio
+          </button>
+        </div>
 
-      <!-- Submenú Cuentas de Cobro -->
-      <div id="submenu-cuentas-cobro" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cuentas de Cobro" style="display: none;">
-        <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">
-          <span>✨</span> Nueva Cuenta
-        </button>
-        <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">
-          <span>📜</span> Historial <span class="badge-count" id="badge-cobros-count">0</span>
-        </button>
-        <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-emisor" data-view="view-cobro-emisor" role="tab" aria-selected="false">
-          <span>👤</span> Mis Datos
-        </button>
+        <!-- Submenú Cuentas de Cobro -->
+        <div id="submenu-cuentas-cobro" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cuentas de Cobro" style="display: none;">
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">
+            <span>✨</span> Nueva Cuenta
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">
+            <span>📜</span> Historial <span class="badge-count" id="badge-cobros-count">0</span>
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-emisor" data-view="view-cobro-emisor" role="tab" aria-selected="false">
+            <span>👤</span> Mis Datos
+          </button>
+        </div>
       </div>
 
     </div>
