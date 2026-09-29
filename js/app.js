@@ -79,37 +79,39 @@
     }
   }
 
-  function updatePreviewCollapseUI(isCollapsed, animate = true) {
+  function updatePreviewCollapseUI(isCollapsed) {
     const container = $('preview-collapsible');
     const btn = $('btn-toggle-preview');
     const txt = $('preview-toggle-text');
     const icon = $('preview-toggle-icon');
 
-    if (!container || !btn) return;
-
-    if (!animate) {
-      container.style.transition = 'none';
-    }
+    if (!container) return;
 
     if (isCollapsed) {
       container.classList.add('is-collapsed');
-      btn.classList.add('is-collapsed');
-      btn.setAttribute('aria-expanded', 'false');
+      if (btn) {
+        btn.classList.add('is-collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      }
       if (txt) txt.textContent = 'Mostrar vista previa';
       if (icon) icon.textContent = '▼';
     } else {
       container.classList.remove('is-collapsed');
-      btn.classList.remove('is-collapsed');
-      btn.setAttribute('aria-expanded', 'true');
+      if (btn) {
+        btn.classList.remove('is-collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
       if (txt) txt.textContent = 'Ocultar vista previa';
       if (icon) icon.textContent = '▲';
     }
+  }
 
-    if (!animate) {
-      requestAnimationFrame(() => {
-        container.style.transition = '';
-      });
-    }
+  function togglePreviewCollapse() {
+    const container = $('preview-collapsible');
+    if (!container) return;
+    const willCollapse = !container.classList.contains('is-collapsed');
+    updatePreviewCollapseUI(willCollapse);
+    setPreviewCollapsed(willCollapse);
   }
 
   function getStorage(key, fallback) {
@@ -674,19 +676,16 @@
     });
 
     // Toggle para desplegar / recoger vista previa de la cotización
-    const btnTogglePreview = $('btn-toggle-preview');
-    if (btnTogglePreview) {
-      btnTogglePreview.addEventListener('click', () => {
-        const isCurrentlyCollapsed = $('preview-collapsible').classList.contains('is-collapsed');
-        const newState = !isCurrentlyCollapsed;
-        updatePreviewCollapseUI(newState, true);
-        setPreviewCollapsed(newState);
-      });
-    }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#btn-toggle-preview');
+      if (btn) {
+        e.preventDefault();
+        togglePreviewCollapse();
+      }
+    });
 
     // Inicializar estado guardado de la vista previa (por defecto desplegada)
-    const initialPreviewCollapsed = getPreviewCollapsed();
-    updatePreviewCollapseUI(initialPreviewCollapsed, false);
+    updatePreviewCollapseUI(getPreviewCollapsed());
 
     // Add item from catalog
     $('btn-add-catalog').addEventListener('click', () => {

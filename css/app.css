@@ -996,10 +996,14 @@ button.btn-icon {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
 }
 
 .preview-heading {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
   color: var(--text-main);
   display: flex;
@@ -1012,15 +1016,15 @@ button.btn-icon {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 14px;
-  font-size: 0.84rem;
-  font-weight: 600;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-light);
-  background: var(--bg-card);
+  background: var(--bg-input);
   color: var(--cyan);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
   user-select: none;
@@ -1028,30 +1032,29 @@ button.btn-icon {
 }
 
 .btn-toggle-preview:hover {
-  background: var(--bg-card-solid);
+  background: var(--cyan);
   border-color: var(--cyan);
   color: #fff;
   transform: translateY(-1px);
 }
 
 .btn-toggle-preview:active {
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .btn-toggle-preview.is-collapsed {
-  color: var(--primary);
-  border-color: rgba(139, 92, 246, 0.4);
-  background: rgba(139, 92, 246, 0.1);
+  background: linear-gradient(135deg, var(--primary) 0%, #6d28d9 100%);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px var(--primary-glow);
 }
 
 .btn-toggle-preview.is-collapsed:hover {
-  background: rgba(139, 92, 246, 0.2);
-  border-color: var(--primary);
-  color: #fff;
+  background: linear-gradient(135deg, var(--primary-hover) 0%, #5b21b6 100%);
 }
 
 #preview-toggle-icon {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
   display: inline-block;
 }
@@ -1064,38 +1067,37 @@ button.btn-icon {
   .preview-header-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 10px;
+    padding: 12px;
   }
   .btn-toggle-preview {
     width: 100%;
-    padding: 10px 14px;
-    font-size: 0.88rem;
+    padding: 12px 14px;
+    font-size: 0.9rem;
     justify-content: center;
   }
 }
 
-/* Smooth CSS Grid Row Animation for Collapsing */
+/* Smooth Height & Opacity Transition for Collapsing */
 .preview-collapsible-content {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease;
+  max-height: 4000px;
   opacity: 1;
-}
-
-.preview-collapsible-inner {
-  min-height: 0;
   overflow: hidden;
-  transition: visibility 0.35s;
+  transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, margin 0.35s ease;
 }
 
 .preview-collapsible-content.is-collapsed {
-  grid-template-rows: 0fr;
-  opacity: 0;
-  pointer-events: none;
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
-.preview-collapsible-content.is-collapsed .preview-collapsible-inner {
-  visibility: hidden;
+.preview-collapsible-inner {
+  overflow: hidden;
 }
 
 .doc-paper {
@@ -1624,11 +1626,14 @@ button.btn-icon {
   .doc-preview-wrapper {
     margin: 0 !important;
   }
-  .preview-collapsible-content {
+  .preview-collapsible-content,
+  .preview-collapsible-content.is-collapsed {
     display: block !important;
-    grid-template-rows: 1fr !important;
+    max-height: none !important;
+    height: auto !important;
     opacity: 1 !important;
     visibility: visible !important;
+    overflow: visible !important;
   }
   .preview-collapsible-inner {
     display: block !important;
