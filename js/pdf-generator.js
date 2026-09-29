@@ -307,6 +307,7 @@
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();   // 215.9 mm
+    const pageHeight = doc.internal.pageSize.getHeight(); // 279.4 mm
     const margin = 16;
     const contentWidth = pageWidth - (margin * 2);
 
@@ -429,60 +430,110 @@
       doc.text('Saldo a cobrar:', boxX + 4, yPos + 17.5);
       doc.text(formatMoney(data.totals ? data.totals.saldo : 0), boxX + boxWidth - 4, yPos + 17.5, { align: 'right' });
 
-      yPos += boxHeight + 4;
+      yPos += boxHeight + 3;
     } else {
       yPos += 2;
+    }
+
+    // 9.5 Garantías y observaciones (si está activado y tiene texto)
+    const hasNotes = data.includeNotes !== false && !!(data.notes && data.notes.trim());
+    if (hasNotes) {
+      const notesClean = data.notes.trim();
+      const isLongDoc = notesClean.length > 150 || (data.conceptos && data.conceptos.length > 2) || (data.adelantos && data.adelantos.length > 0);
+      const notesFontSize = isLongDoc ? 7.6 : 8.4;
+      const notesLineHeight = isLongDoc ? 3.3 : 3.8;
+
+      doc.setDrawColor(203, 213, 225);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 3;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(notesFontSize);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Garantías y observaciones:', margin, yPos);
+      yPos += (notesFontSize * 0.42);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(notesFontSize);
+      doc.setTextColor(55, 65, 81);
+
+      const paragraphs = notesClean.split('\n');
+      paragraphs.forEach(p => {
+        const trimmed = p.trim();
+        if (trimmed) {
+          const splitP = doc.splitTextToSize(trimmed, contentWidth);
+          doc.text(splitP, margin, yPos);
+          yPos += (splitP.length * notesLineHeight) + 0.6;
+        } else {
+          yPos += 1.8;
+        }
+      });
+      doc.setTextColor(0, 0, 0);
+      yPos += 1.5;
     }
 
     // 10. Texto legal (si está activado)
     if (data.includeLegal !== false && data.legalText) {
       doc.setDrawColor(203, 213, 225);
       doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 4;
+      yPos += 3.5;
+
+      const isTight = yPos > 215;
+      const legalFontSize = isTight ? 6.6 : 7.2;
+      const legalLineHeight = isTight ? 2.9 : 3.3;
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.2);
+      doc.setFontSize(legalFontSize);
       doc.setTextColor(55, 65, 81);
       const paragraphs = data.legalText.split('\n').filter(p => p.trim());
       paragraphs.forEach(p => {
         const splitP = doc.splitTextToSize(p.trim(), contentWidth);
         doc.text(splitP, margin, yPos);
-        yPos += (splitP.length * 3.3) + 1.2;
+        yPos += (splitP.length * legalLineHeight) + 0.8;
       });
       doc.setTextColor(0, 0, 0);
-      yPos += 2;
+      yPos += 1.5;
     }
 
     // 11. "Cordialmente,", la firma, el nombre, C.C., teléfono y dirección
+    const remainingForSign = pageHeight - yPos - margin;
+    const isVeryCompact = remainingForSign < 38;
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
+    doc.setFontSize(isVeryCompact ? 8.8 : 9.5);
     doc.setTextColor(0, 0, 0);
     doc.text('Cordialmente,', margin, yPos);
-    yPos += 4;
+    yPos += isVeryCompact ? 3.2 : 4;
 
     if (data.firma) {
       try {
-        doc.addImage(data.firma, 'PNG', margin, yPos, 45, 14);
-        yPos += 16;
+        const signH = isVeryCompact ? 10 : 14;
+        const signW = isVeryCompact ? 36 : 45;
+        doc.addImage(data.firma, 'PNG', margin, yPos, signW, signH);
+        yPos += signH + 2;
       } catch (err) {
         console.warn('Could not add signature image to PDF:', err);
-        yPos += 12;
+        yPos += isVeryCompact ? 8 : 12;
       }
     } else {
-      yPos += 12;
+      yPos += isVeryCompact ? 7 : 11;
     }
 
+    const nameSize = isVeryCompact ? 8.6 : 9.2;
+    const infoSize = isVeryCompact ? 7.8 : 8.4;
+    const infoSpacing = isVeryCompact ? 3.5 : 4.0;
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.2);
+    doc.setFontSize(nameSize);
     doc.text(emisor.name || 'Pedro Luis Roa Mora', margin, yPos);
-    yPos += 4.2;
+    yPos += infoSpacing;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(infoSize);
     doc.text(`C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`, margin, yPos);
-    yPos += 4.2;
+    yPos += infoSpacing;
     doc.text(`Teléfono: ${emisor.phone || '3024555428'}`, margin, yPos);
-    yPos += 4.2;
+    yPos += infoSpacing;
     doc.text(`Dirección: ${emisor.address || 'Carrera 70g 78a-80'}`, margin, yPos);
 
     return doc;

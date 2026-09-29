@@ -506,6 +506,17 @@
                     </div>
                     <textarea id="cc-legal-text" rows="5" style="font-size: 0.8rem;"></textarea>
                   </div>
+
+                  <!-- Garantías, notas y observaciones predeterminadas -->
+                  <div class="input-group full-width">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label for="cc-default-notes" style="margin-bottom: 0;">Garantías, notas y observaciones predeterminadas</label>
+                      <button type="button" id="btn-cc-reset-notes" class="btn-icon" style="font-size: 0.72rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer texto de ejemplo">
+                        🔄 Restablecer
+                      </button>
+                    </div>
+                    <textarea id="cc-default-notes" rows="3" style="font-size: 0.8rem;" placeholder="Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante."></textarea>
+                  </div>
                 </div>
               </div>
             </div>
@@ -559,6 +570,20 @@
                   <input type="checkbox" id="cc-include-legal" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
                   <span>Incluir texto legal al pie del documento</span>
                 </label>
+              </div>
+
+              <!-- Casilla Incluir Garantías y Notas -->
+              <div class="input-group full-width" style="margin-top: 4px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="cc-include-notes" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir garantías y notas</span>
+                </label>
+              </div>
+
+              <!-- Campo Garantías, notas y observaciones de la cuenta -->
+              <div class="input-group full-width" id="cc-notes-group">
+                <label for="cc-notes">Garantías, notas y observaciones</label>
+                <textarea id="cc-notes" rows="3" placeholder="Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante."></textarea>
               </div>
             </div>
           </div>
@@ -753,6 +778,12 @@
                     </div>
                   </div>
 
+                  <!-- 8.5. Garantías y observaciones (debajo de conceptos/adelantos y antes del texto legal) -->
+                  <div id="cc-doc-preview-notes-box" class="doc-cobro-notes-box" style="display: none;">
+                    <strong>Garantías y observaciones:</strong>
+                    <div id="cc-doc-preview-notes-text" class="doc-cobro-notes-text"></div>
+                  </div>
+
                   <!-- 9. El texto legal en letra pequeña (si está activado) -->
                   <div id="cc-doc-preview-legal-box" class="doc-cobro-legal-box">
                     <!-- Párrafos legales -->
@@ -935,6 +966,18 @@
               </button>
             </div>
             <textarea id="cc-legal-text-tab" rows="6" style="font-size: 0.82rem; line-height: 1.4;"></textarea>
+          </div>
+
+          <!-- Garantías, notas y observaciones predeterminadas -->
+          <div class="input-group full-width">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="cc-default-notes-tab" style="margin-bottom: 0;">Garantías, notas y observaciones predeterminadas</label>
+              <button type="button" id="btn-cc-reset-notes-tab" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer texto de ejemplo">
+                🔄 Restablecer
+              </button>
+            </div>
+            <textarea id="cc-default-notes-tab" rows="4" style="font-size: 0.85rem; line-height: 1.4;" placeholder="Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante."></textarea>
+            <span style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">Este texto se cargará automáticamente al crear una nueva cuenta de cobro. Se guarda de inmediato al escribir.</span>
           </div>
         </div>
 

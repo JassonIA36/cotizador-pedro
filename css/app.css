@@ -2046,13 +2046,35 @@ button.btn-icon {
   font-size: 0.95rem;
 }
 
+.doc-cobro-notes-box {
+  margin: 14px 0 12px 0;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 10px;
+  font-size: 0.82rem;
+  line-height: 1.38;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.doc-cobro-notes-box strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.doc-cobro-notes-text {
+  white-space: pre-wrap;
+  color: #374151;
+}
+
 .doc-cobro-legal-box {
   font-size: 0.74rem;
   line-height: 1.38;
   color: #374151;
-  margin: 20px 0;
+  margin: 16px 0;
   border-top: 1px dashed #cbd5e1;
-  padding-top: 12px;
+  padding-top: 10px;
 }
 
 .doc-cobro-legal-box p {
@@ -2600,13 +2622,29 @@ body {
     margin: 6pt 0 14pt 0 !important;
   }
   .doc-cobro-conceptos-section {
-    margin: 12pt 0 !important;
+    margin: 10pt 0 !important;
+  }
+  .doc-cobro-notes-box {
+    margin: 8pt 0 !important;
+    padding-top: 6pt !important;
+    font-size: 7.8pt !important;
+    line-height: 1.25 !important;
+    page-break-inside: avoid !important;
+  }
+  .doc-cobro-notes-box strong {
+    font-size: 8pt !important;
+    color: #000000 !important;
+  }
+  .doc-cobro-notes-text {
+    font-size: 7.6pt !important;
+    color: #1f2937 !important;
   }
   .doc-cobro-legal-box {
-    font-size: 7.5pt !important;
-    line-height: 1.25 !important;
+    font-size: 7.2pt !important;
+    line-height: 1.22 !important;
     color: #000000 !important;
-    margin: 12pt 0 !important;
+    margin: 8pt 0 !important;
+    padding-top: 6pt !important;
   }
   .doc-cobro-firma-section {
     margin-top: 16pt !important;
