@@ -1600,8 +1600,255 @@ button.btn-icon {
   transform: translateX(-50%) translateY(0);
 }
 
-/* Print Optimization */
+/* ==========================================================================
+   Cuentas de Cobro Styling
+   ========================================================================== */
+.doc-cobro-paper {
+  background: #ffffff;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+  padding: 34px 28px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .doc-cobro-paper {
+    padding: 20px 14px;
+    border-radius: var(--radius-md);
+  }
+}
+
+.doc-cobro-line-left {
+  text-align: left;
+  font-size: 0.94rem;
+  margin-bottom: 20px;
+  color: #000000;
+}
+
+.doc-cobro-title {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #000000;
+  letter-spacing: 0.3px;
+}
+
+.doc-cobro-client-box {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.doc-cobro-client-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1.3;
+}
+
+.doc-cobro-client-nit {
+  font-size: 0.92rem;
+  color: #000000;
+  margin-top: 2px;
+}
+
+.doc-cobro-center-label {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 16px 0 6px 0;
+  color: #000000;
+}
+
+.doc-cobro-emisor-box {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.doc-cobro-emisor-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #000000;
+}
+
+.doc-cobro-emisor-cc {
+  font-size: 0.92rem;
+  color: #000000;
+  margin-top: 2px;
+}
+
+.doc-cobro-amount-box {
+  text-align: center;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  margin: 10px 0 22px 0;
+  padding: 8px 12px;
+  color: #000000;
+}
+
+.doc-cobro-conceptos-section {
+  margin: 16px 0;
+}
+
+.doc-cobro-conceptos-header {
+  font-size: 0.92rem;
+  margin-bottom: 8px;
+  color: #000000;
+}
+
+.doc-cobro-conceptos-list {
+  padding-left: 24px;
+  margin: 6px 0 14px 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #000000;
+}
+
+.doc-cobro-conceptos-list li {
+  margin-bottom: 5px;
+}
+
+.doc-cobro-resumen-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin: 12px 0 16px 0;
+  max-width: 420px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: #000000;
+}
+
+.doc-cobro-resumen-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.doc-cobro-resumen-saldo {
+  border-top: 1px solid #94a3b8;
+  padding-top: 5px;
+  margin-top: 5px;
+  font-size: 0.95rem;
+}
+
+.doc-cobro-legal-box {
+  font-size: 0.74rem;
+  line-height: 1.38;
+  color: #374151;
+  margin: 20px 0;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 12px;
+}
+
+.doc-cobro-legal-box p {
+  margin: 4px 0;
+}
+
+.doc-cobro-firma-section {
+  margin-top: 24px;
+  page-break-inside: avoid;
+}
+
+.doc-cobro-cordialmente {
+  font-size: 0.92rem;
+  color: #000000;
+  margin-bottom: 6px;
+}
+
+.doc-cobro-firma-img-wrapper {
+  margin: 6px 0 8px 0;
+  height: 55px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.doc-cobro-firma-img-wrapper img {
+  max-height: 55px;
+  max-width: 200px;
+  object-fit: contain;
+}
+
+.doc-cobro-firma-space {
+  height: 45px;
+}
+
+.doc-cobro-firmante-details {
+  font-size: 0.88rem;
+  line-height: 1.38;
+  color: #000000;
+}
+
+.doc-cobro-firmante-name {
+  font-weight: 700;
+}
+
+/* Line row styling for Conceptos and Adelantos inputs */
+.cc-line-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+
+.cc-line-row:focus-within {
+  border-color: var(--border-focus);
+}
+
+.cc-line-desc {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-line-val {
+  width: 140px;
+}
+
+@media (max-width: 520px) {
+  .cc-line-row {
+    flex-wrap: wrap;
+  }
+  .cc-line-desc {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .cc-line-val {
+    flex: 1;
+    width: auto;
+  }
+}
+
+.warning-banner {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Print Optimization
+   ========================================================================== */
 @media print {
+  @page {
+    size: letter portrait;
+    margin: 15mm;
+  }
   body {
     background: #ffffff !important;
     padding: 0 !important;
@@ -1614,14 +1861,23 @@ button.btn-icon {
     padding: 0 !important;
     margin: 0 !important;
   }
-  .view-section {
+  /* Show only the active view in print */
+  .view-section:not(.active) {
+    display: none !important;
+  }
+  .view-section.active {
     display: block !important;
   }
-  #view-cotizador .card {
+  .cotizador-form-col {
     display: none !important;
   }
-  #view-catalogo, #view-historial, #view-config {
-    display: none !important;
+  .cotizador-preview-col {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
   .doc-preview-wrapper {
     margin: 0 !important;
@@ -1634,6 +1890,8 @@ button.btn-icon {
     opacity: 1 !important;
     visibility: visible !important;
     overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .preview-collapsible-inner {
     display: block !important;
@@ -1647,5 +1905,42 @@ button.btn-icon {
     box-shadow: none !important;
     border: none !important;
     padding: 0 !important;
+    max-width: 100% !important;
+  }
+  .doc-cobro-paper {
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-size: 10.5pt !important;
+    line-height: 1.38 !important;
+    color: #000000 !important;
+  }
+  .doc-cobro-line-left {
+    margin-bottom: 14pt !important;
+    font-size: 10.5pt !important;
+  }
+  .doc-cobro-title {
+    font-size: 14pt !important;
+    margin-bottom: 14pt !important;
+  }
+  .doc-cobro-client-name {
+    font-size: 13pt !important;
+  }
+  .doc-cobro-amount-box {
+    font-size: 11pt !important;
+    margin: 6pt 0 14pt 0 !important;
+  }
+  .doc-cobro-conceptos-section {
+    margin: 12pt 0 !important;
+  }
+  .doc-cobro-legal-box {
+    font-size: 7.5pt !important;
+    line-height: 1.25 !important;
+    color: #000000 !important;
+    margin: 12pt 0 !important;
+  }
+  .doc-cobro-firma-section {
+    margin-top: 16pt !important;
+    page-break-inside: avoid !important;
   }
 }

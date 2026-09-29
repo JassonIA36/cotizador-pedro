@@ -64,6 +64,9 @@
       <button class="tab-btn active" data-view="view-cotizador" role="tab" aria-selected="true">
         <span>📋</span> Cotizador
       </button>
+      <button class="tab-btn" data-view="view-cuentas-cobro" role="tab" aria-selected="false">
+        <span>💼</span> Cuentas de cobro
+      </button>
       <button class="tab-btn" data-view="view-catalogo" role="tab" aria-selected="false">
         <span>📦</span> Catálogo
       </button>
@@ -336,6 +339,337 @@
                     <div>Pedro Roa · Firma autorizada</div>
                     <div>Documento formal emitido con Cotizador PRO</div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA NUEVA: CUENTAS DE COBRO
+         ======================================================== -->
+    <section id="view-cuentas-cobro" class="view-section">
+      <div class="cotizador-workspace">
+        
+        <!-- Columna Izquierda: Formulario de la Cuenta de Cobro -->
+        <div class="cotizador-form-col">
+
+          <!-- Panel Plegable: Mis Datos (Quien Cobra) -->
+          <div class="card np">
+            <div class="card-header" id="cc-emisor-accordion-btn" style="cursor: pointer;" title="Toca para desplegar o recoger tus datos personales">
+              <div class="card-title">
+                <span>👤</span> Mis Datos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
+              </div>
+              <button type="button" class="btn-icon" id="cc-emisor-accordion-icon" aria-label="Desplegar mis datos">
+                ▼
+              </button>
+            </div>
+            
+            <div id="cc-emisor-panel" class="preview-collapsible-content is-collapsed">
+              <div class="preview-collapsible-inner" style="padding-top: 8px;">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                  Estos datos son fijos para todas tus cuentas de cobro. Se guardan automáticamente en tu dispositivo.
+                </p>
+                <div class="form-grid">
+                  <div class="input-group">
+                    <label for="cc-emisor-name">Tu nombre completo</label>
+                    <input id="cc-emisor-name" type="text" placeholder="Pedro Luis Roa Mora">
+                  </div>
+                  <div class="input-group">
+                    <label for="cc-emisor-cc">Cédula de Ciudadanía (C.C.)</label>
+                    <input id="cc-emisor-cc" type="text" placeholder="1.015.409.172">
+                  </div>
+                  <div class="input-group">
+                    <label for="cc-emisor-city">Ciudad de expedición de la C.C.</label>
+                    <input id="cc-emisor-city" type="text" placeholder="Bogotá">
+                  </div>
+                  <div class="input-group">
+                    <label for="cc-emisor-phone">Teléfono / WhatsApp</label>
+                    <input id="cc-emisor-phone" type="tel" placeholder="3024555428">
+                  </div>
+                  <div class="input-group full-width">
+                    <label for="cc-emisor-address">Dirección</label>
+                    <input id="cc-emisor-address" type="text" placeholder="Carrera 70g 78a-80">
+                  </div>
+                  
+                  <!-- Firma digitalizada -->
+                  <div class="input-group full-width">
+                    <label>Firma digitalizada (opcional)</label>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                      <input type="file" id="cc-firma-input" accept="image/png, image/jpeg, image/jpg" style="display: none;">
+                      <button type="button" id="btn-cc-upload-firma" class="btn-secondary" style="padding: 7px 14px; font-size: 0.82rem;">
+                        📁 Subir imagen de firma (PNG/JPG)
+                      </button>
+                      <button type="button" id="btn-cc-remove-firma" class="btn-danger" style="display: none; padding: 7px 14px; font-size: 0.82rem;">
+                        🗑️ Eliminar firma
+                      </button>
+                      <div id="cc-firma-status" style="font-size: 0.8rem; color: var(--text-muted);">Sin firma (espacio en blanco)</div>
+                    </div>
+                    <div id="cc-firma-preview-box" style="display: none; margin-top: 8px; padding: 8px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border); width: fit-content;">
+                      <img id="cc-firma-preview-img" src="" alt="Firma previa" style="max-height: 50px; max-width: 180px; object-fit: contain;">
+                    </div>
+                  </div>
+
+                  <!-- Texto legal editable -->
+                  <div class="input-group full-width">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label for="cc-legal-text" style="margin-bottom: 0;">Texto legal por defecto (3 párrafos)</label>
+                      <button type="button" id="btn-cc-reset-legal" class="btn-icon" style="font-size: 0.72rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer texto legal original">
+                        🔄 Restablecer
+                      </button>
+                    </div>
+                    <textarea id="cc-legal-text" rows="5" style="font-size: 0.8rem;"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Datos de la Cuenta Actual -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>📄</span> Datos de la Cuenta
+              </div>
+              <span class="card-badge" id="cc-badge-number">Cuenta 012</span>
+            </div>
+            
+            <div class="form-grid">
+              <div class="input-group">
+                <label for="cc-num">Número de cuenta (3 dígitos)</label>
+                <input id="cc-num" type="number" min="1" step="1" value="12" placeholder="012">
+              </div>
+              <div class="input-group">
+                <label for="cc-doc-city">Ciudad</label>
+                <input id="cc-doc-city" type="text" value="Bogotá" placeholder="Bogotá">
+              </div>
+              <div class="input-group full-width">
+                <label for="cc-doc-date">Fecha de emisión</label>
+                <input id="cc-doc-date" type="date">
+              </div>
+
+              <!-- A quién se le cobra -->
+              <div class="input-group full-width">
+                <label for="cc-client-name">A quién se le cobra (Nombre o Razón Social)</label>
+                <input id="cc-client-name" type="text" list="cc-clients-datalist" placeholder="Escribe o selecciona de clientes frecuentes..." autocomplete="off">
+                <datalist id="cc-clients-datalist"></datalist>
+              </div>
+              <div class="input-group full-width">
+                <label for="cc-client-nit">NIT o C.C. del cliente</label>
+                <input id="cc-client-nit" type="text" placeholder="Ej: 900.123.456-7">
+              </div>
+
+              <!-- Casilla Texto Legal -->
+              <div class="input-group full-width" style="margin-top: 4px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="cc-include-legal" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir texto legal al pie del documento</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conceptos a Cobrar -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>📝</span> Conceptos a Cobrar
+              </div>
+              <button id="btn-cc-add-concepto" type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
+                + Agregar Concepto
+              </button>
+            </div>
+            
+            <div id="cc-conceptos-list" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Se generan dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Adelantos o Abonos -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>💵</span> Adelantos o Abonos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Opcional)</small>
+              </div>
+              <button id="btn-cc-add-adelanto" type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+                + Agregar Adelanto
+              </button>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
+              Si el cliente entregó un anticipo o pago parcial, agrégalo aquí para descontarlo del saldo final.
+            </p>
+            
+            <div id="cc-adelantos-list" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Se generan dinámicamente -->
+            </div>
+
+            <div id="cc-warning-box" class="warning-banner" style="display: none; margin-top: 12px;">
+              ⚠️ <strong>Aviso:</strong> Los adelantos superan el total de los conceptos. El saldo a cobrar no puede ser negativo.
+            </div>
+          </div>
+
+          <!-- Resumen de Saldos y Acciones -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>💰</span> Saldo y Acciones
+              </div>
+            </div>
+
+            <div style="background: var(--bg-input); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 6px;">
+                <span style="color: var(--text-muted);">Total Conceptos:</span>
+                <span id="cc-calc-total-conceptos" style="font-weight: 600;">$0</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 8px; color: var(--cyan);">
+                <span>Menos Adelantos:</span>
+                <span id="cc-calc-total-adelantos" style="font-weight: 600;">-$0</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 800; padding-top: 8px; border-top: 1px solid var(--border); color: var(--text-main);">
+                <span>Saldo a Cobrar:</span>
+                <span id="cc-calc-saldo-final" style="color: var(--whatsapp);">$0</span>
+              </div>
+              <div id="cc-calc-letras-box" style="font-size: 0.78rem; color: var(--text-dim); margin-top: 6px; font-style: italic; line-height: 1.35;">
+                Cero pesos m/cte. ($0.oo)
+              </div>
+            </div>
+
+            <div class="actions-grid">
+              <button id="btn-cc-print" type="button" class="btn-primary" style="background: linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%);">
+                <span>🖨️</span> Imprimir / Guardar en PDF
+              </button>
+              <button id="btn-cc-whatsapp" type="button" class="btn-whatsapp">
+                <span>📲</span> Enviar por WhatsApp
+              </button>
+              <button id="btn-cc-copy" type="button" class="btn-secondary">
+                <span>📋</span> Copiar Texto
+              </button>
+              <button id="btn-cc-new" type="button" class="btn-danger" style="background: transparent; border: 1px solid var(--border-light); color: var(--text-main);">
+                <span>✨</span> Nueva Cuenta de Cobro
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna Derecha: Vista Previa del Documento -->
+        <div class="cotizador-preview-col">
+          <div class="doc-preview-wrapper">
+            <!-- Barra de cabecera con botón para plegar / desplegar -->
+            <div class="preview-header-bar np">
+              <h3 class="preview-heading">
+                <span>👁️</span> Vista Previa de la Cuenta de Cobro
+              </h3>
+              <button id="btn-toggle-cobro-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
+                <span id="cobro-preview-toggle-icon">▲</span>
+                <span id="cobro-preview-toggle-text">Ocultar vista previa</span>
+              </button>
+            </div>
+
+            <!-- Contenedor plegable con animación suave -->
+            <div id="cobro-preview-collapsible" class="preview-collapsible-content">
+              <div class="preview-collapsible-inner">
+                <div class="doc-paper doc-cobro-paper" id="cobro-document">
+                  
+                  <!-- 1. Ciudad y fecha, en negrita, alineado a la izquierda -->
+                  <div class="doc-cobro-line-left" id="cc-doc-preview-date-city">
+                    <strong>Bogotá, 28 de julio de 2026</strong>
+                  </div>
+
+                  <!-- 2. "Cuenta de cobro 012", centrado y en negrita -->
+                  <div class="doc-cobro-title" id="cc-doc-preview-title">
+                    <strong>Cuenta de cobro 012</strong>
+                  </div>
+
+                  <!-- 3. Nombre de la empresa o cliente en letra grande y negrita, con el "Nit." debajo. Centrado. -->
+                  <div class="doc-cobro-client-box">
+                    <div class="doc-cobro-client-name" id="cc-doc-preview-client-name">
+                      <strong>Nombre del Cliente o Empresa</strong>
+                    </div>
+                    <div class="doc-cobro-client-nit" id="cc-doc-preview-client-nit">
+                      Nit. 900.123.456-7
+                    </div>
+                  </div>
+
+                  <!-- 4. "DEBE A:" centrado, en negrita -->
+                  <div class="doc-cobro-center-label">
+                    <strong>DEBE A:</strong>
+                  </div>
+
+                  <!-- 5. Nombre de quien cobra en mayúsculas y "C.C. ... de Bogotá" debajo. Centrado -->
+                  <div class="doc-cobro-emisor-box">
+                    <div class="doc-cobro-emisor-name" id="cc-doc-preview-emisor-name">
+                      <strong>PEDRO LUIS ROA MORA</strong>
+                    </div>
+                    <div class="doc-cobro-emisor-cc" id="cc-doc-preview-emisor-cc">
+                      C.C. 1.015.409.172 de Bogotá
+                    </div>
+                  </div>
+
+                  <!-- 6. "LA SUMA DE:" centrado, en negrita -->
+                  <div class="doc-cobro-center-label">
+                    <strong>LA SUMA DE:</strong>
+                  </div>
+
+                  <!-- 7. El saldo en letras y número, en negrita y centrado -->
+                  <div class="doc-cobro-amount-box" id="cc-doc-preview-amount-box">
+                    <strong>Ciento sesenta mil pesos m/cte. ($160.000.oo)</strong>
+                  </div>
+
+                  <!-- 8. "Por concepto de:" y cada concepto como viñeta. Resumen de adelantos si los hay -->
+                  <div class="doc-cobro-conceptos-section">
+                    <div class="doc-cobro-conceptos-header">
+                      <strong>Por concepto de:</strong>
+                    </div>
+                    <ul class="doc-cobro-conceptos-list" id="cc-doc-preview-conceptos-list">
+                      <!-- Viñetas de conceptos -->
+                    </ul>
+                    
+                    <!-- Resumen de adelantos si aplican -->
+                    <div id="cc-doc-preview-resumen-box" class="doc-cobro-resumen-box" style="display: none;">
+                      <div class="doc-cobro-resumen-line">
+                        <span>Total de conceptos:</span>
+                        <span id="cc-doc-resumen-total">$0</span>
+                      </div>
+                      <div class="doc-cobro-resumen-line">
+                        <span>Menos adelantos / anticipos:</span>
+                        <span id="cc-doc-resumen-adelantos">-$0</span>
+                      </div>
+                      <div class="doc-cobro-resumen-line doc-cobro-resumen-saldo">
+                        <span><strong>Saldo a cobrar:</strong></span>
+                        <span id="cc-doc-resumen-saldo"><strong>$0</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 9. El texto legal en letra pequeña (si está activado) -->
+                  <div id="cc-doc-preview-legal-box" class="doc-cobro-legal-box">
+                    <!-- Párrafos legales -->
+                  </div>
+
+                  <!-- 10. "Cordialmente,", la firma, el nombre, C.C., teléfono y dirección -->
+                  <div class="doc-cobro-firma-section">
+                    <div class="doc-cobro-cordialmente">
+                      <strong>Cordialmente,</strong>
+                    </div>
+                    
+                    <div id="cc-doc-preview-firma-wrap" class="doc-cobro-firma-img-wrapper" style="display: none;">
+                      <img id="cc-doc-preview-firma-img" src="" alt="Firma">
+                    </div>
+                    <div id="cc-doc-preview-firma-blank" class="doc-cobro-firma-space"></div>
+
+                    <div class="doc-cobro-firmante-details">
+                      <div class="doc-cobro-firmante-name" id="cc-doc-preview-sign-name">Pedro Luis Roa Mora</div>
+                      <div id="cc-doc-preview-sign-cc">C.C. 1.015.409.172 de Bogotá</div>
+                      <div id="cc-doc-preview-sign-phone">Teléfono: 3024555428</div>
+                      <div id="cc-doc-preview-sign-address">Dirección: Carrera 70g 78a-80</div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>

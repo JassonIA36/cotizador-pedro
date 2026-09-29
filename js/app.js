@@ -129,6 +129,21 @@
     } catch (e) {}
   }
 
+  // --- Valores por defecto para Cuentas de Cobro ---
+  const DEFAULT_COBRO_EMISOR = {
+    name: 'Pedro Luis Roa Mora',
+    cc: '1.015.409.172',
+    city: 'Bogotá',
+    phone: '3024555428',
+    address: 'Carrera 70g 78a-80'
+  };
+
+  const DEFAULT_LEGAL_TEXT = `Que los ingresos brutos totales obtenidos en el presente periodo gravable corresponden a honorarios, comisiones o servicios y no superan las 120 UVT mensuales
+
+Que me acojo al artículo 135 del acuerdo 1753 de 2015
+
+Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios estoy clasificado en cada cedula mencionada para la exención de la aplicación de la retención en la fuente según Art 383 E.T`;
+
   // --- App State ---
   const state = {
     // Lee primero lo guardado en localStorage; solo si no hay nada guardado usa el catálogo de ejemplo
@@ -152,7 +167,26 @@
       notes: ''
     },
     history: getStorage('pr_history', []),
-    deferredInstallPrompt: null
+    deferredInstallPrompt: null,
+
+    // Cuentas de Cobro State
+    cobroEmisor: getStorage('pr_cobro_emisor', DEFAULT_COBRO_EMISOR),
+    cobroFirma: getStorage('pr_cobro_firma', ''),
+    cobroLegalText: getStorage('pr_cobro_legal_text', DEFAULT_LEGAL_TEXT),
+    cobroNum: getStorage('pr_cobro_num', 12),
+    cobroDocCity: getStorage('pr_cobro_doc_city', 'Bogotá'),
+    cobroDocDate: getStorage('pr_cobro_doc_date', new Date().toISOString().split('T')[0]),
+    cobroIncludeLegal: getStorage('pr_cobro_include_legal', true),
+    cobroClientName: getStorage('pr_cobro_client_name', ''),
+    cobroClientNit: getStorage('pr_cobro_client_nit', ''),
+    cobroClients: getStorage('pr_cobro_clients', [
+      { name: 'Canon de Colombia S.A.S.', nit: '860.000.123-4' }
+    ]),
+    cobroConceptos: getStorage('pr_cobro_conceptos', [
+      { desc: 'Suministro caja de mantenimiento para impresora Canon MC-G03 serial 54496', amount: 160000 }
+    ]),
+    cobroAdelantos: getStorage('pr_cobro_adelantos', []),
+    cobroPreviewCollapsed: getStorage('pr_cobro_preview_collapsed', false)
   };
 
   // DOM elements cache
@@ -619,6 +653,777 @@
     return t;
   }
 
+  // ==========================================================================
+  // CUENTAS DE COBRO - LÓGICA Y FUNCIONES
+  // ==========================================================================
+
+  // Conversión de números a letras en español según estándar legal colombiano
+  function numeroALetras(num) {
+    num = Math.round(Number(num) || 0);
+    const formattedNumber = num.toLocaleString('es-CO');
+    if (num === 0) return 'Cero pesos m/cte. ($0.oo)';
+    if (num < 0) return 'Menos ' + numeroALetras(-num);
+
+    const UNIDADES = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+    const DECENAS_10 = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+    const VEINTES = ['veinte', 'veintiún', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+    const DECENAS = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+    const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+    function seccionMenorMil(n) {
+      if (n === 0) return '';
+      if (n === 100) return 'cien';
+      const c = Math.floor(n / 100);
+      const d = Math.floor((n % 100) / 10);
+      const u = n % 10;
+      let res = '';
+      if (c > 0) res += CENTENAS[c] + ' ';
+      if (d === 1) {
+        res += DECENAS_10[u];
+      } else if (d === 2) {
+        res += VEINTES[u];
+      } else if (d > 2) {
+        res += DECENAS[d];
+        if (u > 0) res += ' y ' + UNIDADES[u];
+      } else if (u > 0) {
+        res += UNIDADES[u];
+      }
+      return res.trim();
+    }
+
+    function resolver(n) {
+      const millones = Math.floor(n / 1000000);
+      const restoMillones = n % 1000000;
+      const miles = Math.floor(restoMillones / 1000);
+      const unidades = restoMillones % 1000;
+
+      const partes = [];
+      if (millones > 0) {
+        if (millones === 1) partes.push('un millón');
+        else partes.push(seccionMenorMil(millones) + ' millones');
+      }
+      if (miles > 0) {
+        if (miles === 1) partes.push('mil');
+        else partes.push(seccionMenorMil(miles) + ' mil');
+      }
+      if (unidades > 0) {
+        partes.push(seccionMenorMil(unidades));
+      }
+      return partes.join(' ');
+    }
+
+    const letras = resolver(num);
+    const esDePesos = (num >= 1000000 && (num % 1000000 === 0));
+    const sufijo = num === 1 ? 'peso m/cte.' : (esDePesos ? 'de pesos m/cte.' : 'pesos m/cte.');
+
+    const resultado = `${letras} ${sufijo} ($${formattedNumber}.oo)`;
+    return resultado.charAt(0).toUpperCase() + resultado.slice(1);
+  }
+
+  // Formateo de fecha de Cuenta de Cobro (ej: "28 de julio de 2026")
+  function formatCobroDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const y = parts[0];
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const months = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    const monthName = months[m - 1] || '';
+    return `${d} de ${monthName} de ${y}`;
+  }
+
+  // Cálculos de saldo de Cuenta de Cobro
+  function calculateCobroTotals() {
+    const totalConceptos = state.cobroConceptos.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+    const totalAdelantos = state.cobroAdelantos.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+    const saldo = Math.max(0, totalConceptos - totalAdelantos);
+    const hasOverAdelanto = totalAdelantos > totalConceptos && totalConceptos > 0;
+    return {
+      totalConceptos,
+      totalAdelantos,
+      saldo,
+      hasOverAdelanto
+    };
+  }
+
+  // Clientes frecuentes sugeridos
+  function saveCobroClient(name, nit) {
+    name = (name || '').trim();
+    nit = (nit || '').trim();
+    if (!name) return;
+    const idx = state.cobroClients.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+    if (idx >= 0) {
+      if (nit) state.cobroClients[idx].nit = nit;
+    } else {
+      state.cobroClients.unshift({ name, nit });
+    }
+    if (state.cobroClients.length > 40) state.cobroClients.pop();
+    setStorage('pr_cobro_clients', state.cobroClients);
+    renderCobroClientsDatalist();
+  }
+
+  function renderCobroClientsDatalist() {
+    const dl = $('cc-clients-datalist');
+    if (!dl) return;
+    dl.innerHTML = state.cobroClients
+      .map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.nit ? 'NIT/CC: ' + c.nit : '')}</option>`)
+      .join('');
+  }
+
+  // Renderizar líneas de conceptos
+  function renderCobroConceptos() {
+    const container = $('cc-conceptos-list');
+    if (!container) return;
+    if (!state.cobroConceptos || state.cobroConceptos.length === 0) {
+      state.cobroConceptos = [{ desc: '', amount: 0 }];
+    }
+    container.innerHTML = state.cobroConceptos.map((item, index) => `
+      <div class="cc-line-row" data-index="${index}">
+        <input type="text" class="cc-line-desc" data-field="desc" placeholder="Descripción del concepto o servicio" value="${escapeHtml(item.desc)}">
+        <input type="number" class="cc-line-val" data-field="amount" placeholder="0" min="0" step="1000" value="${item.amount ? item.amount : ''}">
+        <button type="button" class="btn-icon btn-danger btn-cc-del-concepto" data-index="${index}" title="Eliminar concepto" aria-label="Eliminar concepto">🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  // Renderizar líneas de adelantos
+  function renderCobroAdelantos() {
+    const container = $('cc-adelantos-list');
+    if (!container) return;
+    if (!state.cobroAdelantos || state.cobroAdelantos.length === 0) {
+      container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-dim); font-style: italic; padding: 4px 0;">No hay adelantos registrados (opcional).</div>';
+      return;
+    }
+    container.innerHTML = state.cobroAdelantos.map((item, index) => `
+      <div class="cc-line-row" data-index="${index}">
+        <input type="text" class="cc-line-desc" data-field="desc" placeholder="Ej: Anticipo recibido el 10 de julio" value="${escapeHtml(item.desc)}">
+        <input type="number" class="cc-line-val" data-field="amount" placeholder="0" min="0" step="1000" value="${item.amount ? item.amount : ''}">
+        <button type="button" class="btn-icon btn-danger btn-cc-del-adelanto" data-index="${index}" title="Eliminar adelanto" aria-label="Eliminar adelanto">🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  // Visualización de firma
+  function renderCobroFirmaUI() {
+    const previewBox = $('cc-firma-preview-box');
+    const previewImg = $('cc-firma-preview-img');
+    const btnRemove = $('btn-cc-remove-firma');
+    const statusText = $('cc-firma-status');
+
+    if (!previewBox || !previewImg || !btnRemove || !statusText) return;
+
+    if (state.cobroFirma) {
+      previewImg.src = state.cobroFirma;
+      previewBox.style.display = 'block';
+      btnRemove.style.display = 'inline-block';
+      statusText.textContent = 'Firma activa y cargada';
+      statusText.style.color = 'var(--whatsapp)';
+    } else {
+      previewImg.src = '';
+      previewBox.style.display = 'none';
+      btnRemove.style.display = 'none';
+      statusText.textContent = 'Sin firma (espacio en blanco)';
+      statusText.style.color = 'var(--text-muted)';
+    }
+  }
+
+  // Panel plegable "Mis Datos"
+  function toggleEmisorPanel() {
+    const panel = $('cc-emisor-panel');
+    const icon = $('cc-emisor-accordion-icon');
+    if (!panel) return;
+    const isCollapsed = panel.classList.contains('is-collapsed');
+    if (isCollapsed) {
+      panel.classList.remove('is-collapsed');
+      if (icon) icon.textContent = '▲';
+    } else {
+      panel.classList.add('is-collapsed');
+      if (icon) icon.textContent = '▼';
+    }
+  }
+
+  // Vista previa plegable / desplegable de Cuenta de Cobro
+  function updateCobroPreviewCollapseUI(isCollapsed) {
+    const container = $('cobro-preview-collapsible');
+    const btn = $('btn-toggle-cobro-preview');
+    const txt = $('cobro-preview-toggle-text');
+    const icon = $('cobro-preview-toggle-icon');
+
+    if (!container) return;
+
+    if (isCollapsed) {
+      container.classList.add('is-collapsed');
+      if (btn) {
+        btn.classList.add('is-collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+      if (txt) txt.textContent = 'Mostrar vista previa';
+      if (icon) icon.textContent = '▼';
+    } else {
+      container.classList.remove('is-collapsed');
+      if (btn) {
+        btn.classList.remove('is-collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+      if (txt) txt.textContent = 'Ocultar vista previa';
+      if (icon) icon.textContent = '▲';
+    }
+  }
+
+  function toggleCobroPreviewCollapse() {
+    const container = $('cobro-preview-collapsible');
+    if (!container) return;
+    const willCollapse = !container.classList.contains('is-collapsed');
+    state.cobroPreviewCollapsed = willCollapse;
+    updateCobroPreviewCollapseUI(willCollapse);
+    setStorage('pr_cobro_preview_collapsed', willCollapse);
+  }
+
+  // Renderizar la vista previa del documento oficial de Cuenta de Cobro
+  function renderCobroPreview() {
+    const totals = calculateCobroTotals();
+    const numFormatted = String(state.cobroNum || 1).padStart(3, '0');
+    const city = state.cobroDocCity || 'Bogotá';
+    const dateFormatted = formatCobroDate(state.cobroDocDate);
+    const clientName = state.cobroClientName.trim() || 'Nombre del Cliente o Empresa';
+    const clientNit = state.cobroClientNit.trim();
+    const emisor = state.cobroEmisor || DEFAULT_COBRO_EMISOR;
+
+    // Actualizar badges y tarjeta de totales
+    if ($('cc-badge-number')) $('cc-badge-number').textContent = `Cuenta ${numFormatted}`;
+    if ($('cc-calc-total-conceptos')) $('cc-calc-total-conceptos').textContent = formatMoney(totals.totalConceptos);
+    if ($('cc-calc-total-adelantos')) $('cc-calc-total-adelantos').textContent = '-' + formatMoney(totals.totalAdelantos);
+    if ($('cc-calc-saldo-final')) $('cc-calc-saldo-final').textContent = formatMoney(totals.saldo);
+    if ($('cc-calc-letras-box')) $('cc-calc-letras-box').textContent = numeroALetras(totals.saldo);
+
+    // Aviso si los adelantos superan los conceptos
+    if ($('cc-warning-box')) {
+      $('cc-warning-box').style.display = totals.hasOverAdelanto ? 'block' : 'none';
+    }
+
+    // 1. Ciudad y fecha, en negrita, alineado a la izquierda
+    if ($('cc-doc-preview-date-city')) {
+      $('cc-doc-preview-date-city').innerHTML = `<strong>${escapeHtml(city)}, ${escapeHtml(dateFormatted)}</strong>`;
+    }
+
+    // 2. "Cuenta de cobro 012", centrado y en negrita
+    if ($('cc-doc-preview-title')) {
+      $('cc-doc-preview-title').innerHTML = `<strong>Cuenta de cobro ${escapeHtml(numFormatted)}</strong>`;
+    }
+
+    // 3. Nombre de la empresa o cliente en letra grande y negrita, con "Nit." debajo. Centrado.
+    if ($('cc-doc-preview-client-name')) {
+      $('cc-doc-preview-client-name').innerHTML = `<strong>${escapeHtml(clientName)}</strong>`;
+    }
+    if ($('cc-doc-preview-client-nit')) {
+      $('cc-doc-preview-client-nit').textContent = clientNit ? `Nit. ${clientNit}` : 'Nit. (Por registrar)';
+    }
+
+    // 5. Nombre de quien cobra en mayúsculas y "C.C. ... de Bogotá" debajo. Centrado.
+    if ($('cc-doc-preview-emisor-name')) {
+      $('cc-doc-preview-emisor-name').innerHTML = `<strong>${escapeHtml((emisor.name || 'PEDRO LUIS ROA MORA').toUpperCase())}</strong>`;
+    }
+    if ($('cc-doc-preview-emisor-cc')) {
+      $('cc-doc-preview-emisor-cc').textContent = `C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`;
+    }
+
+    // 7. El saldo en letras y número, en negrita y centrado
+    if ($('cc-doc-preview-amount-box')) {
+      $('cc-doc-preview-amount-box').innerHTML = `<strong>${numeroALetras(totals.saldo)}</strong>`;
+    }
+
+    // 8. "Por concepto de:" y cada concepto como viñeta
+    if ($('cc-doc-preview-conceptos-list')) {
+      const validConceptos = state.cobroConceptos.filter(c => (c.desc && c.desc.trim()) || c.amount > 0);
+      if (validConceptos.length > 0) {
+        $('cc-doc-preview-conceptos-list').innerHTML = validConceptos.map(c => `
+          <li>${escapeHtml(c.desc || 'Servicio')} por ${formatMoney(c.amount)}</li>
+        `).join('');
+      } else {
+        $('cc-doc-preview-conceptos-list').innerHTML = `<li>Concepto pendiente por especificar por $0</li>`;
+      }
+    }
+
+    // Resumen de adelantos si los hay
+    const validAdelantos = state.cobroAdelantos.filter(a => (a.desc && a.desc.trim()) || a.amount > 0);
+    if ($('cc-doc-preview-resumen-box')) {
+      if (validAdelantos.length > 0) {
+        $('cc-doc-preview-resumen-box').style.display = 'block';
+        if ($('cc-doc-resumen-total')) $('cc-doc-resumen-total').textContent = formatMoney(totals.totalConceptos);
+        if ($('cc-doc-resumen-adelantos')) $('cc-doc-resumen-adelantos').textContent = '-' + formatMoney(totals.totalAdelantos);
+        if ($('cc-doc-resumen-saldo')) $('cc-doc-resumen-saldo').innerHTML = `<strong>${formatMoney(totals.saldo)}</strong>`;
+      } else {
+        $('cc-doc-preview-resumen-box').style.display = 'none';
+      }
+    }
+
+    // 9. Texto legal en letra pequeña (si está activado)
+    if ($('cc-doc-preview-legal-box')) {
+      if (state.cobroIncludeLegal) {
+        $('cc-doc-preview-legal-box').style.display = 'block';
+        const paragraphs = (state.cobroLegalText || DEFAULT_LEGAL_TEXT).split('\n').filter(p => p.trim());
+        $('cc-doc-preview-legal-box').innerHTML = paragraphs.map(p => `<p>${escapeHtml(p.trim())}</p>`).join('');
+      } else {
+        $('cc-doc-preview-legal-box').style.display = 'none';
+      }
+    }
+
+    // 10. "Cordialmente,", la firma, el nombre, C.C., teléfono y dirección
+    if ($('cc-doc-preview-firma-wrap') && $('cc-doc-preview-firma-blank') && $('cc-doc-preview-firma-img')) {
+      if (state.cobroFirma) {
+        $('cc-doc-preview-firma-img').src = state.cobroFirma;
+        $('cc-doc-preview-firma-wrap').style.display = 'flex';
+        $('cc-doc-preview-firma-blank').style.display = 'none';
+      } else {
+        $('cc-doc-preview-firma-img').src = '';
+        $('cc-doc-preview-firma-wrap').style.display = 'none';
+        $('cc-doc-preview-firma-blank').style.display = 'block';
+      }
+    }
+    if ($('cc-doc-preview-sign-name')) $('cc-doc-preview-sign-name').textContent = emisor.name || 'Pedro Luis Roa Mora';
+    if ($('cc-doc-preview-sign-cc')) $('cc-doc-preview-sign-cc').textContent = `C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`;
+    if ($('cc-doc-preview-sign-phone')) $('cc-doc-preview-sign-phone').textContent = `Teléfono: ${emisor.phone || '3024555428'}`;
+    if ($('cc-doc-preview-sign-address')) $('cc-doc-preview-sign-address').textContent = `Dirección: ${emisor.address || 'Carrera 70g 78a-80'}`;
+
+    // Sincronizar barra fija inferior si corresponde
+    updateMobileStickyBar();
+  }
+
+  // Texto plano para WhatsApp y portapapeles
+  function generateCobroPlainText() {
+    const totals = calculateCobroTotals();
+    const numStr = String(state.cobroNum || 1).padStart(3, '0');
+    const dateFormatted = formatCobroDate(state.cobroDocDate);
+    const clientName = state.cobroClientName.trim() || 'Cliente';
+    const clientNit = state.cobroClientNit.trim() ? ` (NIT/C.C.: ${state.cobroClientNit.trim()})` : '';
+
+    let text = `*CUENTA DE COBRO N° ${numStr}*\n`;
+    text += `*${(state.cobroEmisor.name || 'Pedro Luis Roa Mora').toUpperCase()}*\n`;
+    text += `C.C. ${state.cobroEmisor.cc || '1.015.409.172'} de ${state.cobroEmisor.city || 'Bogotá'}\n\n`;
+    text += `📅 *Fecha:* ${state.cobroDocCity || 'Bogotá'}, ${dateFormatted}\n`;
+    text += `🏢 *Cliente:* ${clientName}${clientNit}\n\n`;
+
+    text += `*Por concepto de:*\n`;
+    state.cobroConceptos.forEach(c => {
+      if (c.desc || c.amount) {
+        text += `• ${c.desc || 'Servicio'}: ${formatMoney(c.amount)}\n`;
+      }
+    });
+
+    if (state.cobroAdelantos.length > 0) {
+      text += `\n*Total conceptos:* ${formatMoney(totals.totalConceptos)}\n`;
+      state.cobroAdelantos.forEach(a => {
+        if (a.desc || a.amount) {
+          text += `• Anticipo (${a.desc || 'Abono'}): -${formatMoney(a.amount)}\n`;
+        }
+      });
+      text += `*Total adelantos:* -${formatMoney(totals.totalAdelantos)}\n`;
+    }
+
+    text += `\n💰 *SALDO A COBRAR: ${formatMoney(totals.saldo)}*\n`;
+    text += `_${numeroALetras(totals.saldo)}_\n\n`;
+    text += `Cordialmente,\n`;
+    text += `${state.cobroEmisor.name || 'Pedro Luis Roa Mora'}\n`;
+    text += `Tel: ${state.cobroEmisor.phone || '3024555428'}\n`;
+    text += `Dirección: ${state.cobroEmisor.address || 'Carrera 70g 78a-80'}`;
+    return text;
+  }
+
+  // Barra fija inferior para celulares
+  function updateMobileStickyBar() {
+    const activeSection = document.querySelector('.view-section.active');
+    const stickyBar = document.querySelector('.mobile-sticky-bar');
+    if (!stickyBar) return;
+
+    if (activeSection && activeSection.id === 'view-cuentas-cobro') {
+      stickyBar.style.display = 'flex';
+      const totals = calculateCobroTotals();
+      const countLabel = $('sticky-count');
+      const amountLabel = $('sticky-total');
+      const btnSticky = $('sticky-btn-pdf');
+      if (countLabel) countLabel.textContent = `Cuenta ${String(state.cobroNum || 1).padStart(3, '0')}`;
+      if (amountLabel) amountLabel.textContent = formatMoney(totals.saldo);
+      if (btnSticky) {
+        btnSticky.innerHTML = '<span>🖨️</span> Imprimir / PDF';
+      }
+    } else if (activeSection && activeSection.id === 'view-cotizador') {
+      stickyBar.style.display = 'flex';
+      const totals = calculateTotals();
+      const count = state.currentQuote.items.length;
+      const countLabel = $('sticky-count');
+      const amountLabel = $('sticky-total');
+      const btnSticky = $('sticky-btn-pdf');
+      if (countLabel) countLabel.textContent = `${count} ${count === 1 ? 'ítem' : 'ítems'}`;
+      if (amountLabel) amountLabel.textContent = formatMoney(totals.total);
+      if (btnSticky) {
+        btnSticky.innerHTML = '<span>📲</span> Enviar PDF';
+      }
+    } else {
+      stickyBar.style.display = 'none';
+    }
+  }
+
+  // Inicialización de Cuentas de Cobro
+  function initCobro() {
+    if (!$('view-cuentas-cobro')) return;
+
+    $('cc-emisor-name').value = state.cobroEmisor.name || 'Pedro Luis Roa Mora';
+    $('cc-emisor-cc').value = state.cobroEmisor.cc || '1.015.409.172';
+    $('cc-emisor-city').value = state.cobroEmisor.city || 'Bogotá';
+    $('cc-emisor-phone').value = state.cobroEmisor.phone || '3024555428';
+    $('cc-emisor-address').value = state.cobroEmisor.address || 'Carrera 70g 78a-80';
+    $('cc-legal-text').value = state.cobroLegalText || DEFAULT_LEGAL_TEXT;
+    $('cc-include-legal').checked = state.cobroIncludeLegal !== false;
+    $('cc-num').value = state.cobroNum || 12;
+    $('cc-doc-city').value = state.cobroDocCity || 'Bogotá';
+    $('cc-doc-date').value = state.cobroDocDate || new Date().toISOString().split('T')[0];
+    $('cc-client-name').value = state.cobroClientName || '';
+    $('cc-client-nit').value = state.cobroClientNit || '';
+
+    renderCobroClientsDatalist();
+    renderCobroConceptos();
+    renderCobroAdelantos();
+    renderCobroFirmaUI();
+    updateCobroPreviewCollapseUI(state.cobroPreviewCollapsed);
+    renderCobroPreview();
+  }
+
+  // Event Listeners de Cuentas de Cobro
+  function setupCobroEvents() {
+    if (!$('view-cuentas-cobro')) return;
+
+    // Toggle panel Mis Datos
+    const emisorHeader = $('cc-emisor-accordion-btn');
+    if (emisorHeader) {
+      emisorHeader.addEventListener('click', toggleEmisorPanel);
+    }
+
+    // Auto-save emisor data
+    const emisorFields = [
+      { id: 'cc-emisor-name', key: 'name' },
+      { id: 'cc-emisor-cc', key: 'cc' },
+      { id: 'cc-emisor-city', key: 'city' },
+      { id: 'cc-emisor-phone', key: 'phone' },
+      { id: 'cc-emisor-address', key: 'address' }
+    ];
+    emisorFields.forEach(f => {
+      const el = $(f.id);
+      if (el) {
+        el.addEventListener('input', () => {
+          state.cobroEmisor[f.key] = el.value;
+          setStorage('pr_cobro_emisor', state.cobroEmisor);
+          renderCobroPreview();
+        });
+      }
+    });
+
+    // Subir y quitar firma
+    const btnUploadFirma = $('btn-cc-upload-firma');
+    const inputFirma = $('cc-firma-input');
+    const btnRemoveFirma = $('btn-cc-remove-firma');
+
+    if (btnUploadFirma && inputFirma) {
+      btnUploadFirma.addEventListener('click', () => inputFirma.click());
+      inputFirma.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast('Selecciona un archivo PNG o JPG válido', '⚠️');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          state.cobroFirma = evt.target.result;
+          setStorage('pr_cobro_firma', state.cobroFirma);
+          renderCobroFirmaUI();
+          renderCobroPreview();
+          showToast('Firma digitalizada guardada', '✍️');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (btnRemoveFirma && inputFirma) {
+      btnRemoveFirma.addEventListener('click', () => {
+        state.cobroFirma = '';
+        inputFirma.value = '';
+        setStorage('pr_cobro_firma', '');
+        renderCobroFirmaUI();
+        renderCobroPreview();
+        showToast('Firma eliminada', 'ℹ️');
+      });
+    }
+
+    // Texto legal
+    const legalText = $('cc-legal-text');
+    if (legalText) {
+      legalText.addEventListener('input', () => {
+        state.cobroLegalText = legalText.value;
+        setStorage('pr_cobro_legal_text', state.cobroLegalText);
+        renderCobroPreview();
+      });
+    }
+
+    const btnResetLegal = $('btn-cc-reset-legal');
+    if (btnResetLegal) {
+      btnResetLegal.addEventListener('click', () => {
+        state.cobroLegalText = DEFAULT_LEGAL_TEXT;
+        $('cc-legal-text').value = DEFAULT_LEGAL_TEXT;
+        setStorage('pr_cobro_legal_text', DEFAULT_LEGAL_TEXT);
+        renderCobroPreview();
+        showToast('Texto legal restablecido por defecto', '🔄');
+      });
+    }
+
+    const checkIncludeLegal = $('cc-include-legal');
+    if (checkIncludeLegal) {
+      checkIncludeLegal.addEventListener('change', () => {
+        state.cobroIncludeLegal = checkIncludeLegal.checked;
+        setStorage('pr_cobro_include_legal', state.cobroIncludeLegal);
+        renderCobroPreview();
+      });
+    }
+
+    // Número de cuenta, ciudad y fecha
+    const ccNumInput = $('cc-num');
+    if (ccNumInput) {
+      ccNumInput.addEventListener('input', () => {
+        const val = parseInt(ccNumInput.value, 10);
+        if (!isNaN(val) && val > 0) {
+          state.cobroNum = val;
+          setStorage('pr_cobro_num', val);
+          renderCobroPreview();
+        }
+      });
+    }
+
+    const ccCityInput = $('cc-doc-city');
+    if (ccCityInput) {
+      ccCityInput.addEventListener('input', () => {
+        state.cobroDocCity = ccCityInput.value;
+        setStorage('pr_cobro_doc_city', state.cobroDocCity);
+        renderCobroPreview();
+      });
+    }
+
+    const ccDateInput = $('cc-doc-date');
+    if (ccDateInput) {
+      ccDateInput.addEventListener('change', () => {
+        state.cobroDocDate = ccDateInput.value;
+        setStorage('pr_cobro_doc_date', state.cobroDocDate);
+        renderCobroPreview();
+      });
+    }
+
+    // Cliente y autocompletado de NIT
+    const clientNameInput = $('cc-client-name');
+    const clientNitInput = $('cc-client-nit');
+
+    if (clientNameInput && clientNitInput) {
+      clientNameInput.addEventListener('input', () => {
+        state.cobroClientName = clientNameInput.value;
+        setStorage('pr_cobro_client_name', state.cobroClientName);
+
+        // Si coincide con cliente guardado, autocompletar NIT
+        const val = clientNameInput.value.trim().toLowerCase();
+        const found = state.cobroClients.find(c => c.name.toLowerCase() === val);
+        if (found && found.nit) {
+          clientNitInput.value = found.nit;
+          state.cobroClientNit = found.nit;
+          setStorage('pr_cobro_client_nit', found.nit);
+        }
+        renderCobroPreview();
+      });
+
+      clientNameInput.addEventListener('blur', () => {
+        saveCobroClient(clientNameInput.value, clientNitInput.value);
+      });
+
+      clientNitInput.addEventListener('input', () => {
+        state.cobroClientNit = clientNitInput.value;
+        setStorage('pr_cobro_client_nit', state.cobroClientNit);
+        renderCobroPreview();
+      });
+
+      clientNitInput.addEventListener('blur', () => {
+        saveCobroClient(clientNameInput.value, clientNitInput.value);
+      });
+    }
+
+    // Eventos de Conceptos (agregar, editar y eliminar)
+    const btnAddConcepto = $('btn-cc-add-concepto');
+    if (btnAddConcepto) {
+      btnAddConcepto.addEventListener('click', () => {
+        state.cobroConceptos.push({ desc: '', amount: 0 });
+        setStorage('pr_cobro_conceptos', state.cobroConceptos);
+        renderCobroConceptos();
+        renderCobroPreview();
+        const inputs = document.querySelectorAll('#cc-conceptos-list .cc-line-desc');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      });
+    }
+
+    const conceptosList = $('cc-conceptos-list');
+    if (conceptosList) {
+      conceptosList.addEventListener('input', (e) => {
+        const row = e.target.closest('.cc-line-row');
+        if (!row) return;
+        const index = parseInt(row.dataset.index, 10);
+        const field = e.target.dataset.field;
+        if (field === 'desc') {
+          state.cobroConceptos[index].desc = e.target.value;
+        } else if (field === 'amount') {
+          state.cobroConceptos[index].amount = parseFloat(e.target.value) || 0;
+        }
+        setStorage('pr_cobro_conceptos', state.cobroConceptos);
+        renderCobroPreview();
+      });
+
+      conceptosList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-cc-del-concepto');
+        if (!btn) return;
+        const index = parseInt(btn.dataset.index, 10);
+        state.cobroConceptos.splice(index, 1);
+        if (state.cobroConceptos.length === 0) {
+          state.cobroConceptos.push({ desc: '', amount: 0 });
+        }
+        setStorage('pr_cobro_conceptos', state.cobroConceptos);
+        renderCobroConceptos();
+        renderCobroPreview();
+      });
+    }
+
+    // Eventos de Adelantos (agregar, editar y eliminar)
+    const btnAddAdelanto = $('btn-cc-add-adelanto');
+    if (btnAddAdelanto) {
+      btnAddAdelanto.addEventListener('click', () => {
+        state.cobroAdelantos.push({ desc: '', amount: 0 });
+        setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+        renderCobroAdelantos();
+        renderCobroPreview();
+        const inputs = document.querySelectorAll('#cc-adelantos-list .cc-line-desc');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      });
+    }
+
+    const adelantosList = $('cc-adelantos-list');
+    if (adelantosList) {
+      adelantosList.addEventListener('input', (e) => {
+        const row = e.target.closest('.cc-line-row');
+        if (!row) return;
+        const index = parseInt(row.dataset.index, 10);
+        const field = e.target.dataset.field;
+        if (field === 'desc') {
+          state.cobroAdelantos[index].desc = e.target.value;
+        } else if (field === 'amount') {
+          state.cobroAdelantos[index].amount = parseFloat(e.target.value) || 0;
+        }
+        setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+        renderCobroPreview();
+      });
+
+      adelantosList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-cc-del-adelanto');
+        if (!btn) return;
+        const index = parseInt(btn.dataset.index, 10);
+        state.cobroAdelantos.splice(index, 1);
+        setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+        renderCobroAdelantos();
+        renderCobroPreview();
+      });
+    }
+
+    // Toggle vista previa de Cuenta de Cobro
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#btn-toggle-cobro-preview');
+      if (btn) {
+        e.preventDefault();
+        toggleCobroPreviewCollapse();
+      }
+    });
+
+    // Botón Imprimir / Guardar en PDF
+    const btnPrint = $('btn-cc-print');
+    if (btnPrint) {
+      btnPrint.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        window.print();
+      });
+    }
+
+    // Botón WhatsApp
+    const btnWhatsApp = $('btn-cc-whatsapp');
+    if (btnWhatsApp) {
+      btnWhatsApp.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const text = generateCobroPlainText();
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+      });
+    }
+
+    // Botón Copiar Texto
+    const btnCopy = $('btn-cc-copy');
+    if (btnCopy) {
+      btnCopy.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        const text = generateCobroPlainText();
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Texto de cuenta de cobro copiado al portapapeles', '📋');
+          }).catch(() => {
+            prompt('Copia el texto:', text);
+          });
+        } else {
+          prompt('Copia el texto:', text);
+        }
+      });
+    }
+
+    // Botón Nueva Cuenta de Cobro
+    const btnNew = $('btn-cc-new');
+    if (btnNew) {
+      btnNew.addEventListener('click', () => {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+
+        // Aumentar consecutivo
+        state.cobroNum = (parseInt(state.cobroNum, 10) || 12) + 1;
+        setStorage('pr_cobro_num', state.cobroNum);
+        if ($('cc-num')) $('cc-num').value = state.cobroNum;
+
+        // Limpiar cliente
+        state.cobroClientName = '';
+        state.cobroClientNit = '';
+        setStorage('pr_cobro_client_name', '');
+        setStorage('pr_cobro_client_nit', '');
+        if ($('cc-client-name')) $('cc-client-name').value = '';
+        if ($('cc-client-nit')) $('cc-client-nit').value = '';
+
+        // Fecha actual
+        const todayIso = new Date().toISOString().split('T')[0];
+        state.cobroDocDate = todayIso;
+        setStorage('pr_cobro_doc_date', todayIso);
+        if ($('cc-doc-date')) $('cc-doc-date').value = todayIso;
+
+        // Limpiar conceptos y adelantos
+        state.cobroConceptos = [{ desc: '', amount: 0 }];
+        setStorage('pr_cobro_conceptos', state.cobroConceptos);
+        renderCobroConceptos();
+
+        state.cobroAdelantos = [];
+        setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+        renderCobroAdelantos();
+
+        renderCobroPreview();
+        showToast(`Nueva cuenta de cobro N° ${String(state.cobroNum).padStart(3, '0')} iniciada`, '✨');
+      });
+    }
+  }
+
   // --- Initializing Values into Form ---
   function initForm() {
     $('b-name').value = state.business.name;
@@ -634,22 +1439,44 @@
     renderQuoteItems();
     renderHistory();
     renderLivePreview();
+
+    // Inicializar módulo Cuentas de Cobro
+    initCobro();
   }
 
   // --- Event Listeners Setup ---
   function setupEvents() {
-    // Navigation Tabs
+    // Navigation Tabs con memoria de última pestaña usada
+    function switchTab(viewId) {
+      const btn = document.querySelector(`.tab-btn[data-view="${viewId}"]`);
+      if (!btn || !$(viewId)) return;
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+      
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      $(viewId).classList.add('active');
+      setStorage('pr_active_tab', viewId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Actualizar barra flotante móvil
+      updateMobileStickyBar();
+    }
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-        
-        btn.classList.add('active');
-        const targetView = btn.dataset.view;
-        if ($(targetView)) $(targetView).classList.add('active');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        switchTab(btn.dataset.view);
       });
     });
+
+    // Restaurar última pestaña usada
+    const savedActiveTab = getStorage('pr_active_tab', 'view-cotizador');
+    if (savedActiveTab && savedActiveTab !== 'view-cotizador') {
+      switchTab(savedActiveTab);
+    }
 
     // Theme toggle
     const themeToggle = $('theme-toggle');
@@ -985,7 +1812,15 @@
     };
 
     $('btn-send-whatsapp-pdf').addEventListener('click', handleSendPdfWhatsApp);
-    $('sticky-btn-pdf').addEventListener('click', handleSendPdfWhatsApp);
+    $('sticky-btn-pdf').addEventListener('click', () => {
+      const activeSection = document.querySelector('.view-section.active');
+      if (activeSection && activeSection.id === 'view-cuentas-cobro') {
+        saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        window.print();
+      } else {
+        handleSendPdfWhatsApp();
+      }
+    });
 
     // 2. Download PDF
     $('btn-download-pdf').addEventListener('click', () => {
@@ -1110,6 +1945,10 @@
       btnInstallHeader.style.display = 'none';
       showToast('Aplicación instalada exitosamente', '🚀');
     });
+
+    // Inicializar eventos de Cuentas de Cobro
+    setupCobroEvents();
+    updateMobileStickyBar();
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {
