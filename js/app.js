@@ -187,7 +187,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       { desc: 'Suministro caja de mantenimiento para impresora Canon MC-G03 serial 54496', amount: 160000 }
     ]),
     cobroAdelantos: getStorage('pr_cobro_adelantos', []),
-    cobroPreviewCollapsed: getStorage('pr_cobro_preview_collapsed', false)
+    cobroPreviewCollapsed: getStorage('pr_cobro_preview_collapsed', false),
+    cobroHistory: getStorage('pr_cobro_history', []),
+    activeMainSection: getStorage('pr_active_main_section', 'cotizaciones'),
+    activeSubviewCot: getStorage('pr_active_subview_cot', 'view-cotizador'),
+    activeSubviewCobro: getStorage('pr_active_subview_cobro', 'view-cuentas-cobro')
   };
 
   // DOM elements cache
@@ -572,6 +576,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         </div>
       `;
     }).join('');
+    updateBadges();
+  }
+
+  // Actualizar contadores en badges de navegación
+  function updateBadges() {
+    const qBadge = $('badge-quotes-count');
+    if (qBadge) qBadge.textContent = state.history.length;
+    const cBadge = $('badge-cobros-count');
+    if (cBadge) cBadge.textContent = state.cobroHistory.length;
   }
 
   // --- Toast Notification ---
@@ -1406,6 +1419,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (btnCobroPreview) {
       btnCobroPreview.addEventListener('click', () => {
         saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
         window.PedroRoaPdf.previewCobroPdf(data);
       });
@@ -1416,6 +1430,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (btnCobroDownload) {
       btnCobroDownload.addEventListener('click', () => {
         saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
         showToast('Descargando archivo PDF...', '📥');
         window.PedroRoaPdf.downloadCobroPdf(data);
@@ -1427,6 +1442,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (btnCobroWhatsAppPdf) {
       btnCobroWhatsAppPdf.addEventListener('click', async () => {
         saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        saveCurrentCobroToHistory(false);
         const data = getFullCobroData();
         const result = await window.PedroRoaPdf.shareCobroPdfViaWhatsApp(data, (fileName) => {
           showModal(
@@ -1442,11 +1458,20 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       });
     }
 
+    // Botón Guardar Cuenta de Cobro en el Historial
+    const btnCobroSave = $('btn-cc-save');
+    if (btnCobroSave) {
+      btnCobroSave.addEventListener('click', () => {
+        saveCurrentCobroToHistory(true);
+      });
+    }
+
     // Botón Imprimir / Guardar en PDF
     const btnPrint = $('btn-cc-print');
     if (btnPrint) {
       btnPrint.addEventListener('click', () => {
         saveCobroClient(state.cobroClientName, state.cobroClientNit);
+        saveCurrentCobroToHistory(false);
         window.print();
       });
     }
@@ -1538,41 +1563,834 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     // Inicializar módulo Cuentas de Cobro
     initCobro();
+
+    // Actualizar contadores y vistas de historial
+    updateBadges();
+    renderCobroHistory();
+    syncEmisorTabUI();
+  }
+
+  // ==========================================================================
+  // FUNCIONES DE HISTORIAL DE CUENTAS DE COBRO
+  // ==========================================================================
+
+  // Guardar cuenta actual en el historial (o actualizar si ya existe ese número)
+  function saveCurrentCobroToHistory(showToastMsg = true) {
+    saveCobroClient(state.cobroClientName, state.cobroClientNit);
+    const validConceptos = (state.cobroConceptos || []).filter(c => (c.desc && c.desc.trim()) || (parseFloat(c.amount) > 0));
+    if (validConceptos.length === 0) {
+      if (showToastMsg) {
+        showToast('Agrega al menos un concepto a la cuenta de cobro antes de guardar.', '⚠️');
+      }
+      return false;
+    }
+
+    const data = getFullCobroData();
+    const rawNum = parseInt(state.cobroNum, 10) || 1;
+    data.cobroNum = rawNum;
+    data.id = 'CC-' + data.cobroNumber;
+    data.updatedAt = new Date().toISOString();
+
+    const existingIdx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
+    if (existingIdx >= 0) {
+      data.status = state.cobroHistory[existingIdx].status || 'pendiente';
+      state.cobroHistory[existingIdx] = data;
+    } else {
+      data.status = 'pendiente';
+      state.cobroHistory.push(data);
+    }
+
+    setStorage('pr_cobro_history', state.cobroHistory);
+    updateBadges();
+    renderCobroHistory();
+    if (showToastMsg) {
+      showToast(`Cuenta de cobro N° ${data.cobroNumber} guardada en el historial`, '💾');
+    }
+    return true;
+  }
+
+  // Renderizar la lista del Historial de Cuentas de Cobro
+  function renderCobroHistory() {
+    const list = $('cc-history-list');
+    if (!list) return;
+
+    // Calcular estadísticas globales
+    const totalCount = state.cobroHistory.length;
+    let pendingAmount = 0;
+    let paidAmount = 0;
+
+    state.cobroHistory.forEach(item => {
+      const saldo = (item.totals && typeof item.totals.saldo === 'number') ? item.totals.saldo : 0;
+      if (item.status === 'pagada') {
+        paidAmount += saldo;
+      } else {
+        pendingAmount += saldo;
+      }
+    });
+
+    if ($('cc-stat-total-count')) $('cc-stat-total-count').textContent = totalCount;
+    if ($('cc-stat-pending-amount')) $('cc-stat-pending-amount').textContent = formatMoney(pendingAmount);
+    if ($('cc-stat-paid-amount')) $('cc-stat-paid-amount').textContent = formatMoney(paidAmount);
+    updateBadges();
+
+    if (totalCount === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; padding: 40px 16px; color: var(--text-dim); background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
+          <div style="font-size: 2.5rem; margin-bottom: 10px;">💼</div>
+          <h3 style="font-size: 1.05rem; color: var(--text-main); margin-bottom: 6px;">No hay cuentas de cobro guardadas</h3>
+          <p style="font-size: 0.86rem; max-width: 440px; margin: 0 auto 16px; line-height: 1.5;">
+            Guarda tus cuentas de cobro para llevar el control de tus ingresos, registrar pagos y tenerlas siempre a mano en cualquier momento.
+          </p>
+          <button type="button" class="btn-primary" id="btn-empty-create-cobro" style="padding: 9px 18px; font-size: 0.88rem; min-height: 44px;">
+            <span>✨</span> Crear mi primera cuenta de cobro
+          </button>
+        </div>
+      `;
+      const btnEmpty = $('btn-empty-create-cobro');
+      if (btnEmpty) {
+        btnEmpty.addEventListener('click', () => switchSubview('view-cuentas-cobro'));
+      }
+      return;
+    }
+
+    // Filtros
+    const searchVal = ($('cc-hist-search') ? $('cc-hist-search').value : '').trim().toLowerCase();
+    const statusVal = $('cc-hist-filter-status') ? $('cc-hist-filter-status').value : 'all';
+    const monthVal = $('cc-hist-filter-month') ? $('cc-hist-filter-month').value : '';
+
+    let filtered = state.cobroHistory.filter(item => {
+      // Filtro de estado
+      if (statusVal === 'pendiente' && item.status === 'pagada') return false;
+      if (statusVal === 'pagada' && item.status !== 'pagada') return false;
+
+      // Filtro de mes
+      if (monthVal && item.dateIso && !item.dateIso.startsWith(monthVal)) return false;
+
+      // Filtro de búsqueda
+      if (searchVal) {
+        const numStr = String(item.cobroNumber || item.cobroNum || '').toLowerCase();
+        const client = String(item.clientName || '').toLowerCase();
+        const nit = String(item.clientNit || '').toLowerCase();
+        const city = String(item.city || '').toLowerCase();
+        const conceptosText = (item.conceptos || []).map(c => c.desc).join(' ').toLowerCase();
+        const matches = numStr.includes(searchVal) || client.includes(searchVal) || nit.includes(searchVal) || city.includes(searchVal) || conceptosText.includes(searchVal);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; padding: 32px 16px; color: var(--text-dim); background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+          <h4 style="font-size: 0.95rem; color: var(--text-main); margin-bottom: 4px;">No se encontraron cuentas con esos filtros</h4>
+          <p style="font-size: 0.84rem; margin-bottom: 12px;">Intenta cambiar el término de búsqueda o limpia los filtros activos.</p>
+          <button type="button" id="btn-empty-clear-filters" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; min-height: 40px;">
+            Limpiar filtros
+          </button>
+        </div>
+      `;
+      const btnClear = $('btn-empty-clear-filters');
+      if (btnClear) {
+        btnClear.addEventListener('click', () => {
+          if ($('cc-hist-search')) $('cc-hist-search').value = '';
+          if ($('cc-hist-filter-status')) $('cc-hist-filter-status').value = 'all';
+          if ($('cc-hist-filter-month')) $('cc-hist-filter-month').value = '';
+          renderCobroHistory();
+        });
+      }
+      return;
+    }
+
+    // Ordenar de la más reciente a la más antigua
+    filtered.sort((a, b) => {
+      const dateA = a.dateIso || '';
+      const dateB = b.dateIso || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (parseInt(b.cobroNum, 10) || 0) - (parseInt(a.cobroNum, 10) || 0);
+    });
+
+    list.innerHTML = filtered.map(item => {
+      const isPaid = item.status === 'pagada';
+      const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
+      const saldo = (item.totals && typeof item.totals.saldo === 'number') ? item.totals.saldo : 0;
+      const conceptosCount = (item.conceptos && item.conceptos.length) ? item.conceptos.length : 1;
+      const firstConcepto = (item.conceptos && item.conceptos[0] && item.conceptos[0].desc) ? item.conceptos[0].desc : '';
+
+      return `
+        <div class="cobro-history-card ${isPaid ? 'is-paid' : 'is-pending'}" data-cobro-num="${item.cobroNum}">
+          <div class="cobro-history-header">
+            <div class="cobro-history-identity">
+              <span class="cobro-num-badge">Cuenta N° ${escapeHtml(numStr)}</span>
+              <span class="badge-status ${isPaid ? 'badge-paid' : 'badge-pending'}">${isPaid ? '✅ Pagada' : '⏳ Pendiente'}</span>
+            </div>
+            <div class="cobro-history-amount">${formatMoney(saldo)}</div>
+          </div>
+
+          <div class="cobro-history-body">
+            <h4 class="cobro-history-client">${escapeHtml(item.clientName || 'Cliente General')}</h4>
+            ${item.clientNit ? `<div class="cobro-history-nit">NIT/C.C.: ${escapeHtml(item.clientNit)}</div>` : ''}
+            <div class="cobro-history-meta">
+              <span>📅 ${escapeHtml(item.dateFormatted || item.dateIso || '')}</span>
+              <span>·</span>
+              <span>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</span>
+              ${item.city ? `<span>· 📍 ${escapeHtml(item.city)}</span>` : ''}
+              ${firstConcepto ? `<span style="width: 100%; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;">• ${escapeHtml(firstConcepto)}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="cobro-history-actions">
+            <button type="button" class="btn-cobro-action" data-action="toggle-status" data-num="${item.cobroNum}" title="Cambiar estado de pago">
+              ${isPaid ? '🔄 Marcar Pendiente' : '✅ Marcar Pagada'}
+            </button>
+            <button type="button" class="btn-cobro-action btn-primary" data-action="edit-cobro" data-num="${item.cobroNum}" title="Abrir y editar en el formulario">
+              ✏️ Abrir
+            </button>
+            <button type="button" class="btn-cobro-action" data-action="duplicate-cobro" data-num="${item.cobroNum}" title="Crear copia con nuevo número consecutivo">
+              📑 Duplicar
+            </button>
+            <button type="button" class="btn-cobro-action" data-action="pdf-cobro" data-num="${item.cobroNum}" title="Ver documento PDF">
+              👁️ Ver PDF
+            </button>
+            <button type="button" class="btn-cobro-action" data-action="whatsapp-cobro" data-num="${item.cobroNum}" title="Enviar PDF por WhatsApp">
+              📲 WhatsApp
+            </button>
+            <button type="button" class="btn-cobro-action btn-danger" data-action="delete-cobro" data-num="${item.cobroNum}" title="Eliminar del historial">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Abrir cuenta de cobro para editar
+  function openCobroForEditing(cobroNum) {
+    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (!item) return;
+
+    state.cobroNum = parseInt(item.cobroNum, 10) || 1;
+    state.cobroDocCity = item.city || 'Bogotá';
+    state.cobroDocDate = item.dateIso || new Date().toISOString().split('T')[0];
+    state.cobroClientName = item.clientName || '';
+    state.cobroClientNit = item.clientNit || '';
+    state.cobroIncludeLegal = item.includeLegal !== false;
+    state.cobroIncludeLogo = item.includeLogo !== false;
+    state.cobroConceptos = JSON.parse(JSON.stringify(item.conceptos && item.conceptos.length ? item.conceptos : [{ desc: '', amount: 0 }]));
+    state.cobroAdelantos = JSON.parse(JSON.stringify(item.adelantos || []));
+
+    setStorage('pr_cobro_num', state.cobroNum);
+    setStorage('pr_cobro_doc_city', state.cobroDocCity);
+    setStorage('pr_cobro_doc_date', state.cobroDocDate);
+    setStorage('pr_cobro_client_name', state.cobroClientName);
+    setStorage('pr_cobro_client_nit', state.cobroClientNit);
+    setStorage('pr_cobro_include_legal', state.cobroIncludeLegal);
+    setStorage('pr_cobro_include_logo', state.cobroIncludeLogo);
+    setStorage('pr_cobro_conceptos', state.cobroConceptos);
+    setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+
+    // Actualizar campos en el formulario
+    if ($('cc-num')) $('cc-num').value = state.cobroNum;
+    if ($('cc-doc-city')) $('cc-doc-city').value = state.cobroDocCity;
+    if ($('cc-doc-date')) $('cc-doc-date').value = state.cobroDocDate;
+    if ($('cc-client-name')) $('cc-client-name').value = state.cobroClientName;
+    if ($('cc-client-nit')) $('cc-client-nit').value = state.cobroClientNit;
+    if ($('cc-include-legal')) $('cc-include-legal').checked = state.cobroIncludeLegal;
+    if ($('cc-include-logo')) $('cc-include-logo').checked = state.cobroIncludeLogo;
+
+    renderCobroConceptos();
+    renderCobroAdelantos();
+    renderCobroPreview();
+
+    switchSubview('view-cuentas-cobro');
+    showToast(`Cuenta de cobro N° ${String(state.cobroNum).padStart(3, '0')} cargada para edición`, '✏️');
+  }
+
+  // Duplicar cuenta de cobro con nuevo número
+  function duplicateCobroFromHistory(cobroNum) {
+    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (!item) return;
+
+    // Calcular el siguiente número consecutivo mayor disponible
+    const maxInHistory = state.cobroHistory.reduce((max, h) => Math.max(max, parseInt(h.cobroNum, 10) || 0), 0);
+    const nextNum = Math.max(maxInHistory, parseInt(state.cobroNum, 10) || 0) + 1;
+
+    state.cobroNum = nextNum;
+    state.cobroDocCity = item.city || 'Bogotá';
+    state.cobroDocDate = new Date().toISOString().split('T')[0];
+    state.cobroClientName = item.clientName || '';
+    state.cobroClientNit = item.clientNit || '';
+    state.cobroIncludeLegal = item.includeLegal !== false;
+    state.cobroIncludeLogo = item.includeLogo !== false;
+    state.cobroConceptos = JSON.parse(JSON.stringify(item.conceptos && item.conceptos.length ? item.conceptos : [{ desc: '', amount: 0 }]));
+    state.cobroAdelantos = JSON.parse(JSON.stringify(item.adelantos || []));
+
+    setStorage('pr_cobro_num', state.cobroNum);
+    setStorage('pr_cobro_doc_city', state.cobroDocCity);
+    setStorage('pr_cobro_doc_date', state.cobroDocDate);
+    setStorage('pr_cobro_client_name', state.cobroClientName);
+    setStorage('pr_cobro_client_nit', state.cobroClientNit);
+    setStorage('pr_cobro_include_legal', state.cobroIncludeLegal);
+    setStorage('pr_cobro_include_logo', state.cobroIncludeLogo);
+    setStorage('pr_cobro_conceptos', state.cobroConceptos);
+    setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+
+    if ($('cc-num')) $('cc-num').value = state.cobroNum;
+    if ($('cc-doc-city')) $('cc-doc-city').value = state.cobroDocCity;
+    if ($('cc-doc-date')) $('cc-doc-date').value = state.cobroDocDate;
+    if ($('cc-client-name')) $('cc-client-name').value = state.cobroClientName;
+    if ($('cc-client-nit')) $('cc-client-nit').value = state.cobroClientNit;
+    if ($('cc-include-legal')) $('cc-include-legal').checked = state.cobroIncludeLegal;
+    if ($('cc-include-logo')) $('cc-include-logo').checked = state.cobroIncludeLogo;
+
+    renderCobroConceptos();
+    renderCobroAdelantos();
+    renderCobroPreview();
+
+    switchSubview('view-cuentas-cobro');
+    showToast(`Cuenta duplicada como N° ${String(nextNum).padStart(3, '0')}. Modifica lo que necesites y guárdala.`, '📑');
+  }
+
+  // Alternar estado Pendiente / Pagada
+  function toggleCobroStatus(cobroNum) {
+    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (!item) return;
+
+    item.status = (item.status === 'pagada') ? 'pendiente' : 'pagada';
+    item.updatedAt = new Date().toISOString();
+    setStorage('pr_cobro_history', state.cobroHistory);
+    renderCobroHistory();
+    showToast(`Cuenta N° ${item.cobroNumber || item.cobroNum} marcada como ${item.status === 'pagada' ? 'PAGADA ✅' : 'PENDIENTE ⏳'}`, 'ℹ️');
+  }
+
+  // Eliminar cuenta del historial
+  function deleteCobroFromHistory(cobroNum) {
+    const idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (idx < 0) return;
+    const item = state.cobroHistory[idx];
+    const numDisplay = item.cobroNumber || item.cobroNum;
+
+    if (confirm(`¿Eliminar definitivamente la cuenta de cobro N° ${numDisplay} del historial?\n\nEsta acción no se puede deshacer.`)) {
+      state.cobroHistory.splice(idx, 1);
+      setStorage('pr_cobro_history', state.cobroHistory);
+      updateBadges();
+      renderCobroHistory();
+      showToast(`Cuenta de cobro N° ${numDisplay} eliminada`, '🗑️');
+    }
+  }
+
+  // Ver PDF desde el historial
+  function previewCobroFromHistory(cobroNum) {
+    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (!item) return;
+    window.PedroRoaPdf.previewCobroPdf(item);
+  }
+
+  // Enviar PDF por WhatsApp desde el historial
+  async function shareCobroFromHistory(cobroNum) {
+    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    if (!item) return;
+    const result = await window.PedroRoaPdf.shareCobroPdfViaWhatsApp(item, (fileName) => {
+      showModal(
+        '📄 Archivo PDF Descargado',
+        `<p>Se descargó el archivo <strong>${fileName}</strong> en tu dispositivo.</p>
+         <p>Se ha abierto WhatsApp para que puedas adjuntar el PDF descargado y enviarlo a tu cliente.</p>`,
+        'Entendido'
+      );
+    });
+    if (result && result.success && result.method === 'native-share') {
+      showToast('Compartiendo PDF directamente en WhatsApp...', '🚀');
+    }
+  }
+
+  // Exportar historial de cuentas de cobro a archivo .json
+  function exportCobroHistory() {
+    if (state.cobroHistory.length === 0) {
+      showToast('No hay cuentas de cobro registradas para exportar', 'ℹ️');
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const exportData = {
+      app: 'Cotizador Pedro Roa',
+      version: '2.0',
+      exportType: 'cuentas_de_cobro_historial',
+      exportDate: new Date().toISOString(),
+      count: state.cobroHistory.length,
+      history: state.cobroHistory
+    };
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `historial_cuentas_cobro_${today}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+    showToast('Historial de cuentas de cobro exportado exitosamente', '📥');
+  }
+
+  // Importar historial de cuentas de cobro desde archivo .json
+  function importCobroHistory(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        let incoming = [];
+        if (Array.isArray(parsed)) {
+          incoming = parsed;
+        } else if (parsed && Array.isArray(parsed.history)) {
+          incoming = parsed.history;
+        } else {
+          showToast('El archivo no contiene un historial de cuentas de cobro válido', '⚠️');
+          return;
+        }
+
+        if (incoming.length === 0) {
+          showToast('El archivo no tiene cuentas de cobro', 'ℹ️');
+          return;
+        }
+
+        if (!confirm(`Se encontraron ${incoming.length} cuentas de cobro en el archivo.\n\n¿Deseas agregarlas al historial? Las cuentas con el mismo número se actualizarán.`)) {
+          return;
+        }
+
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        incoming.forEach(inItem => {
+          const rawNum = parseInt(inItem.cobroNum, 10) || 1;
+          const idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
+          if (idx >= 0) {
+            state.cobroHistory[idx] = { ...state.cobroHistory[idx], ...inItem };
+            updatedCount++;
+          } else {
+            state.cobroHistory.push(inItem);
+            addedCount++;
+          }
+        });
+
+        setStorage('pr_cobro_history', state.cobroHistory);
+        updateBadges();
+        renderCobroHistory();
+        showToast(`Historial importado: ${addedCount} nuevas, ${updatedCount} actualizadas`, '✅');
+      } catch (err) {
+        console.error('Error importando historial:', err);
+        showToast('Error al leer el archivo JSON. Verifica el formato.', '❌');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Sincronizar datos de emisor con la pestaña "Mis Datos"
+  function syncEmisorTabUI() {
+    if ($('cc-emisor-name-tab')) $('cc-emisor-name-tab').value = state.cobroEmisor.name || 'Pedro Luis Roa Mora';
+    if ($('cc-emisor-cc-tab')) $('cc-emisor-cc-tab').value = state.cobroEmisor.cc || '1.015.409.172';
+    if ($('cc-emisor-city-tab')) $('cc-emisor-city-tab').value = state.cobroEmisor.city || 'Bogotá';
+    if ($('cc-emisor-phone-tab')) $('cc-emisor-phone-tab').value = state.cobroEmisor.phone || '3024555428';
+    if ($('cc-emisor-address-tab')) $('cc-emisor-address-tab').value = state.cobroEmisor.address || 'Carrera 70g 78a-80';
+    if ($('cc-legal-text-tab')) $('cc-legal-text-tab').value = state.cobroLegalText || DEFAULT_LEGAL_TEXT;
+
+    const previewBox = $('cc-firma-preview-box-tab');
+    const previewImg = $('cc-firma-preview-img-tab');
+    const btnRemove = $('btn-cc-remove-firma-tab');
+    const statusText = $('cc-firma-status-tab');
+
+    if (previewBox && previewImg && btnRemove && statusText) {
+      if (state.cobroFirma) {
+        previewImg.src = state.cobroFirma;
+        previewBox.style.display = 'block';
+        btnRemove.style.display = 'inline-block';
+        statusText.textContent = 'Firma activa y cargada';
+        statusText.style.color = 'var(--whatsapp)';
+      } else {
+        previewImg.src = '';
+        previewBox.style.display = 'none';
+        btnRemove.style.display = 'none';
+        statusText.textContent = 'Sin firma (espacio en blanco)';
+        statusText.style.color = 'var(--text-muted)';
+      }
+    }
+  }
+
+  // --- Event Listeners Setup ---
+  // Mapa de relación entre subvistas y secciones principales
+  const SUBVIEW_SECTION_MAP = {
+    'view-cotizador': 'cotizaciones',
+    'view-historial': 'cotizaciones',
+    'view-catalogo': 'cotizaciones',
+    'view-config': 'cotizaciones',
+    'view-cuentas-cobro': 'cuentas-cobro',
+    'view-cobro-historial': 'cuentas-cobro',
+    'view-cobro-emisor': 'cuentas-cobro'
+  };
+
+  const SUBVIEW_NAMES_MAP = {
+    'view-cotizador': 'Nueva Cotización',
+    'view-historial': 'Historial de Cotizaciones',
+    'view-catalogo': 'Catálogo de Precios',
+    'view-config': 'Mi Negocio',
+    'view-cuentas-cobro': 'Nueva Cuenta',
+    'view-cobro-historial': 'Historial de Cuentas',
+    'view-cobro-emisor': 'Mis Datos de Emisor'
+  };
+
+  // Cambiar entre las dos secciones principales ("Cotizaciones" y "Cuentas de cobro")
+  function switchMainSection(section, targetSubview = null) {
+    const isCobro = section === 'cuentas-cobro';
+    const mainSection = isCobro ? 'cuentas-cobro' : 'cotizaciones';
+    state.activeMainSection = mainSection;
+    setStorage('pr_active_main_section', mainSection);
+
+    // Actualizar botones principales
+    const btnCot = $('btn-main-cotizaciones');
+    const btnCobro = $('btn-main-cobro');
+    if (btnCot) {
+      btnCot.classList.toggle('active', !isCobro);
+      btnCot.setAttribute('aria-selected', !isCobro ? 'true' : 'false');
+    }
+    if (btnCobro) {
+      btnCobro.classList.toggle('active', isCobro);
+      btnCobro.setAttribute('aria-selected', isCobro ? 'true' : 'false');
+    }
+
+    // Alternar visibilidad de los submenús
+    const subCot = $('submenu-cotizaciones');
+    const subCobro = $('submenu-cuentas-cobro');
+    if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
+    if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
+
+    // Actualizar breadcrumbs e indicador de sección
+    const crumbSection = $('nav-crumb-section');
+    if (crumbSection) {
+      crumbSection.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
+    }
+
+    const switchBtnText = $('btn-switch-section-text');
+    const switchBtnIcon = $('btn-switch-section-icon');
+    if (switchBtnText) {
+      switchBtnText.textContent = isCobro ? 'Ir a Cotizaciones' : 'Ir a Cuentas de cobro';
+    }
+    if (switchBtnIcon) {
+      switchBtnIcon.textContent = isCobro ? '📋' : '💼';
+    }
+
+    // Determinar la subvista correspondiente
+    let subviewToOpen = targetSubview;
+    if (!subviewToOpen) {
+      subviewToOpen = isCobro
+        ? (state.activeSubviewCobro || 'view-cuentas-cobro')
+        : (state.activeSubviewCot || 'view-cotizador');
+    }
+
+    // Validar que pertenezca a la sección
+    if (SUBVIEW_SECTION_MAP[subviewToOpen] !== mainSection) {
+      subviewToOpen = isCobro ? 'view-cuentas-cobro' : 'view-cotizador';
+    }
+
+    switchSubview(subviewToOpen, mainSection);
+  }
+
+  // Cambiar entre opciones del submenú propio
+  function switchSubview(viewId, forcedSection = null) {
+    if (!$(viewId)) return;
+    const targetSection = forcedSection || SUBVIEW_SECTION_MAP[viewId] || 'cotizaciones';
+
+    // Si la sección principal no coincide, sincronizarla
+    if (state.activeMainSection !== targetSection) {
+      state.activeMainSection = targetSection;
+      setStorage('pr_active_main_section', targetSection);
+
+      const isCobro = targetSection === 'cuentas-cobro';
+      const btnCot = $('btn-main-cotizaciones');
+      const btnCobro = $('btn-main-cobro');
+      if (btnCot) {
+        btnCot.classList.toggle('active', !isCobro);
+        btnCot.setAttribute('aria-selected', !isCobro ? 'true' : 'false');
+      }
+      if (btnCobro) {
+        btnCobro.classList.toggle('active', isCobro);
+        btnCobro.setAttribute('aria-selected', isCobro ? 'true' : 'false');
+      }
+      const subCot = $('submenu-cotizaciones');
+      const subCobro = $('submenu-cuentas-cobro');
+      if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
+      if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
+
+      const crumbSection = $('nav-crumb-section');
+      if (crumbSection) {
+        crumbSection.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
+      }
+      const switchBtnText = $('btn-switch-section-text');
+      const switchBtnIcon = $('btn-switch-section-icon');
+      if (switchBtnText) switchBtnText.textContent = isCobro ? 'Ir a Cotizaciones' : 'Ir a Cuentas de cobro';
+      if (switchBtnIcon) switchBtnIcon.textContent = isCobro ? '📋' : '💼';
+    }
+
+    // Actualizar botones de submenú activos
+    document.querySelectorAll('.subnav-btn, .tab-btn').forEach(btn => {
+      const match = (btn.dataset.subview === viewId || btn.dataset.view === viewId);
+      btn.classList.toggle('active', match);
+      btn.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+
+    // Ocultar todas las demás vistas y mostrar únicamente la seleccionada
+    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+    $(viewId).classList.add('active');
+
+    // Actualizar breadcrumb de subvista
+    const crumbSubview = $('nav-crumb-subview');
+    if (crumbSubview) {
+      crumbSubview.textContent = SUBVIEW_NAMES_MAP[viewId] || 'Inicio';
+    }
+
+    // Guardar última subvista en localStorage con try/catch
+    if (targetSection === 'cuentas-cobro') {
+      state.activeSubviewCobro = viewId;
+      setStorage('pr_active_subview_cobro', viewId);
+    } else {
+      state.activeSubviewCot = viewId;
+      setStorage('pr_active_subview_cot', viewId);
+    }
+    setStorage('pr_active_tab', viewId);
+
+    // Actualizar contenidos si es necesario
+    if (viewId === 'view-cobro-historial') {
+      renderCobroHistory();
+    } else if (viewId === 'view-cobro-emisor') {
+      syncEmisorTabUI();
+    } else if (viewId === 'view-historial') {
+      renderHistory();
+    } else if (viewId === 'view-catalogo') {
+      renderCatalogManager();
+    }
+
+    // Barra fija inferior en móviles
+    updateMobileStickyBar();
+    updateBadges();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // --- Event Listeners Setup ---
   function setupEvents() {
-    // Navigation Tabs con memoria de última pestaña usada
-    function switchTab(viewId) {
-      const btn = document.querySelector(`.tab-btn[data-view="${viewId}"]`);
-      if (!btn || !$(viewId)) return;
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-      });
-      document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-      
-      btn.classList.add('active');
-      btn.setAttribute('aria-selected', 'true');
-      $(viewId).classList.add('active');
-      setStorage('pr_active_tab', viewId);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      // Actualizar barra flotante móvil
-      updateMobileStickyBar();
+    // 1. Navegación Principal (Cotizaciones / Cuentas de cobro)
+    const btnMainCot = $('btn-main-cotizaciones');
+    if (btnMainCot) {
+      btnMainCot.addEventListener('click', () => switchMainSection('cotizaciones'));
     }
 
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    const btnMainCobro = $('btn-main-cobro');
+    if (btnMainCobro) {
+      btnMainCobro.addEventListener('click', () => switchMainSection('cuentas-cobro'));
+    }
+
+    // Botón para alternar rápidamente entre Cotizaciones y Cuentas de cobro
+    const btnToggleMainSection = $('btn-toggle-main-section');
+    if (btnToggleMainSection) {
+      btnToggleMainSection.addEventListener('click', () => {
+        const next = (state.activeMainSection === 'cuentas-cobro') ? 'cotizaciones' : 'cuentas-cobro';
+        switchMainSection(next);
+      });
+    }
+
+    // 2. Submenús (Cada opción abre su propia vista)
+    document.querySelectorAll('.subnav-btn, .tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        switchTab(btn.dataset.view);
+        const targetView = btn.dataset.subview || btn.dataset.view;
+        if (targetView) switchSubview(targetView);
       });
     });
 
-    // Restaurar última pestaña usada
-    const savedActiveTab = getStorage('pr_active_tab', 'view-cotizador');
-    if (savedActiveTab && savedActiveTab !== 'view-cotizador') {
-      switchTab(savedActiveTab);
+    // 3. Eventos del Historial de Cuentas de Cobro
+    const btnHistNewCobro = $('btn-hist-create-new-cobro');
+    if (btnHistNewCobro) {
+      btnHistNewCobro.addEventListener('click', () => switchSubview('view-cuentas-cobro'));
     }
+
+    // Filtros de búsqueda, estado y mes
+    if ($('cc-hist-search')) {
+      $('cc-hist-search').addEventListener('input', renderCobroHistory);
+    }
+    if ($('cc-hist-filter-status')) {
+      $('cc-hist-filter-status').addEventListener('change', renderCobroHistory);
+    }
+    if ($('cc-hist-filter-month')) {
+      $('cc-hist-filter-month').addEventListener('change', renderCobroHistory);
+    }
+    if ($('btn-cc-clear-filters')) {
+      $('btn-cc-clear-filters').addEventListener('click', () => {
+        if ($('cc-hist-search')) $('cc-hist-search').value = '';
+        if ($('cc-hist-filter-status')) $('cc-hist-filter-status').value = 'all';
+        if ($('cc-hist-filter-month')) $('cc-hist-filter-month').value = '';
+        renderCobroHistory();
+      });
+    }
+
+    // Delegación de acciones de tarjetas de Cuentas de Cobro
+    const cobroHistList = $('cc-history-list');
+    if (cobroHistList) {
+      cobroHistList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const num = btn.dataset.num;
+
+        if (action === 'toggle-status') {
+          toggleCobroStatus(num);
+        } else if (action === 'edit-cobro') {
+          openCobroForEditing(num);
+        } else if (action === 'duplicate-cobro') {
+          duplicateCobroFromHistory(num);
+        } else if (action === 'pdf-cobro') {
+          previewCobroFromHistory(num);
+        } else if (action === 'whatsapp-cobro') {
+          shareCobroFromHistory(num);
+        } else if (action === 'delete-cobro') {
+          deleteCobroFromHistory(num);
+        }
+      });
+    }
+
+    // Exportar e Importar historial de cuentas de cobro
+    if ($('btn-cc-export-history')) {
+      $('btn-cc-export-history').addEventListener('click', exportCobroHistory);
+    }
+
+    const btnImportHist = $('btn-cc-import-history');
+    const fileImportHist = $('cc-import-history-file');
+    if (btnImportHist && fileImportHist) {
+      btnImportHist.addEventListener('click', () => fileImportHist.click());
+      fileImportHist.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          importCobroHistory(file);
+          fileImportHist.value = '';
+        }
+      });
+    }
+
+    // 4. Pestaña Mis Datos de Emisor (Eventos)
+    const emisorTabFields = [
+      { id: 'cc-emisor-name-tab', key: 'name', syncId: 'cc-emisor-name' },
+      { id: 'cc-emisor-cc-tab', key: 'cc', syncId: 'cc-emisor-cc' },
+      { id: 'cc-emisor-city-tab', key: 'city', syncId: 'cc-emisor-city' },
+      { id: 'cc-emisor-phone-tab', key: 'phone', syncId: 'cc-emisor-phone' },
+      { id: 'cc-emisor-address-tab', key: 'address', syncId: 'cc-emisor-address' }
+    ];
+
+    emisorTabFields.forEach(f => {
+      const el = $(f.id);
+      if (el) {
+        el.addEventListener('input', () => {
+          state.cobroEmisor[f.key] = el.value;
+          setStorage('pr_cobro_emisor', state.cobroEmisor);
+          if ($(f.syncId)) $(f.syncId).value = el.value;
+          renderCobroPreview();
+        });
+      }
+    });
+
+    const legalTextTab = $('cc-legal-text-tab');
+    if (legalTextTab) {
+      legalTextTab.addEventListener('input', () => {
+        state.cobroLegalText = legalTextTab.value;
+        setStorage('pr_cobro_legal_text', state.cobroLegalText);
+        if ($('cc-legal-text')) $('cc-legal-text').value = legalTextTab.value;
+        renderCobroPreview();
+      });
+    }
+
+    const btnResetLegalTab = $('btn-cc-reset-legal-tab');
+    if (btnResetLegalTab) {
+      btnResetLegalTab.addEventListener('click', () => {
+        state.cobroLegalText = DEFAULT_LEGAL_TEXT;
+        $('cc-legal-text-tab').value = DEFAULT_LEGAL_TEXT;
+        if ($('cc-legal-text')) $('cc-legal-text').value = DEFAULT_LEGAL_TEXT;
+        setStorage('pr_cobro_legal_text', DEFAULT_LEGAL_TEXT);
+        renderCobroPreview();
+        showToast('Texto legal restablecido por defecto', '🔄');
+      });
+    }
+
+    const btnUploadFirmaTab = $('btn-cc-upload-firma-tab');
+    const inputFirmaTab = $('cc-firma-input-tab');
+    const btnRemoveFirmaTab = $('btn-cc-remove-firma-tab');
+
+    if (btnUploadFirmaTab && inputFirmaTab) {
+      btnUploadFirmaTab.addEventListener('click', () => inputFirmaTab.click());
+      inputFirmaTab.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast('Selecciona un archivo PNG o JPG válido', '⚠️');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          state.cobroFirma = evt.target.result;
+          setStorage('pr_cobro_firma', state.cobroFirma);
+          renderCobroFirmaUI();
+          syncEmisorTabUI();
+          renderCobroPreview();
+          showToast('Firma digitalizada guardada', '✍️');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (btnRemoveFirmaTab && inputFirmaTab) {
+      btnRemoveFirmaTab.addEventListener('click', () => {
+        state.cobroFirma = '';
+        inputFirmaTab.value = '';
+        setStorage('pr_cobro_firma', '');
+        renderCobroFirmaUI();
+        syncEmisorTabUI();
+        renderCobroPreview();
+        showToast('Firma eliminada', 'ℹ️');
+      });
+    }
+
+    const btnSaveEmisorTab = $('btn-save-emisor-tab');
+    if (btnSaveEmisorTab) {
+      btnSaveEmisorTab.addEventListener('click', () => {
+        setStorage('pr_cobro_emisor', state.cobroEmisor);
+        setStorage('pr_cobro_legal_text', state.cobroLegalText);
+        showToast('Tus datos de emisor se guardaron correctamente', '💾');
+        switchSubview('view-cuentas-cobro');
+      });
+    }
+
+    const btnBackToCobro = $('btn-back-to-cobro-form');
+    if (btnBackToCobro) {
+      btnBackToCobro.addEventListener('click', () => switchSubview('view-cuentas-cobro'));
+    }
+
+    // 5. Restaurar última sección y opción usada en localStorage
+    const savedSection = getStorage('pr_active_main_section', 'cotizaciones');
+    const legacyTab = getStorage('pr_active_tab', null);
+    let initialSubview = null;
+
+    if (savedSection === 'cuentas-cobro') {
+      initialSubview = getStorage('pr_active_subview_cobro', 'view-cuentas-cobro');
+    } else {
+      initialSubview = getStorage('pr_active_subview_cot', 'view-cotizador');
+    }
+
+    // Compatibilidad si venía de versión previa
+    if (legacyTab && SUBVIEW_SECTION_MAP[legacyTab]) {
+      const legacySection = SUBVIEW_SECTION_MAP[legacyTab];
+      if (legacySection === savedSection) {
+        initialSubview = legacyTab;
+      }
+    }
+
+    switchMainSection(savedSection, initialSubview);
 
     // Theme toggle
     const themeToggle = $('theme-toggle');

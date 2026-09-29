@@ -58,24 +58,64 @@
     </div>
   </aside>
 
-  <!-- Pestañas de Navegación -->
-  <nav class="tabs-container" aria-label="Navegación principal">
-    <div class="nav-tabs" role="tablist">
-      <button class="tab-btn active" data-view="view-cotizador" role="tab" aria-selected="true">
-        <span>📋</span> Cotizador
-      </button>
-      <button class="tab-btn" data-view="view-cuentas-cobro" role="tab" aria-selected="false">
-        <span>💼</span> Cuentas de cobro
-      </button>
-      <button class="tab-btn" data-view="view-catalogo" role="tab" aria-selected="false">
-        <span>📦</span> Catálogo
-      </button>
-      <button class="tab-btn" data-view="view-historial" role="tab" aria-selected="false">
-        <span>📜</span> Historial
-      </button>
-      <button class="tab-btn" data-view="view-config" role="tab" aria-selected="false">
-        <span>⚙️</span> Mi Negocio
-      </button>
+  <!-- Navegación Principal y Submenús -->
+  <nav class="app-nav-wrapper np" aria-label="Navegación principal">
+    <div class="nav-inner-container">
+      
+      <!-- Menú Principal: Solo 2 opciones principales -->
+      <div class="main-menu-nav" role="tablist" aria-label="Secciones principales">
+        <button type="button" class="main-menu-btn active" id="btn-main-cotizaciones" data-section="cotizaciones" role="tab" aria-selected="true">
+          <span class="main-menu-icon">📋</span>
+          <span class="main-menu-text">Cotizaciones</span>
+        </button>
+        <button type="button" class="main-menu-btn" id="btn-main-cobro" data-section="cuentas-cobro" role="tab" aria-selected="false">
+          <span class="main-menu-icon">💼</span>
+          <span class="main-menu-text">Cuentas de cobro</span>
+        </button>
+      </div>
+
+      <!-- Barra de Estado / Breadcrumb & Selector de retorno -->
+      <div class="nav-context-bar">
+        <div class="nav-context-crumbs">
+          <span id="nav-crumb-section" class="crumb-section-tag">📋 Cotizaciones</span>
+          <span class="crumb-arrow">›</span>
+          <span id="nav-crumb-subview" class="crumb-subview-tag">Nueva Cotización</span>
+        </div>
+        <button type="button" id="btn-toggle-main-section" class="btn-context-switch" title="Cambiar a la otra sección principal">
+          <span id="btn-switch-section-icon">💼</span>
+          <span id="btn-switch-section-text">Ir a Cuentas de cobro</span>
+        </button>
+      </div>
+
+      <!-- Submenú Cotizaciones -->
+      <div id="submenu-cotizaciones" class="submenu-nav-group active" role="tablist" aria-label="Opciones de Cotizaciones">
+        <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
+          <span>✨</span> Nueva Cotización
+        </button>
+        <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">
+          <span>📜</span> Historial <span class="badge-count" id="badge-quotes-count">0</span>
+        </button>
+        <button type="button" class="subnav-btn tab-btn" data-subview="view-catalogo" data-view="view-catalogo" role="tab" aria-selected="false">
+          <span>📦</span> Catálogo de Precios
+        </button>
+        <button type="button" class="subnav-btn tab-btn" data-subview="view-config" data-view="view-config" role="tab" aria-selected="false">
+          <span>⚙️</span> Mi Negocio
+        </button>
+      </div>
+
+      <!-- Submenú Cuentas de Cobro -->
+      <div id="submenu-cuentas-cobro" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cuentas de Cobro" style="display: none;">
+        <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">
+          <span>✨</span> Nueva Cuenta
+        </button>
+        <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">
+          <span>📜</span> Historial <span class="badge-count" id="badge-cobros-count">0</span>
+        </button>
+        <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-emisor" data-view="view-cobro-emisor" role="tab" aria-selected="false">
+          <span>👤</span> Mis Datos
+        </button>
+      </div>
+
     </div>
   </nav>
 
@@ -556,6 +596,9 @@
               <button id="btn-cc-preview-pdf" type="button">
                 <span>👁️</span> Ver PDF
               </button>
+              <button id="btn-cc-save" type="button" class="btn-primary">
+                <span>💾</span> Guardar Cuenta
+              </button>
               <button id="btn-cc-whatsapp" type="button">
                 <span>💬</span> WhatsApp Solo Texto
               </button>
@@ -699,6 +742,165 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA: HISTORIAL DE CUENTAS DE COBRO
+         ======================================================== -->
+    <section id="view-cobro-historial" class="view-section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📜</span> Historial de Cuentas de Cobro
+          </div>
+          <button type="button" class="btn-primary" id="btn-hist-create-new-cobro" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
+            <span>✨</span> Nueva Cuenta
+          </button>
+        </div>
+        
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
+          Revisa cuentas guardadas, consulta saldos pendientes o cobrados, descarga PDFs, envía por WhatsApp y respalda tus datos.
+        </p>
+
+        <!-- Tarjetas de Resumen Financiero -->
+        <div class="cobro-stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Cuentas</div>
+            <div class="stat-value" id="cc-stat-total-count">0</div>
+            <div class="stat-sub">Registradas en el dispositivo</div>
+          </div>
+          <div class="stat-card stat-card-pending">
+            <div class="stat-label">Por Cobrar (Pendiente)</div>
+            <div class="stat-value text-amber" id="cc-stat-pending-amount">$0</div>
+            <div class="stat-sub">Cuentas pendientes de pago</div>
+          </div>
+          <div class="stat-card stat-card-paid">
+            <div class="stat-label">Total Cobrado (Pagadas)</div>
+            <div class="stat-value text-emerald" id="cc-stat-paid-amount">$0</div>
+            <div class="stat-sub">Cuentas marcadas como pagadas</div>
+          </div>
+        </div>
+
+        <!-- Barra de Búsqueda y Filtros -->
+        <div class="cobro-filters-bar">
+          <div class="filter-input-wrap search-wrap">
+            <label for="cc-hist-search" class="sr-only">Buscar por cliente o número</label>
+            <input type="text" id="cc-hist-search" placeholder="🔍 Buscar por cliente, NIT, número o concepto..." autocomplete="off">
+          </div>
+          <div class="filter-input-wrap select-wrap">
+            <label for="cc-hist-filter-status" class="sr-only">Filtrar por estado</label>
+            <select id="cc-hist-filter-status">
+              <option value="all">Todos los estados</option>
+              <option value="pendiente">Solo Pendientes</option>
+              <option value="pagada">Solo Pagadas</option>
+            </select>
+          </div>
+          <div class="filter-input-wrap month-wrap">
+            <label for="cc-hist-filter-month" class="sr-only">Filtrar por mes</label>
+            <input type="month" id="cc-hist-filter-month" title="Filtrar por mes y año">
+          </div>
+          <button type="button" id="btn-cc-clear-filters" class="btn-secondary" style="min-height: 42px; font-size: 0.82rem; padding: 0 12px;" title="Limpiar búsqueda y filtros">
+            Limpiar
+          </button>
+        </div>
+
+        <!-- Barra de Respaldo: Exportar e Importar -->
+        <div class="cobro-backup-bar">
+          <div class="backup-info">
+            <span>💾 Respaldo de información:</span>
+          </div>
+          <div class="backup-actions">
+            <button type="button" id="btn-cc-export-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;" title="Descargar copia del historial en archivo JSON">
+              <span>📥</span> Exportar historial (.json)
+            </button>
+            <button type="button" id="btn-cc-import-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;" title="Cargar historial desde archivo JSON previamente guardado">
+              <span>📤</span> Importar historial (.json)
+            </button>
+            <input type="file" id="cc-import-history-file" accept=".json,application/json" style="display: none;">
+          </div>
+        </div>
+
+        <!-- Lista del Historial de Cuentas de Cobro -->
+        <div id="cc-history-list" class="cobro-history-list"></div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA: MIS DATOS DE EMISOR (QUIEN COBRA)
+         ======================================================== -->
+    <section id="view-cobro-emisor" class="view-section">
+      <div class="card" style="max-width: 820px; margin: 0 auto;">
+        <div class="card-header">
+          <div class="card-title">
+            <span>👤</span> Mis Datos de Emisor <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-back-to-cobro-form" style="padding: 6px 12px; font-size: 0.8rem; min-height: 38px;">
+            ← Ir a Crear Cuenta
+          </button>
+        </div>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
+          Estos datos son fijos para todas tus cuentas de cobro. Se guardan automáticamente en tu dispositivo.
+        </p>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="cc-emisor-name-tab">Tu nombre completo</label>
+            <input id="cc-emisor-name-tab" type="text" placeholder="Pedro Luis Roa Mora">
+          </div>
+          <div class="input-group">
+            <label for="cc-emisor-cc-tab">Cédula de Ciudadanía (C.C.)</label>
+            <input id="cc-emisor-cc-tab" type="text" placeholder="1.015.409.172">
+          </div>
+          <div class="input-group">
+            <label for="cc-emisor-city-tab">Ciudad de expedición de la C.C.</label>
+            <input id="cc-emisor-city-tab" type="text" placeholder="Bogotá">
+          </div>
+          <div class="input-group">
+            <label for="cc-emisor-phone-tab">Teléfono / WhatsApp</label>
+            <input id="cc-emisor-phone-tab" type="tel" placeholder="3024555428">
+          </div>
+          <div class="input-group full-width">
+            <label for="cc-emisor-address-tab">Dirección</label>
+            <input id="cc-emisor-address-tab" type="text" placeholder="Carrera 70g 78a-80">
+          </div>
+          
+          <!-- Firma digitalizada -->
+          <div class="input-group full-width">
+            <label>Firma digitalizada (opcional)</label>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <input type="file" id="cc-firma-input-tab" accept="image/png, image/jpeg, image/jpg" style="display: none;">
+              <button type="button" id="btn-cc-upload-firma-tab" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; min-height: 44px;">
+                📁 Subir imagen de firma (PNG/JPG)
+              </button>
+              <button type="button" id="btn-cc-remove-firma-tab" class="btn-danger" style="display: none; padding: 8px 16px; font-size: 0.85rem; min-height: 44px;">
+                🗑️ Eliminar firma
+              </button>
+              <div id="cc-firma-status-tab" style="font-size: 0.82rem; color: var(--text-muted);">Sin firma (espacio en blanco)</div>
+            </div>
+            <div id="cc-firma-preview-box-tab" style="display: none; margin-top: 10px; padding: 10px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border); width: fit-content;">
+              <img id="cc-firma-preview-img-tab" src="" alt="Firma previa" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+            </div>
+          </div>
+
+          <!-- Texto legal editable -->
+          <div class="input-group full-width">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="cc-legal-text-tab" style="margin-bottom: 0;">Texto legal por defecto (3 párrafos)</label>
+              <button type="button" id="btn-cc-reset-legal-tab" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer texto legal original">
+                🔄 Restablecer
+              </button>
+            </div>
+            <textarea id="cc-legal-text-tab" rows="6" style="font-size: 0.82rem; line-height: 1.4;"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
+          <button type="button" id="btn-save-emisor-tab" class="btn-primary" style="min-height: 44px; padding: 10px 22px;">
+            <span>💾</span> Guardar Mis Datos
+          </button>
+        </div>
       </div>
     </section>
 
