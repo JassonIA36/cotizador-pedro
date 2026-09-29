@@ -2040,47 +2040,46 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     'view-cobro-emisor': 'Mis Datos de Emisor'
   };
 
-  // Cambiar entre las dos secciones principales ("Cotizaciones" y "Cuentas de cobro")
-  function switchMainSection(section, targetSubview = null) {
+  // Volver al Menú Principal (Solo 2 Opciones)
+  function goToMainMenu() {
+    const navWrap = $('section-nav-wrapper');
+    if (navWrap) navWrap.style.display = 'none';
+
+    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+    if ($('view-main-menu')) $('view-main-menu').classList.add('active');
+
+    state.activeMainSection = 'main-menu';
+    setStorage('pr_active_tab', 'view-main-menu');
+
+    updateMobileStickyBar();
+    updateBadges();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Entrar a una sección principal ('cotizaciones' o 'cuentas-cobro')
+  function enterSection(section, targetSubview = null) {
     const isCobro = section === 'cuentas-cobro';
     const mainSection = isCobro ? 'cuentas-cobro' : 'cotizaciones';
     state.activeMainSection = mainSection;
     setStorage('pr_active_main_section', mainSection);
 
-    // Actualizar botones principales
-    const btnCot = $('btn-main-cotizaciones');
-    const btnCobro = $('btn-main-cobro');
-    if (btnCot) {
-      btnCot.classList.toggle('active', !isCobro);
-      btnCot.setAttribute('aria-selected', !isCobro ? 'true' : 'false');
-    }
-    if (btnCobro) {
-      btnCobro.classList.toggle('active', isCobro);
-      btnCobro.setAttribute('aria-selected', isCobro ? 'true' : 'false');
+    // Mostrar barra de navegación de sección y ocultar menú principal
+    const navWrap = $('section-nav-wrapper');
+    if (navWrap) navWrap.style.display = 'block';
+
+    // Actualizar indicador de sección activa
+    const badge = $('section-active-badge');
+    if (badge) {
+      badge.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
     }
 
-    // Alternar visibilidad de los submenús
+    // Alternar submenú visible
     const subCot = $('submenu-cotizaciones');
     const subCobro = $('submenu-cuentas-cobro');
     if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
     if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
 
-    // Actualizar breadcrumbs e indicador de sección
-    const crumbSection = $('nav-crumb-section');
-    if (crumbSection) {
-      crumbSection.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
-    }
-
-    const switchBtnText = $('btn-switch-section-text');
-    const switchBtnIcon = $('btn-switch-section-icon');
-    if (switchBtnText) {
-      switchBtnText.textContent = isCobro ? 'Ir a Cotizaciones' : 'Ir a Cuentas de cobro';
-    }
-    if (switchBtnIcon) {
-      switchBtnIcon.textContent = isCobro ? '📋' : '💼';
-    }
-
-    // Determinar la subvista correspondiente
+    // Determinar subvista a mostrar
     let subviewToOpen = targetSubview;
     if (!subviewToOpen) {
       subviewToOpen = isCobro
@@ -2088,7 +2087,6 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         : (state.activeSubviewCot || 'view-cotizador');
     }
 
-    // Validar que pertenezca a la sección
     if (SUBVIEW_SECTION_MAP[subviewToOpen] !== mainSection) {
       subviewToOpen = isCobro ? 'view-cuentas-cobro' : 'view-cotizador';
     }
@@ -2098,39 +2096,31 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
   // Cambiar entre opciones del submenú propio
   function switchSubview(viewId, forcedSection = null) {
+    if (viewId === 'view-main-menu') {
+      goToMainMenu();
+      return;
+    }
+
     if (!$(viewId)) return;
     const targetSection = forcedSection || SUBVIEW_SECTION_MAP[viewId] || 'cotizaciones';
+    const isCobro = targetSection === 'cuentas-cobro';
 
-    // Si la sección principal no coincide, sincronizarla
-    if (state.activeMainSection !== targetSection) {
-      state.activeMainSection = targetSection;
-      setStorage('pr_active_main_section', targetSection);
+    state.activeMainSection = targetSection;
+    setStorage('pr_active_main_section', targetSection);
 
-      const isCobro = targetSection === 'cuentas-cobro';
-      const btnCot = $('btn-main-cotizaciones');
-      const btnCobro = $('btn-main-cobro');
-      if (btnCot) {
-        btnCot.classList.toggle('active', !isCobro);
-        btnCot.setAttribute('aria-selected', !isCobro ? 'true' : 'false');
-      }
-      if (btnCobro) {
-        btnCobro.classList.toggle('active', isCobro);
-        btnCobro.setAttribute('aria-selected', isCobro ? 'true' : 'false');
-      }
-      const subCot = $('submenu-cotizaciones');
-      const subCobro = $('submenu-cuentas-cobro');
-      if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
-      if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
+    // Asegurar que la barra de sección esté visible
+    const navWrap = $('section-nav-wrapper');
+    if (navWrap) navWrap.style.display = 'block';
 
-      const crumbSection = $('nav-crumb-section');
-      if (crumbSection) {
-        crumbSection.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
-      }
-      const switchBtnText = $('btn-switch-section-text');
-      const switchBtnIcon = $('btn-switch-section-icon');
-      if (switchBtnText) switchBtnText.textContent = isCobro ? 'Ir a Cotizaciones' : 'Ir a Cuentas de cobro';
-      if (switchBtnIcon) switchBtnIcon.textContent = isCobro ? '📋' : '💼';
+    const badge = $('section-active-badge');
+    if (badge) {
+      badge.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
     }
+
+    const subCot = $('submenu-cotizaciones');
+    const subCobro = $('submenu-cuentas-cobro');
+    if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
+    if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
 
     // Actualizar botones de submenú activos
     document.querySelectorAll('.subnav-btn, .tab-btn').forEach(btn => {
@@ -2142,12 +2132,6 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // Ocultar todas las demás vistas y mostrar únicamente la seleccionada
     document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
     $(viewId).classList.add('active');
-
-    // Actualizar breadcrumb de subvista
-    const crumbSubview = $('nav-crumb-subview');
-    if (crumbSubview) {
-      crumbSubview.textContent = SUBVIEW_NAMES_MAP[viewId] || 'Inicio';
-    }
 
     // Guardar última subvista en localStorage con try/catch
     if (targetSection === 'cuentas-cobro') {
@@ -2179,24 +2163,21 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
   // --- Event Listeners Setup ---
   function setupEvents() {
-    // 1. Navegación Principal (Cotizaciones / Cuentas de cobro)
+    // 1. Menú Principal: Botones de selección de módulo
     const btnMainCot = $('btn-main-cotizaciones');
     if (btnMainCot) {
-      btnMainCot.addEventListener('click', () => switchMainSection('cotizaciones'));
+      btnMainCot.addEventListener('click', () => enterSection('cotizaciones'));
     }
 
     const btnMainCobro = $('btn-main-cobro');
     if (btnMainCobro) {
-      btnMainCobro.addEventListener('click', () => switchMainSection('cuentas-cobro'));
+      btnMainCobro.addEventListener('click', () => enterSection('cuentas-cobro'));
     }
 
-    // Botón para alternar rápidamente entre Cotizaciones y Cuentas de cobro
-    const btnToggleMainSection = $('btn-toggle-main-section');
-    if (btnToggleMainSection) {
-      btnToggleMainSection.addEventListener('click', () => {
-        const next = (state.activeMainSection === 'cuentas-cobro') ? 'cotizaciones' : 'cuentas-cobro';
-        switchMainSection(next);
-      });
+    // Botón para volver al Menú Principal
+    const btnBackMain = $('btn-back-to-main-menu');
+    if (btnBackMain) {
+      btnBackMain.addEventListener('click', goToMainMenu);
     }
 
     // 2. Submenús (Cada opción abre su propia vista)
@@ -2372,25 +2353,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     }
 
     // 5. Restaurar última sección y opción usada en localStorage
-    const savedSection = getStorage('pr_active_main_section', 'cotizaciones');
-    const legacyTab = getStorage('pr_active_tab', null);
-    let initialSubview = null;
-
-    if (savedSection === 'cuentas-cobro') {
-      initialSubview = getStorage('pr_active_subview_cobro', 'view-cuentas-cobro');
+    const savedTab = getStorage('pr_active_tab', null);
+    if (savedTab && SUBVIEW_SECTION_MAP[savedTab]) {
+      const sec = SUBVIEW_SECTION_MAP[savedTab];
+      enterSection(sec, savedTab);
+    } else if (savedTab === 'view-main-menu') {
+      goToMainMenu();
     } else {
-      initialSubview = getStorage('pr_active_subview_cot', 'view-cotizador');
+      goToMainMenu();
     }
-
-    // Compatibilidad si venía de versión previa
-    if (legacyTab && SUBVIEW_SECTION_MAP[legacyTab]) {
-      const legacySection = SUBVIEW_SECTION_MAP[legacyTab];
-      if (legacySection === savedSection) {
-        initialSubview = legacyTab;
-      }
-    }
-
-    switchMainSection(savedSection, initialSubview);
 
     // Theme toggle
     const themeToggle = $('theme-toggle');
@@ -2875,10 +2846,16 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     }
   }
 
-  // Init application
-  window.addEventListener('DOMContentLoaded', () => {
+  // Init application safely (executes immediately if DOM is ready or on DOMContentLoaded)
+  function boot() {
     initForm();
     setupEvents();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 
 })();

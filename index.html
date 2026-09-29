@@ -58,37 +58,22 @@
     </div>
   </aside>
 
-  <!-- Navegación Principal y Submenús -->
-  <nav class="app-nav-wrapper np" aria-label="Navegación principal">
+  <!-- Navegación de Sección (visible solo cuando se está dentro de Cotizaciones o Cuentas de Cobro) -->
+  <nav id="section-nav-wrapper" class="app-nav-wrapper np" aria-label="Navegación de sección" style="display: none;">
     <div class="nav-inner-container">
       
-      <!-- Menú Principal: Solo 2 opciones principales -->
-      <div class="main-menu-nav" role="tablist" aria-label="Secciones principales">
-        <button type="button" class="main-menu-btn active" id="btn-main-cotizaciones" data-section="cotizaciones" role="tab" aria-selected="true">
-          <span class="main-menu-icon">📋</span>
-          <span class="main-menu-text">Cotizaciones</span>
+      <!-- Barra superior: Botón claro para volver al Menú Principal + Indicador de Sección Activa -->
+      <div class="section-top-bar">
+        <button type="button" id="btn-back-to-main-menu" class="btn-back-main" title="Volver al menú principal">
+          <span class="back-arrow">←</span> Menú Principal
         </button>
-        <button type="button" class="main-menu-btn" id="btn-main-cobro" data-section="cuentas-cobro" role="tab" aria-selected="false">
-          <span class="main-menu-icon">💼</span>
-          <span class="main-menu-text">Cuentas de cobro</span>
-        </button>
-      </div>
-
-      <!-- Barra de Estado / Breadcrumb & Selector de retorno -->
-      <div class="nav-context-bar">
-        <div class="nav-context-crumbs">
-          <span id="nav-crumb-section" class="crumb-section-tag">📋 Cotizaciones</span>
-          <span class="crumb-arrow">›</span>
-          <span id="nav-crumb-subview" class="crumb-subview-tag">Nueva Cotización</span>
+        <div class="section-badge-wrap">
+          <span id="section-active-badge" class="section-active-badge">📋 Cotizaciones</span>
         </div>
-        <button type="button" id="btn-toggle-main-section" class="btn-context-switch" title="Cambiar a la otra sección principal">
-          <span id="btn-switch-section-icon">💼</span>
-          <span id="btn-switch-section-text">Ir a Cuentas de cobro</span>
-        </button>
       </div>
 
       <!-- Submenú Cotizaciones -->
-      <div id="submenu-cotizaciones" class="submenu-nav-group active" role="tablist" aria-label="Opciones de Cotizaciones">
+      <div id="submenu-cotizaciones" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cotizaciones" style="display: none;">
         <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
           <span>✨</span> Nueva Cotización
         </button>
@@ -123,9 +108,66 @@
   <main class="app-container">
 
     <!-- ========================================================
+         VISTA 0: MENÚ PRINCIPAL (SOLO DOS OPCIONES)
+         ======================================================== -->
+    <section id="view-main-menu" class="view-section active">
+      <div class="main-menu-hub">
+        <div class="hub-welcome-banner">
+          <h2 class="hub-title">Menú Principal</h2>
+          <p class="hub-desc">Selecciona el módulo con el que deseas trabajar hoy:</p>
+        </div>
+
+        <div class="hub-cards-grid">
+          <!-- Opción 1: Cotizaciones -->
+          <button type="button" id="btn-main-cotizaciones" class="hub-action-card" data-section="cotizaciones">
+            <div class="hub-card-header-mobile">
+              <div class="hub-card-icon-wrap icon-cotizaciones">
+                <span class="hub-big-icon">📋</span>
+              </div>
+              <h3 class="hub-card-heading">Cotizaciones</h3>
+            </div>
+            <div class="hub-card-info">
+              <p class="hub-card-desc">Crea cotizaciones para tus clientes, revisa el historial, actualiza precios y personaliza tu negocio.</p>
+              <div class="hub-card-pills">
+                <span class="hub-pill">✨ Nueva cotización</span>
+                <span class="hub-pill">📜 Historial</span>
+                <span class="hub-pill">📦 Catálogo</span>
+                <span class="hub-pill">⚙️ Mi Negocio</span>
+              </div>
+            </div>
+            <div class="hub-card-action">
+              <span class="btn-hub-open">Entrar a Cotizaciones ➔</span>
+            </div>
+          </button>
+
+          <!-- Opción 2: Cuentas de Cobro -->
+          <button type="button" id="btn-main-cobro" class="hub-action-card" data-section="cuentas-cobro">
+            <div class="hub-card-header-mobile">
+              <div class="hub-card-icon-wrap icon-cobro">
+                <span class="hub-big-icon">💼</span>
+              </div>
+              <h3 class="hub-card-heading">Cuentas de cobro</h3>
+            </div>
+            <div class="hub-card-info">
+              <p class="hub-card-desc">Emite cuentas de cobro con formato legal y firma, controla saldos pendientes, genera PDFs y envía por WhatsApp.</p>
+              <div class="hub-card-pills">
+                <span class="hub-pill">✨ Nueva cuenta</span>
+                <span class="hub-pill">📜 Historial con pagos</span>
+                <span class="hub-pill">👤 Mis Datos</span>
+              </div>
+            </div>
+            <div class="hub-card-action">
+              <span class="btn-hub-open">Entrar a Cuentas de cobro ➔</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
          VISTA 1: NUEVA COTIZACIÓN
          ======================================================== -->
-    <section id="view-cotizador" class="view-section active">
+    <section id="view-cotizador" class="view-section">
       <div class="cotizador-workspace">
         
         <!-- Columna Izquierda: Formulario y Editor -->
