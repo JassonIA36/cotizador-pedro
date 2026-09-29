@@ -238,95 +238,108 @@
         <!-- Columna Derecha: Vista Previa del Documento Oficial -->
         <div class="cotizador-preview-col">
           <div class="doc-preview-wrapper">
-            <h3 style="font-size: 1.05rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-              <span>👁️</span> Vista Previa del Documento Oficial
-            </h3>
+            <!-- Barra de cabecera con botón para plegar / desplegar -->
+            <div class="preview-header-bar np">
+              <h3 class="preview-heading">
+                <span>👁️</span> Vista Previa del Documento Oficial
+              </h3>
+              <button id="btn-toggle-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
+                <span id="preview-toggle-icon">▲</span>
+                <span id="preview-toggle-text">Ocultar vista previa</span>
+              </button>
+            </div>
 
-            <div class="doc-paper" id="quote-document">
-              <!-- Encabezado del Documento -->
-              <div class="doc-header">
-                <div class="doc-brand-block">
-                  <img src="assets/logo.png" alt="Logo Pedro Roa" class="doc-logo-img">
-                  <div>
-                    <div class="doc-brand-title" id="preview-biz-name">Pedro Roa - Servicios Técnicos</div>
-                    <div class="doc-brand-sub" id="preview-biz-phone">WhatsApp / Tel: +57 302 4555428</div>
-                    <div class="doc-brand-sub" style="font-size: 0.76rem; color: #6b7280;">Soporte Especializado, Ensamble & Mantenimiento</div>
+            <!-- Contenedor plegable con animación suave -->
+            <div id="preview-collapsible" class="preview-collapsible-content">
+              <div class="preview-collapsible-inner">
+                <div class="doc-paper" id="quote-document">
+                  <!-- Encabezado del Documento -->
+                  <div class="doc-header">
+                    <div class="doc-brand-block">
+                      <img src="assets/logo.png" alt="Logo Pedro Roa" class="doc-logo-img">
+                      <div>
+                        <div class="doc-brand-title" id="preview-biz-name">Pedro Roa - Servicios Técnicos</div>
+                        <div class="doc-brand-sub" id="preview-biz-phone">WhatsApp / Tel: +57 302 4555428</div>
+                        <div class="doc-brand-sub" style="font-size: 0.76rem; color: #6b7280;">Soporte Especializado, Ensamble & Mantenimiento</div>
+                      </div>
+                    </div>
+                    <div class="doc-meta-right">
+                      <div class="doc-badge-number" id="preview-quote-num">COT-0001</div>
+                      <div class="doc-date-line" id="preview-date-issue">Fecha: --</div>
+                      <div class="doc-date-line" id="preview-date-expire">Vence: --</div>
+                    </div>
+                  </div>
+
+                  <!-- Tarjeta Cliente -->
+                  <div class="doc-client-card">
+                    <div>
+                      <strong>CLIENTE:</strong>
+                      <span id="preview-client-name">Cliente General</span>
+                    </div>
+                    <div>
+                      <strong>TELÉFONO / WHATSAPP:</strong>
+                      <span id="preview-client-phone">No registrado</span>
+                    </div>
+                    <div id="preview-equip-row" class="full-width" style="grid-column: 1 / -1; display: none;">
+                      <strong>EQUIPO / DIAGNÓSTICO:</strong>
+                      <span id="preview-client-equip">--</span>
+                    </div>
+                  </div>
+
+                  <!-- Tabla de Ítems Responsiva -->
+                  <div class="doc-table-responsive">
+                    <table class="doc-table">
+                      <thead>
+                        <tr>
+                          <th>Descripción del Servicio o Producto</th>
+                          <th class="text-right">Cant.</th>
+                          <th class="text-right">Vr. Unitario</th>
+                          <th class="text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody id="preview-table-body"></tbody>
+                    </table>
+                  </div>
+
+                  <!-- Desglose de Totales -->
+                  <div class="doc-totals-box">
+                    <div class="doc-total-row">
+                      <span>Subtotal:</span>
+                      <span id="preview-subtotal">$0</span>
+                    </div>
+                    <div class="doc-total-row" id="preview-discount-row" style="display: none; color: #dc2626;">
+                      <span>Descuento:</span>
+                      <span id="preview-discount-val">-$0</span>
+                    </div>
+                    <div class="doc-total-row" id="preview-delivery-row" style="display: none;">
+                      <span>Domicilio / Visita:</span>
+                      <span id="preview-delivery-val">+$0</span>
+                    </div>
+                    <div class="doc-total-row" id="preview-tax-row" style="display: none;">
+                      <span>IVA 19%:</span>
+                      <span id="preview-tax-val">+$0</span>
+                    </div>
+                    <div class="doc-total-grand">
+                      <span>TOTAL:</span>
+                      <span id="preview-total">$0</span>
+                    </div>
+                  </div>
+
+                  <!-- Notas y Condiciones -->
+                  <div class="doc-notes-box">
+                    <strong style="color: #374151;">NOTAS Y CONDICIONES:</strong>
+                    <div id="preview-notes"></div>
+                  </div>
+
+                  <!-- Pie de Firma -->
+                  <div class="doc-footer-sign">
+                    <div>Pedro Roa · Firma autorizada</div>
+                    <div>Documento formal emitido con Cotizador PRO</div>
                   </div>
                 </div>
-                <div class="doc-meta-right">
-                  <div class="doc-badge-number" id="preview-quote-num">COT-0001</div>
-                  <div class="doc-date-line" id="preview-date-issue">Fecha: --</div>
-                  <div class="doc-date-line" id="preview-date-expire">Vence: --</div>
-                </div>
-              </div>
-
-              <!-- Tarjeta Cliente -->
-              <div class="doc-client-card">
-                <div>
-                  <strong>CLIENTE:</strong>
-                  <span id="preview-client-name">Cliente General</span>
-                </div>
-                <div>
-                  <strong>TELÉFONO / WHATSAPP:</strong>
-                  <span id="preview-client-phone">No registrado</span>
-                </div>
-                <div id="preview-equip-row" class="full-width" style="grid-column: 1 / -1; display: none;">
-                  <strong>EQUIPO / DIAGNÓSTICO:</strong>
-                  <span id="preview-client-equip">--</span>
-                </div>
-              </div>
-
-              <!-- Tabla de Ítems Responsiva -->
-              <div class="doc-table-responsive">
-                <table class="doc-table">
-                  <thead>
-                    <tr>
-                      <th>Descripción del Servicio o Producto</th>
-                      <th class="text-right">Cant.</th>
-                      <th class="text-right">Vr. Unitario</th>
-                      <th class="text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody id="preview-table-body"></tbody>
-                </table>
-              </div>
-
-              <!-- Desglose de Totales -->
-              <div class="doc-totals-box">
-                <div class="doc-total-row">
-                  <span>Subtotal:</span>
-                  <span id="preview-subtotal">$0</span>
-                </div>
-                <div class="doc-total-row" id="preview-discount-row" style="display: none; color: #dc2626;">
-                  <span>Descuento:</span>
-                  <span id="preview-discount-val">-$0</span>
-                </div>
-                <div class="doc-total-row" id="preview-delivery-row" style="display: none;">
-                  <span>Domicilio / Visita:</span>
-                  <span id="preview-delivery-val">+$0</span>
-                </div>
-                <div class="doc-total-row" id="preview-tax-row" style="display: none;">
-                  <span>IVA 19%:</span>
-                  <span id="preview-tax-val">+$0</span>
-                </div>
-                <div class="doc-total-grand">
-                  <span>TOTAL:</span>
-                  <span id="preview-total">$0</span>
-                </div>
-              </div>
-
-              <!-- Notas y Condiciones -->
-              <div class="doc-notes-box">
-                <strong style="color: #374151;">NOTAS Y CONDICIONES:</strong>
-                <div id="preview-notes"></div>
-              </div>
-
-              <!-- Pie de Firma -->
-              <div class="doc-footer-sign">
-                <div>Pedro Roa · Firma autorizada</div>
-                <div>Documento formal emitido con Cotizador PRO</div>
               </div>
             </div>
+
           </div>
         </div>
 

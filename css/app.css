@@ -985,9 +985,117 @@ button.btn-icon {
   letter-spacing: -0.02em;
 }
 
-/* Quotation Document Preview (Receipt/Invoice look) */
+/* Quotation Document Preview (Receipt/Invoice look) & Collapsible */
 .doc-preview-wrapper {
   margin-top: 20px;
+}
+
+.preview-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.preview-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-toggle-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--cyan);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-toggle-preview:hover {
+  background: var(--bg-card-solid);
+  border-color: var(--cyan);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-toggle-preview:active {
+  transform: translateY(0);
+}
+
+.btn-toggle-preview.is-collapsed {
+  color: var(--primary);
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.btn-toggle-preview.is-collapsed:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+#preview-toggle-icon {
+  font-size: 0.72rem;
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+  display: inline-block;
+}
+
+.btn-toggle-preview.is-collapsed #preview-toggle-icon {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 540px) {
+  .preview-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .btn-toggle-preview {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    justify-content: center;
+  }
+}
+
+/* Smooth CSS Grid Row Animation for Collapsing */
+.preview-collapsible-content {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease;
+  opacity: 1;
+}
+
+.preview-collapsible-inner {
+  min-height: 0;
+  overflow: hidden;
+  transition: visibility 0.35s;
+}
+
+.preview-collapsible-content.is-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview-collapsible-content.is-collapsed .preview-collapsible-inner {
+  visibility: hidden;
 }
 
 .doc-paper {
@@ -1496,7 +1604,7 @@ button.btn-icon {
     background: #ffffff !important;
     padding: 0 !important;
   }
-  .np, .app-header, .tabs-container, .mobile-sticky-bar, .install-banner, .toast-msg {
+  .np, .app-header, .tabs-container, .mobile-sticky-bar, .install-banner, .toast-msg, .preview-header-bar, .btn-toggle-preview {
     display: none !important;
   }
   .app-container {
@@ -1516,7 +1624,21 @@ button.btn-icon {
   .doc-preview-wrapper {
     margin: 0 !important;
   }
+  .preview-collapsible-content {
+    display: block !important;
+    grid-template-rows: 1fr !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .preview-collapsible-inner {
+    display: block !important;
+    overflow: visible !important;
+    visibility: visible !important;
+  }
   .doc-paper {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     box-shadow: none !important;
     border: none !important;
     padding: 0 !important;

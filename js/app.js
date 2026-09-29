@@ -57,6 +57,61 @@
     }
   }
 
+  // --- Estado de la vista previa de factura (Plegar / Desplegar) ---
+  const PREVIEW_COLLAPSE_KEY = 'pr_preview_collapsed';
+
+  function getPreviewCollapsed() {
+    try {
+      const val = localStorage.getItem(PREVIEW_COLLAPSE_KEY);
+      // Por defecto empieza desplegada (retorna false si no hay nada guardado)
+      return val === 'true';
+    } catch (e) {
+      console.warn('No se pudo leer el estado de la vista previa:', e);
+      return false;
+    }
+  }
+
+  function setPreviewCollapsed(collapsed) {
+    try {
+      localStorage.setItem(PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
+    } catch (e) {
+      console.warn('No se pudo guardar el estado de la vista previa:', e);
+    }
+  }
+
+  function updatePreviewCollapseUI(isCollapsed, animate = true) {
+    const container = $('preview-collapsible');
+    const btn = $('btn-toggle-preview');
+    const txt = $('preview-toggle-text');
+    const icon = $('preview-toggle-icon');
+
+    if (!container || !btn) return;
+
+    if (!animate) {
+      container.style.transition = 'none';
+    }
+
+    if (isCollapsed) {
+      container.classList.add('is-collapsed');
+      btn.classList.add('is-collapsed');
+      btn.setAttribute('aria-expanded', 'false');
+      if (txt) txt.textContent = 'Mostrar vista previa';
+      if (icon) icon.textContent = '▼';
+    } else {
+      container.classList.remove('is-collapsed');
+      btn.classList.remove('is-collapsed');
+      btn.setAttribute('aria-expanded', 'true');
+      if (txt) txt.textContent = 'Ocultar vista previa';
+      if (icon) icon.textContent = '▲';
+    }
+
+    if (!animate) {
+      requestAnimationFrame(() => {
+        container.style.transition = '';
+      });
+    }
+  }
+
   function getStorage(key, fallback) {
     try {
       const val = localStorage.getItem(key);
@@ -617,6 +672,21 @@
         themeToggle.textContent = '🌙';
       }
     });
+
+    // Toggle para desplegar / recoger vista previa de la cotización
+    const btnTogglePreview = $('btn-toggle-preview');
+    if (btnTogglePreview) {
+      btnTogglePreview.addEventListener('click', () => {
+        const isCurrentlyCollapsed = $('preview-collapsible').classList.contains('is-collapsed');
+        const newState = !isCurrentlyCollapsed;
+        updatePreviewCollapseUI(newState, true);
+        setPreviewCollapsed(newState);
+      });
+    }
+
+    // Inicializar estado guardado de la vista previa (por defecto desplegada)
+    const initialPreviewCollapsed = getPreviewCollapsed();
+    updatePreviewCollapseUI(initialPreviewCollapsed, false);
 
     // Add item from catalog
     $('btn-add-catalog').addEventListener('click', () => {
