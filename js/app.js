@@ -550,8 +550,57 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     `).join('');
   }
 
+  function loadQuoteFromHistory(idx) {
+    const saved = state.history[idx];
+    if (!saved) return;
+
+    $('q-client-name').value = saved.clientName || '';
+    if (saved.clientPrefix && $('q-client-prefix')) {
+      $('q-client-prefix').value = saved.clientPrefix;
+    }
+    $('q-client-phone').value = formatLocalPhone(saved.clientPhoneRaw || saved.clientPhone || '', $('q-client-prefix') ? $('q-client-prefix').value : '57');
+    $('q-equipment').value = saved.equipment || '';
+    $('q-discount').value = saved.discountPercent || 0;
+    $('q-delivery').value = saved.deliveryAmount || 0;
+    $('q-tax').value = saved.taxRate || 0;
+    $('q-notes').value = saved.notes || state.business.terms;
+
+    state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
+    
+    switchSubview('view-cotizador', 'cotizaciones');
+    renderQuoteItems();
+    renderLivePreview();
+    showToast(`Cotización ${saved.quoteNumber} cargada`, '📋');
+  }
+
+  function duplicateQuoteFromHistory(idx) {
+    const saved = state.history[idx];
+    if (!saved) return;
+    state.quoteNumber++;
+    setStorage('pr_quote_num', state.quoteNumber);
+
+    $('q-client-name').value = saved.clientName || '';
+    if (saved.clientPrefix && $('q-client-prefix')) {
+      $('q-client-prefix').value = saved.clientPrefix;
+    }
+    $('q-client-phone').value = formatLocalPhone(saved.clientPhoneRaw || saved.clientPhone || '', $('q-client-prefix') ? $('q-client-prefix').value : '57');
+    $('q-equipment').value = saved.equipment || '';
+    $('q-discount').value = saved.discountPercent || 0;
+    $('q-delivery').value = saved.deliveryAmount || 0;
+    $('q-tax').value = saved.taxRate || 0;
+    $('q-notes').value = saved.notes || state.business.terms;
+
+    state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
+    
+    switchSubview('view-cotizador', 'cotizaciones');
+    renderQuoteItems();
+    renderLivePreview();
+    showToast(`Cotización duplicada como ${getQuoteIdString()}`, '📑');
+  }
+
   function renderHistory() {
     const list = $('history-list');
+    if (!list) return;
     if (state.history.length === 0) {
       list.innerHTML = `
         <div style="text-align: center; padding: 36px 16px; color: var(--text-dim); background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
@@ -560,6 +609,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
           <p style="font-size: 0.84rem;">Cuando envíes o guardes cotizaciones, aparecerán en este historial para consultarlas o duplicarlas.</p>
         </div>
       `;
+      updateBadges();
       return;
     }
 
@@ -574,8 +624,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
           <div class="history-side">
             <div class="history-price">${formatMoney(item.total)}</div>
             <div class="history-actions">
-              <button class="btn-primary" data-action="load-history" data-index="${originalIdx}" title="Cargar cotización">✏️ Abrir</button>
-              <button class="btn-danger btn-icon" data-action="delete-history" data-index="${originalIdx}" title="Eliminar">🗑️</button>
+              <button type="button" class="btn-primary" data-action="load-history" data-index="${originalIdx}" title="Cargar cotización">✏️ Abrir</button>
+              <button type="button" class="btn-secondary" data-action="duplicate-history" data-index="${originalIdx}" title="Duplicar cotización">📑 Duplicar</button>
+              <button type="button" class="btn-secondary" data-action="pdf-history" data-index="${originalIdx}" title="Ver PDF">👁️ Ver PDF</button>
+              <button type="button" class="btn-secondary" data-action="whatsapp-history" data-index="${originalIdx}" title="WhatsApp">📲 WhatsApp</button>
+              <button type="button" class="btn-danger btn-icon" data-action="delete-history" data-index="${originalIdx}" title="Eliminar">🗑️</button>
             </div>
           </div>
         </div>
@@ -601,7 +654,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     let pendingCobrosTotal = 0;
     if (Array.isArray(state.cobroHistory)) {
       state.cobroHistory.forEach(item => {
-        const saldo = parseFloat(item.saldo) || 0;
+        const saldo = (item.totals && typeof item.totals.saldo === 'number')
+          ? item.totals.saldo
+          : (parseFloat(item.saldo) || 0);
         if (item.status !== 'pagada' && saldo > 0) {
           pendingCobrosCount++;
           pendingCobrosTotal += saldo;
@@ -613,6 +668,125 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if ($('hub-badge-pending-val')) $('hub-badge-pending-val').textContent = formatMoney(pendingCobrosTotal);
     if ($('hub-stat-cobros-active-count')) {
       $('hub-stat-cobros-active-count').textContent = `${pendingCobrosCount} ${pendingCobrosCount === 1 ? 'cuenta activa' : 'cuentas activas'}`;
+    }
+
+    // Actualizar tarjetas resumen en las pantallas de entrada
+    updateSectionEntrySummaries();
+  }
+
+  // Tarjetas resumen en las pantallas de entrada de Cuentas de Cobro y Cotizaciones
+  function updateSectionEntrySummaries() {
+    // 1. Resumen Cuentas de Cobro
+    const cobroHist = Array.isArray(state.cobroHistory) ? state.cobroHistory : [];
+    let pendingCount = 0;
+    let pendingTotal = 0;
+    let paidCount = 0;
+    let paidTotal = 0;
+    const pendingItems = [];
+
+    cobroHist.forEach(item => {
+      const saldo = (item.totals && typeof item.totals.saldo === 'number')
+        ? item.totals.saldo
+        : (parseFloat(item.saldo) || 0);
+      const isPaid = item.status === 'pagada';
+
+      if (isPaid) {
+        paidCount++;
+        paidTotal += saldo;
+      } else {
+        if (saldo > 0) {
+          pendingCount++;
+          pendingTotal += saldo;
+          pendingItems.push({
+            num: item.cobroNumber || String(item.cobroNum || 1).padStart(3, '0'),
+            rawNum: item.cobroNum,
+            client: item.clientName || 'Cliente General',
+            saldo: saldo
+          });
+        }
+      }
+    });
+
+    if ($('cobro-entry-stat-pending')) $('cobro-entry-stat-pending').textContent = formatMoney(pendingTotal);
+    if ($('cobro-entry-stat-pending-count')) {
+      $('cobro-entry-stat-pending-count').textContent = `${pendingCount} ${pendingCount === 1 ? 'cuenta por cobrar' : 'cuentas por cobrar'}`;
+    }
+    if ($('cobro-entry-stat-paid')) $('cobro-entry-stat-paid').textContent = formatMoney(paidTotal);
+    if ($('cobro-entry-stat-paid-count')) {
+      $('cobro-entry-stat-paid-count').textContent = `${paidCount} ${paidCount === 1 ? 'cuenta pagada' : 'cuentas pagadas'}`;
+    }
+    if ($('cobro-entry-badge-status')) {
+      const badge = $('cobro-entry-badge-status');
+      badge.textContent = pendingCount > 0 ? `${pendingCount} pendientes` : '✅ Al día';
+      badge.className = `card-badge ${pendingCount > 0 ? 'badge-pending' : 'badge-paid'}`;
+    }
+
+    const cobroListEl = $('cobro-entry-pending-list');
+    if (cobroListEl) {
+      if (pendingItems.length === 0) {
+        cobroListEl.innerHTML = `
+          <div class="entry-empty-pending-state">
+            <span class="empty-icon">🎉</span>
+            <div class="entry-empty-text">
+              <strong style="color: #34d399; font-size: 0.86rem; display: block;">¡Al día! No tienes cuentas pendientes</strong>
+              <span style="color: var(--text-muted); font-size: 0.78rem;">Todas tus cuentas registradas están marcadas como pagadas.</span>
+            </div>
+          </div>
+        `;
+      } else {
+        const recentPending = pendingItems.slice(-5).reverse();
+        cobroListEl.innerHTML = recentPending.map(item => `
+          <div class="entry-pending-row" data-cobro-num="${item.rawNum}" title="Toca para ver o editar esta cuenta">
+            <div class="entry-pending-row-left">
+              <span class="entry-pending-num">Cuenta N° ${escapeHtml(item.num)}</span>
+              <span class="entry-pending-client">${escapeHtml(item.client)}</span>
+            </div>
+            <div class="entry-pending-row-right">
+              <span class="entry-pending-amount">${formatMoney(item.saldo)}</span>
+              <span class="entry-pending-arrow">→</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // 2. Resumen Cotizaciones
+    const quoteHist = Array.isArray(state.history) ? state.history : [];
+    const qCount = quoteHist.length;
+    if ($('cot-entry-badge-count')) {
+      $('cot-entry-badge-count').textContent = `${qCount} ${qCount === 1 ? 'cotización' : 'cotizaciones'}`;
+    }
+
+    const cotListEl = $('cot-entry-recent-list');
+    if (cotListEl) {
+      if (qCount === 0) {
+        cotListEl.innerHTML = `
+          <div class="entry-empty-pending-state">
+            <span class="empty-icon">📝</span>
+            <div class="entry-empty-text">
+              <strong style="color: #cbd5e1; font-size: 0.86rem; display: block;">No hay cotizaciones guardadas aún</strong>
+              <span style="color: var(--text-muted); font-size: 0.78rem;">Tus cotizaciones guardadas se listarán aquí para acceso rápido.</span>
+            </div>
+          </div>
+        `;
+      } else {
+        const recentQuotes = quoteHist.slice(-5).reverse();
+        cotListEl.innerHTML = recentQuotes.map((q, idx) => {
+          const originalIdx = quoteHist.length - 1 - idx;
+          return `
+            <div class="entry-pending-row" data-quote-index="${originalIdx}" title="Toca para abrir esta cotización">
+              <div class="entry-pending-row-left">
+                <span class="entry-pending-num">${escapeHtml(q.quoteNumber || 'COT')}</span>
+                <span class="entry-pending-client">${escapeHtml(q.clientName || 'General')}</span>
+              </div>
+              <div class="entry-pending-row-right">
+                <span class="entry-pending-amount" style="color: var(--primary-neon);">${formatMoney(q.total || 0)}</span>
+                <span class="entry-pending-arrow">→</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
   }
 
@@ -2368,6 +2542,39 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       });
     });
 
+    // Botones de las tarjetas resumen de entrada para ir al historial completo
+    const btnCobroEntryHist = $('btn-cobro-entry-view-history');
+    if (btnCobroEntryHist) {
+      btnCobroEntryHist.addEventListener('click', () => switchSubview('view-cobro-historial'));
+    }
+
+    const btnCotEntryHist = $('btn-cot-entry-view-history');
+    if (btnCotEntryHist) {
+      btnCotEntryHist.addEventListener('click', () => switchSubview('view-historial'));
+    }
+
+    // Delegación de clics en la lista de cuentas pendientes del resumen de entrada
+    const cobroEntryList = $('cobro-entry-pending-list');
+    if (cobroEntryList) {
+      cobroEntryList.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-cobro-num]');
+        if (row && row.dataset.cobroNum) {
+          openCobroForEditing(row.dataset.cobroNum);
+        }
+      });
+    }
+
+    // Delegación de clics en la lista de cotizaciones recientes del resumen de entrada
+    const cotEntryList = $('cot-entry-recent-list');
+    if (cotEntryList) {
+      cotEntryList.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-quote-index]');
+        if (row && row.dataset.quoteIndex !== undefined) {
+          loadQuoteFromHistory(parseInt(row.dataset.quoteIndex, 10));
+        }
+      });
+    }
+
     // 3. Eventos del Historial de Cuentas de Cobro
     const btnHistNewCobro = $('btn-hist-create-new-cobro');
     if (btnHistNewCobro) {
@@ -2804,39 +3011,42 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       showToast('Ítem eliminado del catálogo', '🗑️');
     });
 
-    // History interaction
+    // History interaction (Abrir, Duplicar, Ver PDF, WhatsApp, Eliminar)
     $('history-list').addEventListener('click', (e) => {
       const loadBtn = e.target.closest('[data-action="load-history"]');
       if (loadBtn) {
-        const idx = parseInt(loadBtn.dataset.index);
+        const idx = parseInt(loadBtn.dataset.index, 10);
+        loadQuoteFromHistory(idx);
+        return;
+      }
+
+      const dupBtn = e.target.closest('[data-action="duplicate-history"]');
+      if (dupBtn) {
+        const idx = parseInt(dupBtn.dataset.index, 10);
+        duplicateQuoteFromHistory(idx);
+        return;
+      }
+
+      const pdfBtn = e.target.closest('[data-action="pdf-history"]');
+      if (pdfBtn) {
+        const idx = parseInt(pdfBtn.dataset.index, 10);
         const saved = state.history[idx];
-        if (!saved) return;
+        if (saved) window.PedroRoaPdf.previewPdf(saved);
+        return;
+      }
 
-        $('q-client-name').value = saved.clientName || '';
-        if (saved.clientPrefix && $('q-client-prefix')) {
-          $('q-client-prefix').value = saved.clientPrefix;
-        }
-        $('q-client-phone').value = formatLocalPhone(saved.clientPhoneRaw || saved.clientPhone || '', $('q-client-prefix') ? $('q-client-prefix').value : '57');
-        $('q-equipment').value = saved.equipment || '';
-        $('q-discount').value = saved.discountPercent || 0;
-        $('q-delivery').value = saved.deliveryAmount || 0;
-        $('q-tax').value = saved.taxRate || 0;
-        $('q-notes').value = saved.notes || state.business.terms;
-
-        state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
-        
-        // Switch to cotizador view
-        document.querySelector('.tab-btn[data-view="view-cotizador"]').click();
-        renderQuoteItems();
-        renderLivePreview();
-        showToast(`Cotización ${saved.quoteNumber} cargada`, '📋');
+      const waBtn = e.target.closest('[data-action="whatsapp-history"]');
+      if (waBtn) {
+        const idx = parseInt(waBtn.dataset.index, 10);
+        const saved = state.history[idx];
+        if (saved) window.PedroRoaPdf.sharePdfViaWhatsApp(saved);
         return;
       }
 
       const delBtn = e.target.closest('[data-action="delete-history"]');
       if (delBtn) {
         if (confirm('¿Eliminar esta cotización del historial?')) {
-          const idx = parseInt(delBtn.dataset.index);
+          const idx = parseInt(delBtn.dataset.index, 10);
           state.history.splice(idx, 1);
           setStorage('pr_history', state.history);
           renderHistory();

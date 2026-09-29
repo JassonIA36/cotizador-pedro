@@ -251,6 +251,30 @@
         <!-- Columna Izquierda: Formulario y Editor -->
         <div class="cotizador-form-col">
 
+          <!-- Tarjeta Resumen en la Pantalla de Entrada de Cotizaciones -->
+          <div id="cotizador-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                <span>📋</span> Cotizaciones Guardadas
+              </div>
+              <span class="card-badge" id="cot-entry-badge-count">0 cotizaciones</span>
+            </div>
+
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                <span>📜</span> Últimas cotizaciones registradas:
+              </div>
+              <div id="cot-entry-recent-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente: N°, Cliente, Total -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-cot-entry-view-history" class="btn-entry-history-full">
+                  📜 Ver historial completo →
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Datos del Cliente -->
           <div class="card np">
             <div class="card-header">
@@ -517,6 +541,45 @@
         
         <!-- Columna Izquierda: Formulario de la Cuenta de Cobro -->
         <div class="cotizador-form-col">
+
+          <!-- Tarjeta Resumen Financiero en la Pantalla de Entrada de Cuentas de Cobro -->
+          <div id="cobro-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                <span>💼</span> Control Financiero de Cuentas de Cobro
+              </div>
+              <span class="card-badge" id="cobro-entry-badge-status">0 pendientes</span>
+            </div>
+
+            <!-- Resumen con 3 métricas: Total Pendiente, Cantidad Pendientes, Total Cobrado -->
+            <div class="entry-stats-grid">
+              <div class="entry-stat-card stat-pending-glow">
+                <span class="entry-stat-label text-amber">Por Cobrar (Pendiente)</span>
+                <span class="entry-stat-val text-amber" id="cobro-entry-stat-pending">$0</span>
+                <span class="entry-stat-sub" id="cobro-entry-stat-pending-count">0 cuentas por cobrar</span>
+              </div>
+              <div class="entry-stat-card stat-paid-glow">
+                <span class="entry-stat-label text-emerald">Total Cobrado (Pagadas)</span>
+                <span class="entry-stat-val text-emerald" id="cobro-entry-stat-paid">$0</span>
+                <span class="entry-stat-sub" id="cobro-entry-stat-paid-count">0 cuentas pagadas</span>
+              </div>
+            </div>
+
+            <!-- Lista de las últimas 3 a 5 cuentas pendientes -->
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                <span>⏳</span> Cuentas pendientes por cobrar:
+              </div>
+              <div id="cobro-entry-pending-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente: N°, Cliente, Saldo -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-cobro-entry-view-history" class="btn-entry-history-full">
+                  📜 Ver historial completo →
+                </button>
+              </div>
+            </div>
+          </div>
 
           <!-- Panel Plegable: Mis Datos (Quien Cobra) -->
           <div class="card np">
