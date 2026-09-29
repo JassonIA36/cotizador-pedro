@@ -28,7 +28,35 @@
     { c: "Impresoras", n: "Juego de tintas originales 4 colores", p: 130000 }
   ];
 
-  // Helper storage functions
+  // --- Clave fija para el catálogo en localStorage ---
+  const CATALOG_STORAGE_KEY = 'pr_catalog';
+
+  // Helper storage functions con try/catch para evitar errores si el almacenamiento está bloqueado
+  function loadCatalogFromStorage() {
+    try {
+      const stored = localStorage.getItem(CATALOG_STORAGE_KEY);
+      if (stored !== null && stored !== undefined) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudo leer el catálogo de localStorage:', e);
+    }
+    // Solo si no hay nada guardado en localStorage, se usa el catálogo de ejemplo
+    // Se retorna una copia para no mutar el array original
+    return JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+  }
+
+  function saveCatalogToStorage(catalog) {
+    try {
+      localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+    } catch (e) {
+      console.warn('No se pudo guardar el catálogo en localStorage:', e);
+    }
+  }
+
   function getStorage(key, fallback) {
     try {
       const val = localStorage.getItem(key);
@@ -46,7 +74,8 @@
 
   // --- App State ---
   const state = {
-    catalog: getStorage('pr_catalog', DEFAULT_CATALOG),
+    // Lee primero lo guardado en localStorage; solo si no hay nada guardado usa el catálogo de ejemplo
+    catalog: loadCatalogFromStorage(),
     quoteNumber: getStorage('pr_quote_num', 1),
     business: getStorage('pr_business', {
       name: 'Pedro Roa - Servicios Técnicos',
@@ -741,7 +770,7 @@
         n: '',
         p: 0
       });
-      setStorage('pr_catalog', state.catalog);
+      saveCatalogToStorage(state.catalog);
       renderCatalogManager();
       renderCatalogSelect();
       const firstInput = document.querySelector('#catalog-manage-list input[data-field="n"]');
@@ -751,14 +780,15 @@
     $('btn-cat-restore').addEventListener('click', () => {
       if (confirm('¿Restaurar catálogo inicial de servicios y productos de Pedro Roa? Se borrarán las personalizaciones.')) {
         state.catalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
-        setStorage('pr_catalog', state.catalog);
+        saveCatalogToStorage(state.catalog);
         renderCatalogManager();
         renderCatalogSelect();
         showToast('Catálogo inicial restaurado', '🔄');
       }
     });
 
-    $('catalog-manage-list').addEventListener('input', (e) => {
+    // Guardar cambios al editar cualquier campo (nombre, categoría o precio)
+    const handleCatalogFieldChange = (e) => {
       const target = e.target;
       const row = target.closest('.catalog-item-row');
       if (!row) return;
@@ -771,17 +801,21 @@
       if (field === 'n') item.n = target.value;
       if (field === 'p') item.p = Math.max(0, parseFloat(target.value) || 0);
 
-      setStorage('pr_catalog', state.catalog);
+      saveCatalogToStorage(state.catalog);
       renderCatalogSelect();
-    });
+    };
 
+    $('catalog-manage-list').addEventListener('input', handleCatalogFieldChange);
+    $('catalog-manage-list').addEventListener('change', handleCatalogFieldChange);
+
+    // Guardar catálogo al borrar un producto
     $('catalog-manage-list').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action="delete-cat-item"]');
       if (!btn) return;
       const row = btn.closest('.catalog-item-row');
       const idx = parseInt(row.dataset.index);
       state.catalog.splice(idx, 1);
-      setStorage('pr_catalog', state.catalog);
+      saveCatalogToStorage(state.catalog);
       renderCatalogManager();
       renderCatalogSelect();
       showToast('Ítem eliminado del catálogo', '🗑️');
