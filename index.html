@@ -83,236 +83,254 @@
          VISTA 1: NUEVA COTIZACIÓN
          ======================================================== -->
     <section id="view-cotizador" class="view-section active">
-      
-      <!-- Datos del Cliente -->
-      <div class="card np">
-        <div class="card-header">
-          <div class="card-title">
-            <span>👤</span> Datos del Cliente
-          </div>
-          <span class="card-badge" id="preview-quote-badge">Cotización Activa</span>
-        </div>
-        <div class="form-grid">
-          <div class="input-group">
-            <label for="q-client-name">Nombre del cliente</label>
-            <input id="q-client-name" type="text" placeholder="Ej: Carlos Mendoza" autocomplete="name">
-          </div>
-          <div class="input-group">
-            <label for="q-client-phone">WhatsApp del cliente</label>
-            <div class="phone-input-group">
-              <select id="q-client-prefix" class="phone-prefix-select" aria-label="Código de país WhatsApp">
-                <option value="57" selected>🇨🇴 +57</option>
-                <option value="1">🇺🇸 +1</option>
-                <option value="34">🇪🇸 +34</option>
-                <option value="58">🇻🇪 +58</option>
-                <option value="52">🇲🇽 +52</option>
-                <option value="54">🇦🇷 +54</option>
-                <option value="56">🇨🇱 +56</option>
-                <option value="51">🇵🇪 +51</option>
-                <option value="593">🇪🇨 +593</option>
-                <option value="507">🇵🇦 +507</option>
-              </select>
-              <input id="q-client-phone" type="tel" inputmode="tel" placeholder="310 123 4567" autocomplete="tel">
-            </div>
-            <div id="q-phone-feedback" class="phone-feedback-badge">
-              <span>📱</span> WhatsApp completo: <strong id="q-phone-feedback-num">+57 (escribe el número)</strong>
-            </div>
-          </div>
-          <div class="input-group full-width">
-            <label for="q-equipment">Equipo / Descripción de la falla o requerimiento</label>
-            <input id="q-equipment" type="text" placeholder="Ej: Portátil ASUS TUF Gaming - Mantenimiento y cambio de pasta térmica">
-          </div>
-        </div>
-      </div>
-
-      <!-- Ítems de la Cotización -->
-      <div class="card np">
-        <div class="card-header">
-          <div class="card-title">
-            <span>📦</span> Ítems & Servicios
-          </div>
-          <button id="btn-add-line" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
-            + Línea libre
-          </button>
-        </div>
-
-        <div class="form-grid" style="align-items: flex-end; margin-bottom: 8px;">
-          <div class="input-group" style="flex: 2;">
-            <label for="catalog-select">Seleccionar del catálogo de Pedro Roa</label>
-            <select id="catalog-select"></select>
-          </div>
-          <div class="input-group" style="flex: 1;">
-            <button id="btn-add-catalog" class="btn-primary" style="width: 100%; height: 42px;">
-              + Agregar ítem
-            </button>
-          </div>
-        </div>
-
-        <!-- Lista dinámica de líneas -->
-        <div id="quote-lines" class="lines-container"></div>
-      </div>
-
-      <!-- Ajustes Financieros & Condiciones -->
-      <div class="card np">
-        <div class="card-header">
-          <div class="card-title">
-            <span>💰</span> Descuentos, Domicilio & Condiciones
-          </div>
-        </div>
-        <div class="form-grid-4">
-          <div class="input-group">
-            <label for="q-discount">Descuento (%)</label>
-            <input id="q-discount" type="number" min="0" max="100" value="0">
-          </div>
-          <div class="input-group">
-            <label for="q-delivery">Domicilio / Visita ($)</label>
-            <input id="q-delivery" type="number" min="0" step="5000" value="0">
-          </div>
-          <div class="input-group">
-            <label for="q-validity">Vigencia (Días)</label>
-            <input id="q-validity" type="number" min="1" value="15">
-          </div>
-          <div class="input-group">
-            <label for="q-tax">IVA</label>
-            <select id="q-tax">
-              <option value="0">Sin IVA</option>
-              <option value="0.19">IVA 19%</option>
-            </select>
-          </div>
-          <div class="input-group full-width">
-            <label for="q-notes">Garantía, notas y observaciones</label>
-            <textarea id="q-notes" rows="2"></textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- Barra de Acciones Principales -->
-      <div class="card np" style="background: rgba(22, 26, 36, 0.95); border: 1px solid var(--border-light);">
-        <div class="card-header" style="margin-bottom: 10px;">
-          <div class="card-title">
-            <span>🚀</span> Acciones de Envío y Exportación
-          </div>
-        </div>
+      <div class="cotizador-workspace">
         
-        <div class="action-bar">
-          <button id="btn-send-whatsapp-pdf" class="btn-whatsapp" style="font-size: 0.95rem; padding: 12px 18px;">
-            <span>📲</span> Enviar PDF por WhatsApp
-          </button>
-          <button id="btn-download-pdf" class="btn-primary">
-            <span>📥</span> Descargar PDF
-          </button>
-          <button id="btn-preview-pdf">
-            <span>👁️</span> Ver PDF
-          </button>
-          <button id="btn-send-whatsapp-text">
-            <span>💬</span> WhatsApp Solo Texto
-          </button>
-          <button id="btn-copy-text">
-            <span>📋</span> Copiar Texto
-          </button>
-          <button id="btn-save-quote">
-            <span>💾</span> Guardar Cotización
-          </button>
-          <button id="btn-print">
-            <span>🖨️</span> Imprimir
-          </button>
-          <button id="btn-new-quote" class="btn-danger">
-            <span>✨</span> Nueva Cotización
-          </button>
-        </div>
-      </div>
+        <!-- Columna Izquierda: Formulario y Editor -->
+        <div class="cotizador-form-col">
 
-      <!-- Vista Previa de la Cotización (Documento Formal) -->
-      <div class="doc-preview-wrapper">
-        <h3 style="font-size: 1.05rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-          <span>👁️</span> Vista Previa del Documento Oficial
-        </h3>
-
-        <div class="doc-paper" id="quote-document">
-          <!-- Encabezado del Documento -->
-          <div class="doc-header">
-            <div class="doc-brand-block">
-              <img src="assets/logo.png" alt="Logo Pedro Roa" class="doc-logo-img">
-              <div>
-                <div class="doc-brand-title" id="preview-biz-name">Pedro Roa - Servicios Técnicos</div>
-                <div class="doc-brand-sub" id="preview-biz-phone">WhatsApp / Tel: +57 302 4555428</div>
-                <div class="doc-brand-sub" style="font-size: 0.76rem; color: #6b7280;">Soporte Especializado, Ensamble & Mantenimiento</div>
+          <!-- Datos del Cliente -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>👤</span> Datos del Cliente
+              </div>
+              <span class="card-badge" id="preview-quote-badge">Cotización Activa</span>
+            </div>
+            <div class="form-grid">
+              <div class="input-group">
+                <label for="q-client-name">Nombre del cliente</label>
+                <input id="q-client-name" type="text" placeholder="Ej: Carlos Mendoza" autocomplete="name">
+              </div>
+              <div class="input-group">
+                <label for="q-client-phone">WhatsApp del cliente</label>
+                <div class="phone-input-group">
+                  <select id="q-client-prefix" class="phone-prefix-select" aria-label="Código de país WhatsApp">
+                    <option value="57" selected>🇨🇴 +57</option>
+                    <option value="1">🇺🇸 +1</option>
+                    <option value="34">🇪🇸 +34</option>
+                    <option value="58">🇻🇪 +58</option>
+                    <option value="52">🇲🇽 +52</option>
+                    <option value="54">🇦🇷 +54</option>
+                    <option value="56">🇨🇱 +56</option>
+                    <option value="51">🇵🇪 +51</option>
+                    <option value="593">🇪🇨 +593</option>
+                    <option value="507">🇵🇦 +507</option>
+                  </select>
+                  <input id="q-client-phone" type="tel" inputmode="tel" placeholder="310 123 4567" autocomplete="tel">
+                </div>
+                <div id="q-phone-feedback" class="phone-feedback-badge">
+                  <span>📱</span> WhatsApp completo: <strong id="q-phone-feedback-num">+57 (escribe el número)</strong>
+                </div>
+              </div>
+              <div class="input-group full-width">
+                <label for="q-equipment">Equipo / Descripción de la falla o requerimiento</label>
+                <input id="q-equipment" type="text" placeholder="Ej: Portátil ASUS TUF Gaming - Mantenimiento y cambio de pasta térmica">
               </div>
             </div>
-            <div class="doc-meta-right">
-              <div class="doc-badge-number" id="preview-quote-num">COT-0001</div>
-              <div class="doc-date-line" id="preview-date-issue">Fecha: --</div>
-              <div class="doc-date-line" id="preview-date-expire">Vence: --</div>
+          </div>
+
+          <!-- Ítems de la Cotización -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>📦</span> Ítems & Servicios
+              </div>
+              <button id="btn-add-line" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
+                + Línea libre
+              </button>
+            </div>
+
+            <div class="catalog-add-bar">
+              <div class="input-group select-group">
+                <label for="catalog-select">Seleccionar del catálogo de Pedro Roa</label>
+                <select id="catalog-select"></select>
+              </div>
+              <button id="btn-add-catalog" class="btn-primary btn-add-cat">
+                + Agregar ítem
+              </button>
+            </div>
+
+            <!-- Etiquetas de cabecera en escritorio -->
+            <div class="lines-header-labels" aria-hidden="true">
+              <span class="col-lbl-desc">Descripción del ítem</span>
+              <span class="col-lbl-qty">Cant.</span>
+              <span class="col-lbl-price">Vr. Unitario</span>
+              <span class="col-lbl-subtotal">Subtotal</span>
+              <span class="col-lbl-action"></span>
+            </div>
+
+            <!-- Lista dinámica de líneas -->
+            <div id="quote-lines" class="lines-container"></div>
+          </div>
+
+          <!-- Ajustes Financieros & Condiciones -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>💰</span> Descuentos, Domicilio & Condiciones
+              </div>
+            </div>
+            <div class="form-grid-4">
+              <div class="input-group">
+                <label for="q-discount">Descuento (%)</label>
+                <input id="q-discount" type="number" min="0" max="100" value="0">
+              </div>
+              <div class="input-group">
+                <label for="q-delivery">Domicilio / Visita ($)</label>
+                <input id="q-delivery" type="number" min="0" step="5000" value="0">
+              </div>
+              <div class="input-group">
+                <label for="q-validity">Vigencia (Días)</label>
+                <input id="q-validity" type="number" min="1" value="15">
+              </div>
+              <div class="input-group">
+                <label for="q-tax">IVA</label>
+                <select id="q-tax">
+                  <option value="0">Sin IVA</option>
+                  <option value="0.19">IVA 19%</option>
+                </select>
+              </div>
+              <div class="input-group full-width">
+                <label for="q-notes">Garantía, notas y observaciones</label>
+                <textarea id="q-notes" rows="2"></textarea>
+              </div>
             </div>
           </div>
 
-          <!-- Tarjeta Cliente -->
-          <div class="doc-client-card">
-            <div>
-              <strong>CLIENTE:</strong>
-              <span id="preview-client-name">Cliente General</span>
+          <!-- Barra de Acciones Principales -->
+          <div class="card np" style="background: rgba(22, 26, 36, 0.95); border: 1px solid var(--border-light);">
+            <div class="card-header" style="margin-bottom: 10px;">
+              <div class="card-title">
+                <span>🚀</span> Acciones de Envío y Exportación
+              </div>
             </div>
-            <div>
-              <strong>TELÉFONO / WHATSAPP:</strong>
-              <span id="preview-client-phone">No registrado</span>
-            </div>
-            <div id="preview-equip-row" class="full-width" style="grid-column: 1 / -1; display: none;">
-              <strong>EQUIPO / DIAGNÓSTICO:</strong>
-              <span id="preview-client-equip">--</span>
-            </div>
-          </div>
-
-          <!-- Tabla de Ítems -->
-          <table class="doc-table">
-            <thead>
-              <tr>
-                <th>Descripción del Servicio o Producto</th>
-                <th class="text-right">Cant.</th>
-                <th class="text-right">Vr. Unitario</th>
-                <th class="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody id="preview-table-body"></tbody>
-          </table>
-
-          <!-- Desglose de Totales -->
-          <div class="doc-totals-box">
-            <div class="doc-total-row">
-              <span>Subtotal:</span>
-              <span id="preview-subtotal">$0</span>
-            </div>
-            <div class="doc-total-row" id="preview-discount-row" style="display: none; color: #dc2626;">
-              <span>Descuento:</span>
-              <span id="preview-discount-val">-$0</span>
-            </div>
-            <div class="doc-total-row" id="preview-delivery-row" style="display: none;">
-              <span>Domicilio / Visita:</span>
-              <span id="preview-delivery-val">+$0</span>
-            </div>
-            <div class="doc-total-row" id="preview-tax-row" style="display: none;">
-              <span>IVA 19%:</span>
-              <span id="preview-tax-val">+$0</span>
-            </div>
-            <div class="doc-total-grand">
-              <span>TOTAL:</span>
-              <span id="preview-total">$0</span>
+            
+            <div class="action-bar">
+              <button id="btn-send-whatsapp-pdf" class="btn-whatsapp action-main-btn">
+                <span>📲</span> Enviar PDF por WhatsApp
+              </button>
+              <button id="btn-download-pdf" class="btn-primary">
+                <span>📥</span> Descargar PDF
+              </button>
+              <button id="btn-preview-pdf">
+                <span>👁️</span> Ver PDF
+              </button>
+              <button id="btn-send-whatsapp-text">
+                <span>💬</span> WhatsApp Solo Texto
+              </button>
+              <button id="btn-copy-text">
+                <span>📋</span> Copiar Texto
+              </button>
+              <button id="btn-save-quote">
+                <span>💾</span> Guardar Cotización
+              </button>
+              <button id="btn-print">
+                <span>🖨️</span> Imprimir
+              </button>
+              <button id="btn-new-quote" class="btn-danger">
+                <span>✨</span> Nueva Cotización
+              </button>
             </div>
           </div>
 
-          <!-- Notas y Condiciones -->
-          <div class="doc-notes-box">
-            <strong style="color: #374151;">NOTAS Y CONDICIONES:</strong>
-            <div id="preview-notes"></div>
-          </div>
+        </div>
 
-          <!-- Pie de Firma -->
-          <div class="doc-footer-sign">
-            <div>Pedro Roa · Firma autorizada</div>
-            <div>Documento formal emitido con Cotizador PRO</div>
+        <!-- Columna Derecha: Vista Previa del Documento Oficial -->
+        <div class="cotizador-preview-col">
+          <div class="doc-preview-wrapper">
+            <h3 style="font-size: 1.05rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+              <span>👁️</span> Vista Previa del Documento Oficial
+            </h3>
+
+            <div class="doc-paper" id="quote-document">
+              <!-- Encabezado del Documento -->
+              <div class="doc-header">
+                <div class="doc-brand-block">
+                  <img src="assets/logo.png" alt="Logo Pedro Roa" class="doc-logo-img">
+                  <div>
+                    <div class="doc-brand-title" id="preview-biz-name">Pedro Roa - Servicios Técnicos</div>
+                    <div class="doc-brand-sub" id="preview-biz-phone">WhatsApp / Tel: +57 302 4555428</div>
+                    <div class="doc-brand-sub" style="font-size: 0.76rem; color: #6b7280;">Soporte Especializado, Ensamble & Mantenimiento</div>
+                  </div>
+                </div>
+                <div class="doc-meta-right">
+                  <div class="doc-badge-number" id="preview-quote-num">COT-0001</div>
+                  <div class="doc-date-line" id="preview-date-issue">Fecha: --</div>
+                  <div class="doc-date-line" id="preview-date-expire">Vence: --</div>
+                </div>
+              </div>
+
+              <!-- Tarjeta Cliente -->
+              <div class="doc-client-card">
+                <div>
+                  <strong>CLIENTE:</strong>
+                  <span id="preview-client-name">Cliente General</span>
+                </div>
+                <div>
+                  <strong>TELÉFONO / WHATSAPP:</strong>
+                  <span id="preview-client-phone">No registrado</span>
+                </div>
+                <div id="preview-equip-row" class="full-width" style="grid-column: 1 / -1; display: none;">
+                  <strong>EQUIPO / DIAGNÓSTICO:</strong>
+                  <span id="preview-client-equip">--</span>
+                </div>
+              </div>
+
+              <!-- Tabla de Ítems Responsiva -->
+              <div class="doc-table-responsive">
+                <table class="doc-table">
+                  <thead>
+                    <tr>
+                      <th>Descripción del Servicio o Producto</th>
+                      <th class="text-right">Cant.</th>
+                      <th class="text-right">Vr. Unitario</th>
+                      <th class="text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="preview-table-body"></tbody>
+                </table>
+              </div>
+
+              <!-- Desglose de Totales -->
+              <div class="doc-totals-box">
+                <div class="doc-total-row">
+                  <span>Subtotal:</span>
+                  <span id="preview-subtotal">$0</span>
+                </div>
+                <div class="doc-total-row" id="preview-discount-row" style="display: none; color: #dc2626;">
+                  <span>Descuento:</span>
+                  <span id="preview-discount-val">-$0</span>
+                </div>
+                <div class="doc-total-row" id="preview-delivery-row" style="display: none;">
+                  <span>Domicilio / Visita:</span>
+                  <span id="preview-delivery-val">+$0</span>
+                </div>
+                <div class="doc-total-row" id="preview-tax-row" style="display: none;">
+                  <span>IVA 19%:</span>
+                  <span id="preview-tax-val">+$0</span>
+                </div>
+                <div class="doc-total-grand">
+                  <span>TOTAL:</span>
+                  <span id="preview-total">$0</span>
+                </div>
+              </div>
+
+              <!-- Notas y Condiciones -->
+              <div class="doc-notes-box">
+                <strong style="color: #374151;">NOTAS Y CONDICIONES:</strong>
+                <div id="preview-notes"></div>
+              </div>
+
+              <!-- Pie de Firma -->
+              <div class="doc-footer-sign">
+                <div>Pedro Roa · Firma autorizada</div>
+                <div>Documento formal emitido con Cotizador PRO</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
+      </div>
     </section>
 
     <!-- ========================================================

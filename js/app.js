@@ -248,11 +248,24 @@
 
     container.innerHTML = state.currentQuote.items.map((it, idx) => `
       <div class="line-item" data-index="${idx}">
-        <input type="text" data-field="d" value="${escapeHtml(it.d)}" placeholder="Descripción del producto o servicio" />
-        <input type="number" data-field="q" min="1" value="${it.q}" title="Cantidad" />
-        <input type="number" data-field="p" min="0" step="1000" value="${it.p}" title="Precio unitario" />
-        <div class="line-subtotal">${formatMoney(it.q * it.p)}</div>
-        <button class="btn-danger btn-icon" data-action="remove-line" title="Eliminar ítem">✕</button>
+        <div class="line-desc-col">
+          <input type="text" data-field="d" value="${escapeHtml(it.d)}" placeholder="Descripción del producto o servicio" />
+        </div>
+        <div class="line-controls-col">
+          <div class="line-input-wrap qty-wrap">
+            <span class="line-field-tag">Cant.</span>
+            <input type="number" data-field="q" min="1" value="${it.q}" title="Cantidad" />
+          </div>
+          <div class="line-input-wrap price-wrap">
+            <span class="line-field-tag">Vr. Unit.</span>
+            <input type="number" data-field="p" min="0" step="1000" value="${it.p}" title="Precio unitario" />
+          </div>
+          <div class="line-input-wrap subtotal-wrap">
+            <span class="line-field-tag">Subtotal</span>
+            <div class="line-subtotal">${formatMoney(it.q * it.p)}</div>
+          </div>
+          <button class="btn-danger btn-icon line-del-btn" data-action="remove-line" title="Eliminar ítem">✕</button>
+        </div>
       </div>
     `).join('');
   }
@@ -428,7 +441,7 @@
             <h4>${escapeHtml(item.quoteNumber)} <span class="card-badge">${escapeHtml(item.clientName || 'General')}</span></h4>
             <p>📅 ${escapeHtml(item.issueDate)} · ${item.items.length} ítems ${(item.equipment ? '· 💻 ' + escapeHtml(item.equipment) : '')}</p>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="history-side">
             <div class="history-price">${formatMoney(item.total)}</div>
             <div class="history-actions">
               <button class="btn-primary" data-action="load-history" data-index="${originalIdx}" title="Cargar cotización">✏️ Abrir</button>
