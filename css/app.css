@@ -1917,6 +1917,12 @@ button.btn-icon {
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
 }
 
+@media (max-width: 1079px) {
+  body {
+    padding-bottom: 96px;
+  }
+}
+
 @media (min-width: 1080px) {
   .mobile-sticky-bar {
     display: none !important;
@@ -4760,68 +4766,357 @@ html, body {
 }
 
 /* Dropdown Menu para "⋮ Más acciones" */
-.actions-dropdown {
-  position: relative;
-  display: inline-block;
+/* ==========================================================================
+   COMPONENTE UNIFICADO DE TARJETA DE HISTORIAL
+   (Cotizaciones, Cuentas de Cobro e Informes Técnicos)
+   ========================================================================== */
+
+.history-list,
+.cobro-history-list,
+#history-list,
+#cc-history-list,
+#inf-history-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  width: 100% !important;
+  padding-bottom: 24px;
 }
 
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
-  background: #181b26;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  min-width: 220px;
-  padding: 6px 0;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.unified-history-card {
+  width: 100% !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 16px 18px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
+  transition: border-color 0.2s ease, transform 0.2s ease !important;
+  overflow: visible !important; /* Nunca recortar contenido */
+  position: relative !important;
+  box-sizing: border-box !important;
 }
 
-[data-theme="light"] .dropdown-menu {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+[data-theme="light"] .unified-history-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
 }
 
-.dropdown-menu.active {
+.unified-history-card:hover {
+  border-color: var(--border-light) !important;
+}
+
+/* Cabecera de la tarjeta: Identidad + Estado + Monto */
+.uhc-top-row {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
-.dropdown-item {
+.uhc-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  font-size: 0.84rem;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uhc-number {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.uhc-number.text-cyan {
+  color: #38bdf8;
+}
+
+.uhc-number.text-emerald {
+  color: #34d399;
+}
+
+.uhc-number.text-primary {
+  color: var(--primary-neon, #a855f7);
+}
+
+.uhc-date {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.uhc-amount-box {
+  text-align: right;
+  margin-left: auto;
+}
+
+.uhc-amount-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.uhc-amount-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--whatsapp, #22c55e);
+}
+
+.uhc-amount-val.text-cyan {
+  color: #38bdf8;
+}
+
+.uhc-amount-val.text-emerald {
+  color: #34d399;
+}
+
+.uhc-amount-val.text-primary {
+  color: var(--primary-neon, #a855f7);
+}
+
+/* Cuerpo de la tarjeta: Cliente y Detalles */
+.uhc-body {
+  margin-bottom: 12px;
+}
+
+.uhc-client-name {
+  font-size: 1.02rem;
+  font-weight: 700;
   color: var(--text-main);
-  background: transparent;
-  border: none;
-  text-align: left;
-  cursor: pointer;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uhc-client-nit {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.uhc-detail-box {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .uhc-detail-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.uhc-detail-box strong {
+  color: var(--text-main);
+}
+
+/* Línea divisoria fina */
+.uhc-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0 14px 0;
   width: 100%;
-  transition: background 0.15s ease;
 }
 
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+/* Cuadrícula de botones visibles debajo de la tarjeta */
+.uhc-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
 }
 
-[data-theme="light"] .dropdown-item:hover {
-  background: #f1f5f9;
+@media (min-width: 640px) {
+  .uhc-actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-.dropdown-item.text-danger {
-  color: #f87171;
+@media (min-width: 1024px) {
+  .uhc-actions-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .uhc-actions-grid .uhc-btn {
+    flex: 0 1 auto;
+    min-width: 120px;
+  }
 }
 
-.dropdown-item.text-danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+/* Botones con mínimo 44px de alto y texto mínimo 14px (~0.88rem) */
+.uhc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+@media (max-width: 639px) {
+  .uhc-btn-wide-mobile {
+    grid-column: 1 / -1;
+  }
+}
+
+.uhc-btn-wide {
+  grid-column: 1 / -1;
+}
+
+.uhc-btn span:first-child {
+  font-size: 1rem;
+}
+
+.uhc-btn-primary {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+}
+.uhc-btn-primary:hover {
+  background: var(--primary-hover) !important;
+}
+
+.uhc-btn-secondary {
+  background: var(--bg-input) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border) !important;
+}
+.uhc-btn-secondary:hover {
+  background: var(--bg-input-focus) !important;
+  border-color: var(--border-light) !important;
+}
+
+[data-theme="light"] .uhc-btn-secondary {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .uhc-btn-secondary:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+.uhc-btn-whatsapp {
+  background: #15803d !important;
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+}
+.uhc-btn-whatsapp:hover {
+  background: #16a34a !important;
+}
+
+.uhc-btn-status {
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+.uhc-btn-status:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  border-color: #38bdf8 !important;
+}
+
+[data-theme="light"] .uhc-btn-status {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+  border-color: #bae6fd !important;
+}
+
+.uhc-btn-danger {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+}
+.uhc-btn-danger:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+
+@media (max-width: 480px) {
+  .uhc-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .uhc-btn {
+    font-size: 0.84rem;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .uhc-btn-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Badges de estado tipo píldora */
+.badge-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.badge-borrador {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+.badge-enviado,
+.badge-enviada {
+  background: rgba(56, 189, 248, 0.18) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+}
+
+.badge-aprobado,
+.badge-aprobada,
+.badge-pagada {
+  background: rgba(52, 211, 153, 0.18) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+}
+
+.badge-rechazado,
+.badge-rechazada {
+  background: rgba(248, 113, 113, 0.18) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.35) !important;
+}
+
+.badge-pending,
+.badge-pendiente {
+  background: rgba(251, 191, 36, 0.18) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
 }
 
 /* Impresión */

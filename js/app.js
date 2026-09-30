@@ -1870,6 +1870,75 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     showToast(`Cotización duplicada como ${getQuoteIdString()}`, '📑');
   }
 
+  // ==========================================================================
+  // COMPONENTE UNIFICADO DE TARJETA DE HISTORIAL
+  // ==========================================================================
+
+  function renderUnifiedHistoryCardHtml(cfg) {
+    const actionsHtml = (cfg.actions || []).map(act => {
+      let variantClass = 'uhc-btn-secondary';
+      if (act.variant === 'primary') variantClass = 'uhc-btn-primary';
+      else if (act.variant === 'whatsapp') variantClass = 'uhc-btn-whatsapp';
+      else if (act.variant === 'status') variantClass = 'uhc-btn-status';
+      else if (act.variant === 'danger') variantClass = 'uhc-btn-danger';
+
+      const dataAttrs = Object.entries(act.data || {})
+        .map(([k, v]) => `data-${k}="${escapeHtml(v)}"`)
+        .join(' ');
+
+      return `
+        <button type="button" class="uhc-btn ${variantClass} ${act.extraClass || ''}" data-action="${escapeHtml(act.action)}" ${dataAttrs} title="${escapeHtml(act.title || act.label)}">
+          <span>${act.icon}</span>
+          <span>${escapeHtml(act.label)}</span>
+        </button>
+      `;
+    }).join('');
+
+    return `
+      <div class="unified-history-card card-${cfg.type}" data-card-id="${escapeHtml(cfg.id)}">
+        <div class="uhc-top-row">
+          <div class="uhc-identity">
+            <span class="uhc-number ${cfg.numberClass || ''}">${escapeHtml(cfg.numberText)}</span>
+            <span class="badge-status-pill ${cfg.badgeClass}">${escapeHtml(cfg.statusText || cfg.status)}</span>
+            ${cfg.dateText ? `<span class="uhc-date">📅 ${escapeHtml(cfg.dateText)}</span>` : ''}
+          </div>
+          <div class="uhc-amount-box">
+            <span class="uhc-amount-label">${escapeHtml(cfg.amountLabel || 'TOTAL')}</span>
+            <span class="uhc-amount-val ${cfg.amountClass || ''}">${escapeHtml(cfg.amountVal)}</span>
+          </div>
+        </div>
+
+        <div class="uhc-body">
+          <div class="uhc-client-name">
+            <span>👤 ${escapeHtml(cfg.clientName || 'Cliente General')}</span>
+            ${cfg.clientNit ? `<span class="uhc-client-nit">(${escapeHtml(cfg.clientNit)})</span>` : ''}
+          </div>
+          ${cfg.detailHtml ? `<div class="uhc-detail-box">${cfg.detailHtml}</div>` : ''}
+        </div>
+
+        <div class="uhc-divider"></div>
+
+        <div class="uhc-actions-grid">
+          ${actionsHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function toggleQuoteStatus(idx) {
+    const item = state.history[idx];
+    if (!item) return;
+    const current = item.status || 'Borrador';
+    const list = ['Borrador', 'Enviada', 'Aprobada', 'Rechazada'];
+    const nextIdx = (list.indexOf(current) + 1) % list.length;
+    item.status = list[nextIdx];
+    item.updatedAt = new Date().toISOString();
+    setStorage('pr_history', state.history);
+    renderHistory();
+    triggerIncrementalSync();
+    showToast(`Cotización ${item.quoteNumber} marcada como "${item.status}"`, '🏷️');
+  }
+
   function renderHistory() {
     const list = $('history-list');
     if (!list) return;
@@ -1887,24 +1956,35 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     list.innerHTML = state.history.slice().reverse().map((item, revIdx) => {
       const originalIdx = state.history.length - 1 - revIdx;
-      return `
-        <div class="history-card">
-          <div class="history-meta">
-            <h4>${escapeHtml(item.quoteNumber)} <span class="card-badge">${escapeHtml(item.clientName || 'General')}</span></h4>
-            <p>📅 ${escapeHtml(item.issueDate)} · ${item.items.length} ítems ${(item.equipment ? '· 💻 ' + escapeHtml(item.equipment) : '')}</p>
-          </div>
-          <div class="history-side">
-            <div class="history-price">${formatMoney(item.total)}</div>
-            <div class="history-actions">
-              <button type="button" class="btn-primary" data-action="load-history" data-index="${originalIdx}" title="Cargar cotización">✏️ Abrir</button>
-              <button type="button" class="btn-secondary" data-action="duplicate-history" data-index="${originalIdx}" title="Duplicar cotización">📑 Duplicar</button>
-              <button type="button" class="btn-secondary" data-action="pdf-history" data-index="${originalIdx}" title="Ver PDF">👁️ Ver PDF</button>
-              <button type="button" class="btn-secondary" data-action="whatsapp-history" data-index="${originalIdx}" title="WhatsApp">📲 WhatsApp</button>
-              <button type="button" class="btn-danger btn-icon" data-action="delete-history" data-index="${originalIdx}" title="Eliminar">🗑️</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const st = item.status || 'Borrador';
+      const badgeClass = st === 'Enviada' ? 'badge-enviada' : (st === 'Aprobada' ? 'badge-aprobada' : (st === 'Rechazada' ? 'badge-rechazada' : 'badge-borrador'));
+      const itemsCount = (item.items && item.items.length) || 0;
+      const detailHtml = `<div><strong>${itemsCount} ${itemsCount === 1 ? 'ítem cotizado' : 'ítems cotizados'}</strong>${item.equipment ? ' · 💻 ' + escapeHtml(item.equipment) : ''}</div>${item.notes ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim);">' + escapeHtml(item.notes.substring(0, 100)) + '</div>' : ''}`;
+
+      return renderUnifiedHistoryCardHtml({
+        type: 'cotizacion',
+        id: item.id || originalIdx,
+        numberText: item.quoteNumber || 'COT',
+        numberClass: 'text-primary',
+        status: st,
+        statusText: st,
+        badgeClass: badgeClass,
+        dateText: item.issueDate || '',
+        clientName: item.clientName || 'Cliente General',
+        clientNit: item.clientPhone ? 'Tel: ' + item.clientPhone : '',
+        detailHtml: detailHtml,
+        amountLabel: 'TOTAL',
+        amountVal: formatMoney(item.total),
+        amountClass: 'text-primary',
+        actions: [
+          { action: 'load-history', label: 'Abrir', icon: '✏️', variant: 'primary', data: { index: originalIdx } },
+          { action: 'pdf-history', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { index: originalIdx } },
+          { action: 'whatsapp-history', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { index: originalIdx } },
+          { action: 'duplicate-history', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { index: originalIdx } },
+          { action: 'toggle-status', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { index: originalIdx } },
+          { action: 'delete-history', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { index: originalIdx } }
+        ]
+      });
     }).join('');
     updateBadges();
   }
@@ -3456,51 +3536,32 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const saldo = (item.totals && typeof item.totals.saldo === 'number') ? item.totals.saldo : 0;
       const conceptosCount = (item.conceptos && item.conceptos.length) ? item.conceptos.length : 1;
       const firstConcepto = (item.conceptos && item.conceptos[0] && item.conceptos[0].desc) ? item.conceptos[0].desc : '';
+      const detailHtml = `<div><strong>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</strong>${item.city ? ' · 📍 ' + escapeHtml(item.city) : ''}</div>${firstConcepto ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">• ' + escapeHtml(firstConcepto) + '</div>' : ''}`;
 
-      return `
-        <div class="cobro-history-card ${isPaid ? 'is-paid' : 'is-pending'}" data-cobro-num="${item.cobroNum}">
-          <div class="cobro-history-header">
-            <div class="cobro-history-identity">
-              <span class="cobro-num-badge">Cuenta N° ${escapeHtml(numStr)}</span>
-              <span class="badge-status ${isPaid ? 'badge-paid' : 'badge-pending'}">${isPaid ? '✅ Pagada' : '⏳ Pendiente'}</span>
-            </div>
-            <div class="cobro-history-amount">${formatMoney(saldo)}</div>
-          </div>
-
-          <div class="cobro-history-body">
-            <h4 class="cobro-history-client">${escapeHtml(item.clientName || 'Cliente General')}</h4>
-            ${item.clientNit ? `<div class="cobro-history-nit">NIT/C.C.: ${escapeHtml(item.clientNit)}</div>` : ''}
-            <div class="cobro-history-meta">
-              <span>📅 ${escapeHtml(item.dateFormatted || item.dateIso || '')}</span>
-              <span>·</span>
-              <span>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</span>
-              ${item.city ? `<span>· 📍 ${escapeHtml(item.city)}</span>` : ''}
-              ${firstConcepto ? `<span style="width: 100%; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;">• ${escapeHtml(firstConcepto)}</span>` : ''}
-            </div>
-          </div>
-
-          <div class="cobro-history-actions">
-            <button type="button" class="btn-cobro-action" data-action="toggle-status" data-num="${item.cobroNum}" title="Cambiar estado de pago">
-              ${isPaid ? '🔄 Marcar Pendiente' : '✅ Marcar Pagada'}
-            </button>
-            <button type="button" class="btn-cobro-action btn-primary" data-action="edit-cobro" data-num="${item.cobroNum}" title="Abrir y editar en el formulario">
-              ✏️ Abrir
-            </button>
-            <button type="button" class="btn-cobro-action" data-action="duplicate-cobro" data-num="${item.cobroNum}" title="Crear copia con nuevo número consecutivo">
-              📑 Duplicar
-            </button>
-            <button type="button" class="btn-cobro-action" data-action="pdf-cobro" data-num="${item.cobroNum}" title="Ver documento PDF">
-              👁️ Ver PDF
-            </button>
-            <button type="button" class="btn-cobro-action" data-action="whatsapp-cobro" data-num="${item.cobroNum}" title="Enviar PDF por WhatsApp">
-              📲 WhatsApp
-            </button>
-            <button type="button" class="btn-cobro-action btn-danger" data-action="delete-cobro" data-num="${item.cobroNum}" title="Eliminar del historial">
-              🗑️
-            </button>
-          </div>
-        </div>
-      `;
+      return renderUnifiedHistoryCardHtml({
+        type: 'cobro',
+        id: item.cobroNum,
+        numberText: `Cuenta N° ${numStr}`,
+        numberClass: 'text-emerald',
+        status: isPaid ? 'pagada' : 'pendiente',
+        statusText: isPaid ? '✅ Pagada' : '⏳ Pendiente',
+        badgeClass: isPaid ? 'badge-pagada' : 'badge-pendiente',
+        dateText: item.dateFormatted || item.dateIso || '',
+        clientName: item.clientName || 'Cliente General',
+        clientNit: item.clientNit ? 'NIT/C.C.: ' + item.clientNit : '',
+        detailHtml: detailHtml,
+        amountLabel: 'SALDO',
+        amountVal: formatMoney(saldo),
+        amountClass: isPaid ? 'text-emerald' : 'text-primary',
+        actions: [
+          { action: 'edit-cobro', label: 'Abrir', icon: '✏️', variant: 'primary', data: { num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
+          { action: 'pdf-cobro', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { num: item.cobroNum }, title: 'Ver documento PDF' },
+          { action: 'whatsapp-cobro', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
+          { action: 'duplicate-cobro', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
+          { action: 'toggle-status', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { num: item.cobroNum }, title: 'Cambiar estado de pago' },
+          { action: 'delete-cobro', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { num: item.cobroNum }, title: 'Eliminar del historial' }
+        ]
+      });
     }).join('');
   }
 
@@ -4560,6 +4621,15 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     showToast(`Estado de ${item.number} actualizado a "${newStatus}"`, '🏷️');
   }
 
+  function toggleInformeStatus(id) {
+    const item = (state.informeHistory || []).find(h => h.id === id);
+    if (!item) return;
+    const current = item.status || 'Borrador';
+    const list = ['Borrador', 'Enviado', 'Aprobado', 'Rechazado'];
+    const nextIdx = (list.indexOf(current) + 1) % list.length;
+    changeInformeStatus(id, list[nextIdx]);
+  }
+
   // Eliminar informe
   function deleteInforme(id) {
     const idx = (state.informeHistory || []).findIndex(h => h.id === id);
@@ -4714,82 +4784,34 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const st = item.status || 'Borrador';
       const badgeClass = st === 'Enviado' ? 'badge-enviado' : (st === 'Aprobado' ? 'badge-aprobado' : (st === 'Rechazado' ? 'badge-rechazado' : 'badge-borrador'));
       const propTotal = (item.propuestaItems || []).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+      const detailHtml = `<div><strong>Equipo:</strong> ${escapeHtml(item.equipment || 'No especificado')}${item.serial ? ' (S/N: ' + escapeHtml(item.serial) + ')' : ''}</div>${item.falla ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>Falla:</strong> ' + escapeHtml(item.falla) + '</div>' : ''}`;
 
-      return `
-        <div class="cobro-history-card" data-inf-id="${escapeHtml(item.id)}">
-          <div class="cobro-card-top">
-            <div class="cobro-card-num-group">
-              <span class="cobro-card-number" style="color: #38bdf8;">${escapeHtml(item.number || 'INF')}</span>
-              <span class="cobro-card-date">${escapeHtml(item.dateFormatted || item.date || '')}</span>
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <select class="inf-status-select card-badge ${badgeClass}" data-inf-id="${escapeHtml(item.id)}" style="cursor: pointer; border: none; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;" title="Cambiar estado del informe">
-                <option value="Borrador" ${st === 'Borrador' ? 'selected' : ''}>Borrador</option>
-                <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
-                <option value="Aprobado" ${st === 'Aprobado' ? 'selected' : ''}>Aprobado</option>
-                <option value="Rechazado" ${st === 'Rechazado' ? 'selected' : ''}>Rechazado</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="cobro-card-client-row">
-            <div>
-              <div class="cobro-card-client-name" style="font-size: 0.95rem;">${escapeHtml(item.clientName || 'Cliente General')}</div>
-              ${item.clientNit ? `<div class="cobro-card-client-nit">NIT: ${escapeHtml(item.clientNit)}</div>` : ''}
-            </div>
-            <div style="text-align: right;">
-              <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">PROPUESTA:</span>
-              <span class="cobro-card-saldo-val" style="color: #38bdf8;">${formatMoneyCop(propTotal)}</span>
-            </div>
-          </div>
-
-          <div style="background: rgba(0,0,0,0.18); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 12px; font-size: 0.8rem; border-left: 3px solid #38bdf8;">
-            <div><strong>Equipo:</strong> ${escapeHtml(item.equipment || 'No especificado')}${item.serial ? ' (S/N: ' + escapeHtml(item.serial) + ')' : ''}</div>
-            ${item.falla ? `<div style="color: var(--text-muted); margin-top: 2px;"><strong>Falla:</strong> ${escapeHtml(item.falla)}</div>` : ''}
-          </div>
-
-          <div class="cobro-card-actions" style="position: relative;">
-            <button type="button" class="btn-primary btn-inf-act-open" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
-              <span>📖</span> Abrir
-            </button>
-            <button type="button" class="btn-secondary btn-inf-act-dup" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
-              <span>📋</span> Duplicar
-            </button>
-            <button type="button" class="btn-secondary btn-inf-act-pdf" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
-              <span>👁️</span> Ver PDF
-            </button>
-            <button type="button" class="btn-whatsapp btn-inf-act-wa" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
-              <span>📲</span> WhatsApp
-            </button>
-            
-            <div style="position: relative; margin-left: auto;">
-              <button type="button" class="btn-secondary btn-inf-more-trigger" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 10px; font-size: 0.85rem;" title="Más opciones">
-                ⋮ Más
-              </button>
-              <div class="dropdown-menu inf-more-dropdown" id="dropdown-${escapeHtml(item.id)}" style="display: none; position: absolute; right: 0; bottom: calc(100% + 4px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 50; min-width: 220px; padding: 6px 0;">
-                <button type="button" class="dropdown-item btn-inf-create-cobro" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                  <span>💼</span> Crear cuenta de cobro
-                </button>
-                <button type="button" class="dropdown-item btn-inf-create-cot" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                  <span>📋</span> Crear cotización
-                </button>
-                <button type="button" class="dropdown-item btn-inf-save-tpl" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                  <span>📑</span> Guardar como plantilla
-                </button>
-                <button type="button" class="dropdown-item btn-inf-copy-txt" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                  <span>📋</span> Copiar texto resumen
-                </button>
-                <div style="height: 1px; background: var(--border); margin: 4px 0;"></div>
-                <button type="button" class="dropdown-item btn-inf-del" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: #f87171; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                  <span>🗑️</span> Eliminar informe
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      `;
+      return renderUnifiedHistoryCardHtml({
+        type: 'informe',
+        id: item.id,
+        numberText: item.number || 'INF',
+        numberClass: 'text-cyan',
+        status: st,
+        statusText: st,
+        badgeClass: badgeClass,
+        dateText: item.dateFormatted || item.date || '',
+        clientName: item.clientName || 'Cliente General',
+        clientNit: item.clientNit ? 'NIT: ' + item.clientNit : '',
+        detailHtml: detailHtml,
+        amountLabel: 'PROPUESTA',
+        amountVal: formatMoneyCop(propTotal),
+        amountClass: 'text-cyan',
+        actions: [
+          { action: 'open-informe', label: 'Abrir', icon: '✏️', variant: 'primary', data: { infId: item.id }, title: 'Abrir y editar informe' },
+          { action: 'pdf-informe', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { infId: item.id }, title: 'Ver documento PDF' },
+          { action: 'whatsapp-informe', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { infId: item.id }, title: 'Enviar PDF por WhatsApp' },
+          { action: 'dup-informe', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { infId: item.id }, title: 'Duplicar informe' },
+          { action: 'toggle-status', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { infId: item.id }, title: 'Cambiar estado' },
+          { action: 'create-cobro', label: 'Crear cuenta de cobro', icon: '💼', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cuenta de cobro a partir de este informe' },
+          { action: 'create-cot', label: 'Crear cotización', icon: '📋', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cotización a partir de este informe' },
+          { action: 'delete-informe', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { infId: item.id }, title: 'Eliminar informe' }
+        ]
+      });
     }).join('');
   }
 
@@ -5358,109 +5380,50 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const histList = $('inf-history-list');
     if (histList) {
       histList.addEventListener('click', (e) => {
-        const openBtn = e.target.closest('.btn-inf-act-open');
-        if (openBtn) {
-          loadInformeFromHistory(openBtn.dataset.infId);
+        const btn = e.target.closest('[data-action], .btn-inf-act-open, .btn-inf-act-dup, .btn-inf-act-pdf, .btn-inf-act-wa, .btn-inf-del');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const infId = btn.dataset.infId;
+
+        if (action === 'open-informe' || btn.classList.contains('btn-inf-act-open')) {
+          loadInformeFromHistory(infId);
           return;
         }
 
-        const dupBtn = e.target.closest('.btn-inf-act-dup');
-        if (dupBtn) {
-          duplicateInforme(dupBtn.dataset.infId);
+        if (action === 'dup-informe' || btn.classList.contains('btn-inf-act-dup')) {
+          duplicateInforme(infId);
           return;
         }
 
-        const pdfBtn = e.target.closest('.btn-inf-act-pdf');
-        if (pdfBtn) {
-          const item = (state.informeHistory || []).find(h => h.id === pdfBtn.dataset.infId);
+        if (action === 'pdf-informe' || btn.classList.contains('btn-inf-act-pdf')) {
+          const item = (state.informeHistory || []).find(h => h.id === infId);
           if (item) window.PedroRoaPdf.previewInformePdf(item);
           return;
         }
 
-        const waBtn = e.target.closest('.btn-inf-act-wa');
-        if (waBtn) {
-          const item = (state.informeHistory || []).find(h => h.id === waBtn.dataset.infId);
+        if (action === 'whatsapp-informe' || btn.classList.contains('btn-inf-act-wa')) {
+          const item = (state.informeHistory || []).find(h => h.id === infId);
           if (item) window.PedroRoaPdf.shareInformePdfViaWhatsApp(item);
           return;
         }
 
-        // Dropdown toggle
-        const moreBtn = e.target.closest('.btn-inf-more-trigger');
-        if (moreBtn) {
-          e.stopPropagation();
-          const drop = $(`dropdown-${moreBtn.dataset.infId}`);
-          document.querySelectorAll('.inf-more-dropdown').forEach(d => {
-            if (d !== drop) d.style.display = 'none';
-          });
-          if (drop) {
-            drop.style.display = drop.style.display === 'block' ? 'none' : 'block';
-          }
+        if (action === 'toggle-status') {
+          toggleInformeStatus(infId);
           return;
         }
 
-        // Acciones del dropdown
-        const cobroBtn = e.target.closest('.btn-inf-create-cobro');
-        if (cobroBtn) {
-          createCobroFromInforme(cobroBtn.dataset.infId);
+        if (action === 'create-cobro') {
+          createCobroFromInforme(infId);
           return;
         }
 
-        const cotBtn = e.target.closest('.btn-inf-create-cot');
-        if (cotBtn) {
-          createCotizacionFromInforme(cotBtn.dataset.infId);
+        if (action === 'create-cot') {
+          createCotizacionFromInforme(infId);
           return;
         }
 
-        const tplBtn = e.target.closest('.btn-inf-save-tpl');
-        if (tplBtn) {
-          const item = (state.informeHistory || []).find(h => h.id === tplBtn.dataset.infId);
-          if (item) {
-            const name = prompt('Nombre para la plantilla a partir de este informe:', item.subtitle || item.equipment || 'Plantilla');
-            if (name) {
-              const tpl = {
-                id: generateUUID(),
-                name: name.trim(),
-                title: item.title,
-                subtitle: item.subtitle,
-                headerTag: item.headerTag,
-                serviceType: item.serviceType,
-                falla: item.falla,
-                motivo: item.motivo,
-                verificaciones: Array.isArray(item.verificaciones) ? JSON.parse(JSON.stringify(item.verificaciones)) : [],
-                diagnostico: item.diagnostico,
-                propuestaTexto: item.propuestaTexto,
-                propuestaItems: Array.isArray(item.propuestaItems) ? item.propuestaItems.map(p => ({ desc: p.desc, valor: 0 })) : [],
-                observaciones: item.observaciones,
-                conclusion: item.conclusion,
-                customSections: Array.isArray(item.customSections) ? JSON.parse(JSON.stringify(item.customSections)) : [],
-                updatedAt: new Date().toISOString()
-              };
-              if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
-              state.informePlantillas.push(tpl);
-              setStorage('pr_informe_plantillas', state.informePlantillas);
-              renderInformePlantillasList();
-              triggerIncrementalSync();
-              showToast(`Plantilla "${name}" guardada con éxito`, '💾');
-            }
-          }
-          return;
-        }
-
-        const copyBtn = e.target.closest('.btn-inf-copy-txt');
-        if (copyBtn) {
-          const item = (state.informeHistory || []).find(h => h.id === copyBtn.dataset.infId);
-          if (item) {
-            const text = generateInformePlainText(item);
-            navigator.clipboard.writeText(text)
-              .then(() => showToast('Resumen del informe copiado', '📋'))
-              .catch(() => showToast('No se pudo copiar', '⚠️'));
-          }
-          return;
-        }
-
-        const delBtn = e.target.closest('.btn-inf-del');
-        if (delBtn) {
-          deleteInforme(delBtn.dataset.infId);
+        if (action === 'delete-informe' || btn.classList.contains('btn-inf-del')) {
+          deleteInforme(infId);
           return;
         }
       });
@@ -6330,6 +6293,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         const idx = parseInt(waBtn.dataset.index, 10);
         const saved = state.history[idx];
         if (saved) window.PedroRoaPdf.sharePdfViaWhatsApp(saved);
+        return;
+      }
+
+      const toggleBtn = e.target.closest('[data-action="toggle-status"]');
+      if (toggleBtn) {
+        const idx = parseInt(toggleBtn.dataset.index, 10);
+        toggleQuoteStatus(idx);
         return;
       }
 
