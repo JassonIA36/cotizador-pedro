@@ -379,6 +379,40 @@ p, span, label {
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
 }
 
+.btn-header-auth {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-header-auth:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 520px) {
+  .btn-header-auth {
+    padding: 6px 9px;
+    font-size: 0.78rem;
+  }
+  .header-auth-label {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .header-inner {
     padding: 10px 12px;

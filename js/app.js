@@ -341,7 +341,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         badge.textContent = badgeText;
       });
 
-      const authBtns = document.querySelectorAll('.btn-trigger-auth');
+      const headerAuthBtn = $('btn-header-auth');
+      if (headerAuthBtn) {
+        if (syncState.user) {
+          headerAuthBtn.style.display = 'inline-flex';
+          headerAuthBtn.innerHTML = '🚪 <span class="header-auth-label">Cerrar sesión</span>';
+          headerAuthBtn.title = `Cerrar sesión (${syncState.user.email})`;
+        } else {
+          headerAuthBtn.style.display = 'none';
+        }
+      }
+
+      const authBtns = document.querySelectorAll('.btn-trigger-auth:not(#btn-header-auth)');
       authBtns.forEach(btn => {
         if (syncState.user) {
           btn.innerHTML = '🚪 Cerrar sesión';
