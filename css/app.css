@@ -2523,8 +2523,16 @@ button.btn-icon {
   animation: fadeIn 0.2s ease;
 }
 
+.modal-overlay:not(.active) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .modal-overlay.active {
-  display: flex;
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .modal-content {
@@ -4780,7 +4788,9 @@ html, body {
   flex-direction: column !important;
   gap: 16px !important;
   width: 100% !important;
-  padding-bottom: 24px;
+  padding-bottom: 120px !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
 }
 
 .unified-history-card {
@@ -4794,6 +4804,8 @@ html, body {
   overflow: visible !important; /* Nunca recortar contenido */
   position: relative !important;
   box-sizing: border-box !important;
+  pointer-events: auto !important;
+  z-index: 1 !important;
 }
 
 [data-theme="light"] .unified-history-card {
@@ -4935,6 +4947,7 @@ html, body {
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   width: 100%;
+  pointer-events: auto !important;
 }
 
 @media (min-width: 640px) {
@@ -4967,7 +4980,8 @@ html, body {
   font-weight: 600;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  cursor: pointer;
+  cursor: pointer !important;
+  pointer-events: auto !important;
   text-decoration: none;
   white-space: normal;
   text-align: center;
@@ -4976,6 +4990,12 @@ html, body {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+}
+
+.uhc-btn * {
+  pointer-events: none !important;
 }
 
 @media (max-width: 639px) {

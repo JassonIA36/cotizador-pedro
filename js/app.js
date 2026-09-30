@@ -1875,6 +1875,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   // ==========================================================================
 
   function renderUnifiedHistoryCardHtml(cfg) {
+    const cardId = cfg.id !== undefined && cfg.id !== null ? String(cfg.id) : '';
     const actionsHtml = (cfg.actions || []).map(act => {
       let variantClass = 'uhc-btn-secondary';
       if (act.variant === 'primary') variantClass = 'uhc-btn-primary';
@@ -1882,12 +1883,15 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       else if (act.variant === 'status') variantClass = 'uhc-btn-status';
       else if (act.variant === 'danger') variantClass = 'uhc-btn-danger';
 
+      const accion = act.accion || act.action || '';
+      const actionId = act.id !== undefined && act.id !== null ? String(act.id) : cardId;
+
       const dataAttrs = Object.entries(act.data || {})
         .map(([k, v]) => `data-${k}="${escapeHtml(v)}"`)
         .join(' ');
 
       return `
-        <button type="button" class="uhc-btn ${variantClass} ${act.extraClass || ''}" data-action="${escapeHtml(act.action)}" ${dataAttrs} title="${escapeHtml(act.title || act.label)}">
+        <button type="button" class="uhc-btn ${variantClass} ${act.extraClass || ''}" data-accion="${escapeHtml(accion)}" data-action="${escapeHtml(accion)}" data-id="${escapeHtml(actionId)}" ${dataAttrs} title="${escapeHtml(act.title || act.label)}">
           <span>${act.icon}</span>
           <span>${escapeHtml(act.label)}</span>
         </button>
@@ -1977,12 +1981,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         amountVal: formatMoney(item.total),
         amountClass: 'text-primary',
         actions: [
-          { action: 'load-history', label: 'Abrir', icon: '✏️', variant: 'primary', data: { index: originalIdx } },
-          { action: 'pdf-history', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { index: originalIdx } },
-          { action: 'whatsapp-history', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { index: originalIdx } },
-          { action: 'duplicate-history', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { index: originalIdx } },
-          { action: 'toggle-status', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { index: originalIdx } },
-          { action: 'delete-history', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { index: originalIdx } }
+          { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { index: originalIdx } },
+          { accion: 'pdf', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { index: originalIdx } },
+          { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { index: originalIdx } },
+          { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { index: originalIdx } },
+          { accion: 'estado', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { index: originalIdx } },
+          { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { index: originalIdx } }
         ]
       });
     }).join('');
@@ -2834,6 +2838,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     if (activeSection && activeSection.id === 'view-cuentas-cobro') {
       stickyBar.style.display = 'flex';
+      stickyBar.style.pointerEvents = 'auto';
       const totals = calculateCobroTotals();
       const countLabel = $('sticky-count');
       const amountLabel = $('sticky-total');
@@ -2845,6 +2850,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       }
     } else if (activeSection && activeSection.id === 'view-cotizador') {
       stickyBar.style.display = 'flex';
+      stickyBar.style.pointerEvents = 'auto';
       const totals = calculateTotals();
       const count = state.currentQuote.items.length;
       const countLabel = $('sticky-count');
@@ -2857,6 +2863,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       }
     } else if (activeSection && activeSection.id === 'view-informe-tecnico') {
       stickyBar.style.display = 'flex';
+      stickyBar.style.pointerEvents = 'auto';
       const items = (state.currentInformePropuestas || []).filter(p => p.desc || parseFloat(p.valor) > 0);
       const total = items.reduce((sum, i) => sum + (parseFloat(i.valor) || 0), 0);
       const numVal = $('inf-num') ? $('inf-num').value : 'INF-0001';
@@ -2870,6 +2877,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       }
     } else {
       stickyBar.style.display = 'none';
+      stickyBar.style.pointerEvents = 'none';
     }
   }
 
@@ -3554,12 +3562,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         amountVal: formatMoney(saldo),
         amountClass: isPaid ? 'text-emerald' : 'text-primary',
         actions: [
-          { action: 'edit-cobro', label: 'Abrir', icon: '✏️', variant: 'primary', data: { num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
-          { action: 'pdf-cobro', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { num: item.cobroNum }, title: 'Ver documento PDF' },
-          { action: 'whatsapp-cobro', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
-          { action: 'duplicate-cobro', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
-          { action: 'toggle-status', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { num: item.cobroNum }, title: 'Cambiar estado de pago' },
-          { action: 'delete-cobro', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { num: item.cobroNum }, title: 'Eliminar del historial' }
+          { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
+          { accion: 'pdf', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { num: item.cobroNum }, title: 'Ver documento PDF' },
+          { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
+          { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
+          { accion: 'estado', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { num: item.cobroNum }, title: 'Cambiar estado de pago' },
+          { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { num: item.cobroNum }, title: 'Eliminar del historial' }
         ]
       });
     }).join('');
@@ -4802,14 +4810,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         amountVal: formatMoneyCop(propTotal),
         amountClass: 'text-cyan',
         actions: [
-          { action: 'open-informe', label: 'Abrir', icon: '✏️', variant: 'primary', data: { infId: item.id }, title: 'Abrir y editar informe' },
-          { action: 'pdf-informe', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { infId: item.id }, title: 'Ver documento PDF' },
-          { action: 'whatsapp-informe', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { infId: item.id }, title: 'Enviar PDF por WhatsApp' },
-          { action: 'dup-informe', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { infId: item.id }, title: 'Duplicar informe' },
-          { action: 'toggle-status', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { infId: item.id }, title: 'Cambiar estado' },
-          { action: 'create-cobro', label: 'Crear cuenta de cobro', icon: '💼', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cuenta de cobro a partir de este informe' },
-          { action: 'create-cot', label: 'Crear cotización', icon: '📋', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cotización a partir de este informe' },
-          { action: 'delete-informe', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { infId: item.id }, title: 'Eliminar informe' }
+          { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { infId: item.id }, title: 'Abrir y editar informe' },
+          { accion: 'pdf', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { infId: item.id }, title: 'Ver documento PDF' },
+          { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { infId: item.id }, title: 'Enviar PDF por WhatsApp' },
+          { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { infId: item.id }, title: 'Duplicar informe' },
+          { accion: 'estado', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { infId: item.id }, title: 'Cambiar estado' },
+          { accion: 'crear-cuenta-cobro', label: 'Crear cuenta de cobro', icon: '💼', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cuenta de cobro a partir de este informe' },
+          { accion: 'crear-cotizacion', label: 'Crear cotización', icon: '📋', variant: 'secondary', extraClass: 'uhc-btn-wide-mobile', data: { infId: item.id }, title: 'Generar cotización a partir de este informe' },
+          { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { infId: item.id }, title: 'Eliminar informe' }
         ]
       });
     }).join('');
@@ -5380,65 +5388,54 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const histList = $('inf-history-list');
     if (histList) {
       histList.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action], .btn-inf-act-open, .btn-inf-act-dup, .btn-inf-act-pdf, .btn-inf-act-wa, .btn-inf-del');
+        const btn = e.target.closest('[data-accion], [data-action], .btn-inf-act-open, .btn-inf-act-dup, .btn-inf-act-pdf, .btn-inf-act-wa, .btn-inf-del');
         if (!btn) return;
-        const action = btn.dataset.action;
-        const infId = btn.dataset.infId;
+        const accion = (btn.dataset.accion || btn.dataset.action || '').toLowerCase();
+        const id = btn.dataset.id || btn.dataset.infId;
 
-        if (action === 'open-informe' || btn.classList.contains('btn-inf-act-open')) {
-          loadInformeFromHistory(infId);
+        if (accion === 'abrir' || accion === 'open-informe' || accion === 'load-informe' || btn.classList.contains('btn-inf-act-open')) {
+          loadInformeFromHistory(id);
           return;
         }
 
-        if (action === 'dup-informe' || btn.classList.contains('btn-inf-act-dup')) {
-          duplicateInforme(infId);
-          return;
-        }
-
-        if (action === 'pdf-informe' || btn.classList.contains('btn-inf-act-pdf')) {
-          const item = (state.informeHistory || []).find(h => h.id === infId);
+        if (accion === 'pdf' || accion === 'pdf-informe' || btn.classList.contains('btn-inf-act-pdf')) {
+          const item = (state.informeHistory || []).find(h => String(h.id) === String(id));
           if (item) window.PedroRoaPdf.previewInformePdf(item);
           return;
         }
 
-        if (action === 'whatsapp-informe' || btn.classList.contains('btn-inf-act-wa')) {
-          const item = (state.informeHistory || []).find(h => h.id === infId);
+        if (accion === 'whatsapp' || accion === 'whatsapp-informe' || btn.classList.contains('btn-inf-act-wa')) {
+          const item = (state.informeHistory || []).find(h => String(h.id) === String(id));
           if (item) window.PedroRoaPdf.shareInformePdfViaWhatsApp(item);
           return;
         }
 
-        if (action === 'toggle-status') {
-          toggleInformeStatus(infId);
+        if (accion === 'duplicar' || accion === 'dup-informe' || accion === 'duplicate-informe' || btn.classList.contains('btn-inf-act-dup')) {
+          duplicateInforme(id);
           return;
         }
 
-        if (action === 'create-cobro') {
-          createCobroFromInforme(infId);
+        if (accion === 'estado' || accion === 'toggle-status') {
+          toggleInformeStatus(id);
           return;
         }
 
-        if (action === 'create-cot') {
-          createCotizacionFromInforme(infId);
+        if (accion === 'crear-cuenta-cobro' || accion === 'create-cobro') {
+          createCobroFromInforme(id);
           return;
         }
 
-        if (action === 'delete-informe' || btn.classList.contains('btn-inf-del')) {
-          deleteInforme(infId);
+        if (accion === 'crear-cotizacion' || accion === 'create-cot') {
+          createCotizacionFromInforme(id);
           return;
         }
-      });
 
-      histList.addEventListener('change', (e) => {
-        if (e.target.classList.contains('inf-status-select')) {
-          changeInformeStatus(e.target.dataset.infId, e.target.value);
+        if (accion === 'eliminar' || accion === 'delete-informe' || btn.classList.contains('btn-inf-del')) {
+          deleteInforme(id);
+          return;
         }
       });
     }
-
-    // Cerrar dropdown al hacer click fuera
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.inf-more-dropdown').forEach(d => d.style.display = 'none');
-    });
 
     // Filtros del historial
     const histSearch = $('inf-hist-search');
@@ -5838,23 +5835,23 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const cobroHistList = $('cc-history-list');
     if (cobroHistList) {
       cobroHistList.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action]');
+        const btn = e.target.closest('[data-accion], [data-action]');
         if (!btn) return;
-        const action = btn.dataset.action;
-        const num = btn.dataset.num;
+        const accion = (btn.dataset.accion || btn.dataset.action || '').toLowerCase();
+        const id = btn.dataset.id || btn.dataset.num;
 
-        if (action === 'toggle-status') {
-          toggleCobroStatus(num);
-        } else if (action === 'edit-cobro') {
-          openCobroForEditing(num);
-        } else if (action === 'duplicate-cobro') {
-          duplicateCobroFromHistory(num);
-        } else if (action === 'pdf-cobro') {
-          previewCobroFromHistory(num);
-        } else if (action === 'whatsapp-cobro') {
-          shareCobroFromHistory(num);
-        } else if (action === 'delete-cobro') {
-          deleteCobroFromHistory(num);
+        if (accion === 'abrir' || accion === 'edit-cobro') {
+          openCobroForEditing(id);
+        } else if (accion === 'pdf' || accion === 'pdf-cobro') {
+          previewCobroFromHistory(id);
+        } else if (accion === 'whatsapp' || accion === 'whatsapp-cobro') {
+          shareCobroFromHistory(id);
+        } else if (accion === 'duplicar' || accion === 'duplicate-cobro') {
+          duplicateCobroFromHistory(id);
+        } else if (accion === 'estado' || accion === 'toggle-status') {
+          toggleCobroStatus(id);
+        } else if (accion === 'eliminar' || accion === 'delete-cobro') {
+          deleteCobroFromHistory(id);
         }
       });
     }
@@ -6264,61 +6261,63 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       triggerIncrementalSync();
     });
 
-    // History interaction (Abrir, Duplicar, Ver PDF, WhatsApp, Eliminar)
-    $('history-list').addEventListener('click', (e) => {
-      const loadBtn = e.target.closest('[data-action="load-history"]');
-      if (loadBtn) {
-        const idx = parseInt(loadBtn.dataset.index, 10);
-        loadQuoteFromHistory(idx);
-        return;
-      }
+    // Historial de Cotizaciones: interacción (Abrir, Duplicar, Ver PDF, WhatsApp, Estado, Eliminar)
+    const quoteHistList = $('history-list');
+    if (quoteHistList) {
+      quoteHistList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-accion], [data-action]');
+        if (!btn) return;
+        const accion = (btn.dataset.accion || btn.dataset.action || '').toLowerCase();
+        const id = btn.dataset.id;
+        const idx = parseInt(btn.dataset.index !== undefined ? btn.dataset.index : id, 10);
 
-      const dupBtn = e.target.closest('[data-action="duplicate-history"]');
-      if (dupBtn) {
-        const idx = parseInt(dupBtn.dataset.index, 10);
-        duplicateQuoteFromHistory(idx);
-        return;
-      }
-
-      const pdfBtn = e.target.closest('[data-action="pdf-history"]');
-      if (pdfBtn) {
-        const idx = parseInt(pdfBtn.dataset.index, 10);
-        const saved = state.history[idx];
-        if (saved) window.PedroRoaPdf.previewPdf(saved);
-        return;
-      }
-
-      const waBtn = e.target.closest('[data-action="whatsapp-history"]');
-      if (waBtn) {
-        const idx = parseInt(waBtn.dataset.index, 10);
-        const saved = state.history[idx];
-        if (saved) window.PedroRoaPdf.sharePdfViaWhatsApp(saved);
-        return;
-      }
-
-      const toggleBtn = e.target.closest('[data-action="toggle-status"]');
-      if (toggleBtn) {
-        const idx = parseInt(toggleBtn.dataset.index, 10);
-        toggleQuoteStatus(idx);
-        return;
-      }
-
-      const delBtn = e.target.closest('[data-action="delete-history"]');
-      if (delBtn) {
-        if (confirm('¿Eliminar esta cotización del historial?')) {
-          const idx = parseInt(delBtn.dataset.index, 10);
-          const item = state.history[idx];
-          if (item && item.id) {
-            recordTombstone(item.id, 'cotizacion');
-          }
-          state.history.splice(idx, 1);
-          setStorage('pr_history', state.history);
-          renderHistory();
-          showToast('Cotización eliminada', '🗑️');
-          triggerIncrementalSync();
+        if (accion === 'abrir' || accion === 'load-history') {
+          loadQuoteFromHistory(idx);
+          return;
         }
-      }
-    });
+
+        if (accion === 'duplicar' || accion === 'duplicate-history') {
+          duplicateQuoteFromHistory(idx);
+          return;
+        }
+
+        if (accion === 'pdf' || accion === 'pdf-history') {
+          const saved = state.history[idx] || state.history.find(h => String(h.id) === String(id));
+          if (saved) window.PedroRoaPdf.previewPdf(saved);
+          return;
+        }
+
+        if (accion === 'whatsapp' || accion === 'whatsapp-history') {
+          const saved = state.history[idx] || state.history.find(h => String(h.id) === String(id));
+          if (saved) window.PedroRoaPdf.sharePdfViaWhatsApp(saved);
+          return;
+        }
+
+        if (accion === 'estado' || accion === 'toggle-status') {
+          toggleQuoteStatus(idx);
+          return;
+        }
+
+        if (accion === 'eliminar' || accion === 'delete-history') {
+          if (confirm('¿Eliminar esta cotización del historial?')) {
+            const item = state.history[idx] || state.history.find(h => String(h.id) === String(id));
+            if (item && item.id) {
+              recordTombstone(item.id, 'cotizacion');
+            }
+            const realIdx = state.history.indexOf(item);
+            if (realIdx >= 0) {
+              state.history.splice(realIdx, 1);
+            } else if (!isNaN(idx) && state.history[idx]) {
+              state.history.splice(idx, 1);
+            }
+            setStorage('pr_history', state.history);
+            renderHistory();
+            showToast('Cotización eliminada', '🗑️');
+            triggerIncrementalSync();
+          }
+        }
+      });
+    }
 
     // New Quote Button
     $('btn-new-quote').addEventListener('click', () => {
