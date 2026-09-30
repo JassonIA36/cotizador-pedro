@@ -649,6 +649,429 @@
     return { success: true, method: 'download-and-chat', fileName };
   }
 
+  // ==========================================================================
+  // INFORMES TÉCNICOS - MOTOR DE GENERACIÓN PDF (TAMAÑO CARTA, MULTI-PÁGINA)
+  // Modelo idéntico al informe diagnóstico Epson EcoTank L565
+  // ==========================================================================
+
+  function formatMoneyCop(amount) {
+    return '$' + Math.round(amount || 0).toLocaleString('es-CO') + ' COP';
+  }
+
+  function createInformePdfDocument(data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'letter'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();   // 215.9 mm
+    const pageHeight = doc.internal.pageSize.getHeight(); // 279.4 mm
+    const margin = 16;
+    const contentWidth = pageWidth - (margin * 2);
+
+    let yPos = 22;
+
+    function checkPageBreak(neededHeight) {
+      if (yPos + neededHeight > pageHeight - 20) {
+        doc.addPage();
+        yPos = 24;
+        return true;
+      }
+      return false;
+    }
+
+    // 1. Logo (si está activado y existe)
+    if (data.includeLogo !== false && window.PEDRO_ROA_LOGO) {
+      try {
+        const logoSize = 18;
+        const logoX = (pageWidth - logoSize) / 2;
+        doc.addImage(window.PEDRO_ROA_LOGO, 'PNG', logoX, yPos, logoSize, logoSize);
+        yPos += logoSize + 4;
+      } catch (e) {
+        console.warn('Could not add logo image to Informe:', e);
+        yPos += 2;
+      }
+    } else {
+      yPos += 2;
+    }
+
+    // 2. Título Principal
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(15, 23, 42); // #0f172a
+    const titleText = data.title || 'INFORME TÉCNICO';
+    doc.text(titleText, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 6;
+
+    // Número de informe opcional en encabezado
+    if (data.showNumberInDoc && data.informeNumber) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`N° ${data.informeNumber}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+
+    // 3. Subtítulo
+    if (data.subtitle) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 41, 59);
+      const splitSub = doc.splitTextToSize(data.subtitle, contentWidth - 10);
+      doc.text(splitSub, pageWidth / 2, yPos, { align: 'center' });
+      yPos += (splitSub.length * 5) + 3;
+    } else {
+      yPos += 3;
+    }
+
+    // 4. Ficha del informe (Caja con fondo gris azulado suave #f1f5f9)
+    checkPageBreak(36);
+    const fichaStartY = yPos;
+    const fichaPadding = 4.5;
+    const colWidth = (contentWidth - 8) / 2;
+
+    const clientVal = (data.clientName || 'Cliente General') + (data.clientNit ? ` NIT: ${data.clientNit}` : '');
+    const equipVal = (data.equipment || 'Equipo evaluado') + (data.serial ? ` (Serial: ${data.serial})` : '');
+    const dateVal = data.reportDateFormatted || 'Hoy';
+    const fallaVal = data.falla || 'Diagnóstico general';
+    const serviceVal = data.serviceType || 'Inspección y diagnóstico técnico';
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    const splitClient = doc.splitTextToSize(clientVal, contentWidth - 8);
+    const splitEquip = doc.splitTextToSize(equipVal, colWidth);
+    const splitDate = doc.splitTextToSize(dateVal, colWidth);
+    const splitFalla = doc.splitTextToSize(fallaVal, colWidth);
+    const splitService = doc.splitTextToSize(serviceVal, colWidth);
+
+    const clientBlockH = 4.5 + (splitClient.length * 4.2);
+    const row2H = 4.5 + Math.max(splitEquip.length, splitDate.length) * 4.2;
+    const row3H = 4.5 + Math.max(splitFalla.length, splitService.length) * 4.2;
+    const fichaHeight = clientBlockH + row2H + row3H + (fichaPadding * 2) + 2;
+
+    doc.setFillColor(241, 245, 249); // #f1f5f9
+    doc.setDrawColor(226, 232, 240); // #e2e8f0
+    doc.roundedRect(margin, fichaStartY, contentWidth, fichaHeight, 2.5, 2.5, 'FD');
+
+    let curFichaY = fichaStartY + fichaPadding + 3.5;
+
+    // Fila 1: CLIENTE
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('CLIENTE', margin + 4, curFichaY);
+    curFichaY += 3.8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(splitClient, margin + 4, curFichaY);
+    curFichaY += (splitClient.length * 4.2) + 2.5;
+
+    // Fila 2: EQUIPO EVALUADO (Izq) | FECHA DEL INFORME (Der)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('EQUIPO EVALUADO', margin + 4, curFichaY);
+    doc.text('FECHA DEL INFORME', margin + 4 + colWidth + 6, curFichaY);
+    curFichaY += 3.8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(splitEquip, margin + 4, curFichaY);
+    doc.text(splitDate, margin + 4 + colWidth + 6, curFichaY);
+    curFichaY += Math.max(splitEquip.length, splitDate.length) * 4.2 + 2.5;
+
+    // Fila 3: FALLA REPORTADA (Izq) | TIPO DE SERVICIO (Der)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('FALLA REPORTADA', margin + 4, curFichaY);
+    doc.text('TIPO DE SERVICIO', margin + 4 + colWidth + 6, curFichaY);
+    curFichaY += 3.8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(splitFalla, margin + 4, curFichaY);
+    doc.text(splitService, margin + 4 + colWidth + 6, curFichaY);
+
+    yPos = fichaStartY + fichaHeight + 7;
+
+    // 5. Secciones numeradas (recalculadas dinámicamente)
+    let secCounter = 1;
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+
+    sections.forEach(sec => {
+      if (sec.included === false) return;
+
+      checkPageBreak(18);
+
+      const secTitleText = `${secCounter}. ${sec.title || 'Sección'}`;
+      secCounter++;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(secTitleText, margin, yPos);
+      yPos += 5.5;
+
+      if (sec.type === 'verificaciones') {
+        const items = Array.isArray(sec.items) ? sec.items : [];
+        items.forEach(it => {
+          checkPageBreak(14);
+          doc.setFontSize(8.8);
+          doc.setTextColor(15, 23, 42);
+
+          const bullet = '•  ';
+          const title = (it.title || 'Verificación') + ': ';
+          const desc = it.desc || '';
+
+          const fullText = `${bullet}${title}${desc}`;
+          const splitLines = doc.splitTextToSize(fullText, contentWidth - 4);
+
+          doc.text(splitLines, margin + 2, yPos);
+          yPos += (splitLines.length * 4.4) + 1.8;
+        });
+        yPos += 2;
+
+      } else if (sec.type === 'propuesta') {
+        if (sec.content) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.8);
+          doc.setTextColor(30, 41, 59);
+          const paras = String(sec.content).split('\n').filter(p => p.trim());
+          paras.forEach(p => {
+            const splitP = doc.splitTextToSize(p.trim(), contentWidth);
+            checkPageBreak((splitP.length * 4.4) + 2);
+            doc.text(splitP, margin, yPos);
+            yPos += (splitP.length * 4.4) + 2.5;
+          });
+          yPos += 2;
+        }
+
+        const propuestaItems = Array.isArray(sec.propuestaItems) ? sec.propuestaItems : [];
+        if (propuestaItems.length > 0) {
+          checkPageBreak(25);
+
+          const tableRows = propuestaItems.map(pi => [
+            pi.desc || 'Trabajo técnico propuesto',
+            formatMoneyCop(pi.valor || 0)
+          ]);
+
+          let totalPropuesta = propuestaItems.reduce((acc, pi) => acc + (parseFloat(pi.valor) || 0), 0);
+
+          if (propuestaItems.length > 1) {
+            tableRows.push([
+              { content: 'TOTAL', styles: { fontStyle: 'bold', halign: 'right' } },
+              { content: formatMoneyCop(totalPropuesta), styles: { fontStyle: 'bold', halign: 'right' } }
+            ]);
+          }
+
+          doc.autoTable({
+            startY: yPos,
+            margin: { left: margin, right: margin },
+            head: [['TRABAJO PROPUESTO', 'VALOR']],
+            body: tableRows,
+            theme: 'plain',
+            headStyles: {
+              fillColor: [15, 41, 66], // #0f2942
+              textColor: [255, 255, 255],
+              fontSize: 8.5,
+              fontStyle: 'bold',
+              cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 }
+            },
+            columnStyles: {
+              0: { cellWidth: 'auto', halign: 'left' },
+              1: { cellWidth: 44, halign: 'right', fontStyle: 'bold' }
+            },
+            bodyStyles: {
+              fontSize: 8.8,
+              textColor: [15, 23, 42],
+              cellPadding: { top: 3.8, bottom: 3.8, left: 4, right: 4 }
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 252]
+            }
+          });
+
+          yPos = doc.lastAutoTable.finalY + 6;
+        }
+
+      } else if (sec.type === 'observaciones') {
+        const bullets = Array.isArray(sec.bulletItems)
+          ? sec.bulletItems
+          : (String(sec.content || '').split('\n').filter(b => b.trim()));
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.8);
+        doc.setTextColor(30, 41, 59);
+
+        bullets.forEach(b => {
+          const cleanB = String(b).replace(/^[•\-\*]\s*/, '').trim();
+          if (!cleanB) return;
+          const lineText = `•  ${cleanB}`;
+          const splitLines = doc.splitTextToSize(lineText, contentWidth - 4);
+          checkPageBreak((splitLines.length * 4.4) + 1.5);
+          doc.text(splitLines, margin + 2, yPos);
+          yPos += (splitLines.length * 4.4) + 1.8;
+        });
+        yPos += 2;
+
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.8);
+        doc.setTextColor(30, 41, 59);
+        const paras = String(sec.content || '').split('\n').filter(p => p.trim());
+        paras.forEach(p => {
+          const splitP = doc.splitTextToSize(p.trim(), contentWidth);
+          checkPageBreak((splitP.length * 4.4) + 2);
+          doc.text(splitP, margin, yPos);
+          yPos += (splitP.length * 4.4) + 2.5;
+        });
+        yPos += 2;
+      }
+    });
+
+    // 6. Caja final ELABORADO POR (fondo gris azulado #f1f5f9)
+    checkPageBreak(38);
+
+    const signBoxY = yPos + 2;
+    const signBoxH = 34;
+
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, signBoxY, contentWidth, signBoxH, 2.5, 2.5, 'FD');
+
+    const elab = data.elaboradoPor || {};
+    let leftY = signBoxY + 6;
+
+    // Columna Izquierda: Datos del elaborador
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('ELABORADO POR', margin + 5, leftY);
+    leftY += 4.5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(elab.name || 'Pedro Luis Roa Mora', margin + 5, leftY);
+    leftY += 4.2;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(elab.cargo || 'Técnico de mantenimiento de equipos de cómputo', margin + 5, leftY);
+    leftY += 4.0;
+    doc.text(`Correo: ${elab.correo || 'pedrolroam@hotmail.com'}`, margin + 5, leftY);
+    leftY += 4.0;
+    doc.text(`Celular: ${elab.celular || '302 455 5428'}`, margin + 5, leftY);
+
+    // Columna Derecha: Firma y Fecha
+    const rightColX = margin + (contentWidth / 2) + 12;
+    let rightY = signBoxY + 7;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Firma:', rightColX, rightY + 9);
+
+    if (data.includeFirma !== false && elab.firma) {
+      try {
+        const fw = 38;
+        const fh = 13;
+        doc.addImage(elab.firma, 'PNG', rightColX + 12, rightY, fw, fh);
+      } catch (err) {
+        console.warn('Could not add signature image to Informe PDF:', err);
+      }
+    }
+    doc.setDrawColor(148, 163, 184);
+    doc.line(rightColX + 11, rightY + 12, rightColX + 68, rightY + 12);
+
+    rightY += 19;
+    doc.text(`Fecha: ${elab.fecha || data.reportDateFormatted || 'Hoy'}`, rightColX, rightY);
+
+    // 7. Post-proceso: Dibujar encabezado y pie de página en TODAS las páginas
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(14, 116, 144); // #0e7490
+      const headerTag = (data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO').toUpperCase();
+      doc.text(headerTag, pageWidth - margin, 13, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      const equipFooter = data.equipment ? `Informe técnico · ${data.equipment}` : 'Informe técnico';
+      doc.text(equipFooter, pageWidth / 2, pageHeight - 9, { align: 'center' });
+    }
+
+    return doc;
+  }
+
+  // Generate Informe File & Blob
+  function generateInformePdfFile(data) {
+    const doc = createInformePdfDocument(data);
+    const sanitizedNumber = (data.informeNumber || 'INF-0001').replace(/[^a-zA-Z0-9_-]/g, '');
+    const clientSlug = (data.clientName || 'Cliente').replace(/\s+/g, '_').substring(0, 15);
+    const fileName = `InformeTecnico_${sanitizedNumber}_${clientSlug}.pdf`;
+
+    const blob = doc.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf', lastModified: Date.now() });
+
+    return { doc, blob, file, fileName };
+  }
+
+  // Download Informe PDF directly
+  function downloadInformePdf(data) {
+    const { doc, fileName } = generateInformePdfFile(data);
+    doc.save(fileName);
+  }
+
+  // Open Informe in preview
+  function previewInformePdf(data) {
+    const { blob } = generateInformePdfFile(data);
+    previewPdfBlob(blob);
+  }
+
+  // Share Informe via WhatsApp with PDF
+  async function shareInformePdfViaWhatsApp(data, onDesktopFallback) {
+    const { file, fileName, doc } = generateInformePdfFile(data);
+    const messageText = data.fullMessageText || '';
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Informe Técnico ${data.informeNumber || ''} - Pedro Roa`,
+          text: messageText
+        });
+        return { success: true, method: 'native-share' };
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return { success: false, aborted: true };
+        }
+        console.warn('Web Share API failed, falling back:', err);
+      }
+    }
+
+    doc.save(fileName);
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(messageText)}`;
+    window.open(waUrl, '_blank');
+
+    if (typeof onDesktopFallback === 'function') {
+      onDesktopFallback(fileName);
+    }
+
+    return { success: true, method: 'download-and-chat', fileName };
+  }
+
   // Export to window
   window.PedroRoaPdf = {
     createPdfDocument,
@@ -661,8 +1084,14 @@
     downloadCobroPdf,
     previewCobroPdf,
     shareCobroPdfViaWhatsApp,
+    createInformePdfDocument,
+    generateInformePdfFile,
+    downloadInformePdf,
+    previewInformePdf,
+    shareInformePdfViaWhatsApp,
     previewPdfBlob,
-    formatMoney
+    formatMoney,
+    formatMoneyCop
   };
 
 })(window);

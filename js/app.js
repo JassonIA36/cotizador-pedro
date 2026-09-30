@@ -468,6 +468,34 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       });
     }
 
+    // 4.1 Informes Técnicos
+    if (Array.isArray(state.informeHistory)) {
+      state.informeHistory.forEach(inf => {
+        ensureItemUuid(inf);
+        records.push({
+          id: inf.id,
+          tipo: 'informe_tecnico',
+          datos: { ...inf },
+          deleted: false,
+          updated_at: inf.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
+    // 4.2 Plantillas de Informes
+    if (Array.isArray(state.informePlantillas)) {
+      state.informePlantillas.forEach(plant => {
+        ensureItemUuid(plant);
+        records.push({
+          id: plant.id,
+          tipo: 'plantilla_informe',
+          datos: { ...plant },
+          deleted: false,
+          updated_at: plant.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
     // 5. Config (Mis datos, Logo y Firma)
     const configId = getConfigId();
     const configUpdatedAt = getStorage('pr_config_updated_at', new Date().toISOString());
@@ -480,7 +508,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         cobroLegalText: state.cobroLegalText,
         cobroDefaultNotes: state.cobroDefaultNotes,
         cobroFirma: state.cobroFirma || '',
-        logo: window.PEDRO_ROA_LOGO || ''
+        logo: window.PEDRO_ROA_LOGO || '',
+        informeConfig: state.informeConfig || {}
       },
       deleted: false,
       updated_at: configUpdatedAt
@@ -494,7 +523,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       tipo: 'consecutivo',
       datos: {
         quoteNumber: state.quoteNumber,
-        cobroNum: state.cobroNum
+        cobroNum: state.cobroNum,
+        informeNum: state.informeNum || 1
       },
       deleted: false,
       updated_at: consecutivoUpdatedAt
@@ -545,6 +575,22 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
             state.cobroClients.splice(idx, 1);
             setStorage('pr_cobro_clients', state.cobroClients);
           }
+        } else if (tipo === 'informe_tecnico') {
+          if (Array.isArray(state.informeHistory)) {
+            const idx = state.informeHistory.findIndex(inf => inf.id === id);
+            if (idx >= 0) {
+              state.informeHistory.splice(idx, 1);
+              setStorage('pr_informe_history', state.informeHistory);
+            }
+          }
+        } else if (tipo === 'plantilla_informe') {
+          if (Array.isArray(state.informePlantillas)) {
+            const idx = state.informePlantillas.findIndex(p => p.id === id);
+            if (idx >= 0) {
+              state.informePlantillas.splice(idx, 1);
+              setStorage('pr_informe_plantillas', state.informePlantillas);
+            }
+          }
         }
         return;
       }
@@ -568,6 +614,26 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           state.cobroHistory.push(cobro);
         }
         setStorage('pr_cobro_history', state.cobroHistory);
+      } else if (tipo === 'informe_tecnico' && datos) {
+        if (!Array.isArray(state.informeHistory)) state.informeHistory = [];
+        const inf = { ...datos, id, updatedAt: updated_at };
+        const idx = state.informeHistory.findIndex(h => h.id === id || h.informeNumber === inf.informeNumber);
+        if (idx >= 0) {
+          state.informeHistory[idx] = inf;
+        } else {
+          state.informeHistory.push(inf);
+        }
+        setStorage('pr_informe_history', state.informeHistory);
+      } else if (tipo === 'plantilla_informe' && datos) {
+        if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
+        const plant = { ...datos, id, updatedAt: updated_at };
+        const idx = state.informePlantillas.findIndex(p => p.id === id || p.name === plant.name);
+        if (idx >= 0) {
+          state.informePlantillas[idx] = plant;
+        } else {
+          state.informePlantillas.push(plant);
+        }
+        setStorage('pr_informe_plantillas', state.informePlantillas);
       } else if (tipo === 'catalogo' && datos) {
         const item = { ...datos, id, updatedAt: updated_at };
         const idx = state.catalog.findIndex(c => c.id === id || (c.n === item.n && c.c === item.c));
@@ -610,6 +676,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
           if ($('cc-default-notes-tab')) $('cc-default-notes-tab').value = state.cobroDefaultNotes;
         }
+        if (datos.informeConfig) {
+          state.informeConfig = { ...state.informeConfig, ...datos.informeConfig };
+          setStorage('pr_informe_config', state.informeConfig);
+          if (typeof syncInformeDatosUI === 'function') syncInformeDatosUI();
+        }
         if (typeof datos.cobroFirma === 'string') {
           state.cobroFirma = datos.cobroFirma;
           setStorage('pr_cobro_firma', state.cobroFirma);
@@ -625,6 +696,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           state.cobroNum = datos.cobroNum;
           setStorage('pr_cobro_num', state.cobroNum);
           if ($('cc-num')) $('cc-num').value = state.cobroNum;
+        }
+        if (typeof datos.informeNum === 'number' && datos.informeNum > (state.informeNum || 1)) {
+          state.informeNum = datos.informeNum;
+          setStorage('pr_informe_num', state.informeNum);
+          if ($('inf-num')) $('inf-num').value = getInformeNumberString(state.informeNum);
         }
         setStorage('pr_consecutivo_updated_at', updated_at);
       }
@@ -833,7 +909,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         cobroDefaultNotes: state.cobroDefaultNotes,
         cobroFirma: state.cobroFirma || '',
         quoteNumber: state.quoteNumber,
-        cobroNum: state.cobroNum
+        cobroNum: state.cobroNum,
+        informeHistory: state.informeHistory || [],
+        informePlantillas: state.informePlantillas || [],
+        informeConfig: state.informeConfig || {},
+        informeNum: state.informeNum || 1
       };
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -884,6 +964,26 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
             });
             setStorage('pr_cobro_history', state.cobroHistory);
           }
+          if (Array.isArray(parsed.informeHistory)) {
+            if (!Array.isArray(state.informeHistory)) state.informeHistory = [];
+            parsed.informeHistory.forEach(ih => {
+              ensureItemUuid(ih);
+              const idx = state.informeHistory.findIndex(h => h.id === ih.id || h.informeNumber === ih.informeNumber);
+              if (idx >= 0) state.informeHistory[idx] = { ...state.informeHistory[idx], ...ih };
+              else { state.informeHistory.push(ih); added++; }
+            });
+            setStorage('pr_informe_history', state.informeHistory);
+          }
+          if (Array.isArray(parsed.informePlantillas)) {
+            if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
+            parsed.informePlantillas.forEach(ip => {
+              ensureItemUuid(ip);
+              const idx = state.informePlantillas.findIndex(p => p.id === ip.id || p.name === ip.name);
+              if (idx >= 0) state.informePlantillas[idx] = { ...state.informePlantillas[idx], ...ip };
+              else { state.informePlantillas.push(ip); added++; }
+            });
+            setStorage('pr_informe_plantillas', state.informePlantillas);
+          }
           if (Array.isArray(parsed.catalog)) {
             parsed.catalog.forEach(item => {
               ensureItemUuid(item);
@@ -918,14 +1018,24 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
             state.cobroDefaultNotes = parsed.cobroDefaultNotes;
             setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
           }
+          if (parsed.informeConfig) {
+            state.informeConfig = { ...state.informeConfig, ...parsed.informeConfig };
+            setStorage('pr_informe_config', state.informeConfig);
+          }
           if (parsed.cobroFirma) {
             state.cobroFirma = parsed.cobroFirma;
             setStorage('pr_cobro_firma', state.cobroFirma);
+          }
+          if (typeof parsed.informeNum === 'number' && parsed.informeNum > (state.informeNum || 1)) {
+            state.informeNum = parsed.informeNum;
+            setStorage('pr_informe_num', state.informeNum);
           }
 
           setStorage('pr_config_updated_at', new Date().toISOString());
           renderHistory();
           renderCobroHistory();
+          if (typeof renderInformeHistory === 'function') renderInformeHistory();
+          if (typeof renderInformePlantillasList === 'function') renderInformePlantillasList();
           renderCatalogSelect();
           renderCatalogManager();
           updateBadges();
@@ -1227,6 +1337,58 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
   const DEFAULT_COBRO_NOTES = 'Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante.';
 
+  // --- Valores por defecto para Informes Técnicos ---
+  const DEFAULT_INFORME_CONFIG = {
+    cargo: 'Técnico de mantenimiento de equipos de cómputo',
+    correo: 'pedrolroam@hotmail.com',
+    celular: '302 455 5428',
+    headerTag: 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO',
+    serviceType: 'Inspección y diagnóstico técnico',
+    defaultObs: `El valor indicado corresponde al conjunto de actividades descritas en la propuesta de reparación.
+El diagnóstico se basa en inspección visual y pruebas funcionales; no incluye análisis químico ni desmontaje destructivo.
+La reparación debe finalizar con pruebas de funcionamiento y verificación para comprobar el resultado.`
+  };
+
+  const DEFAULT_INFORME_PLANTILLAS = [
+    {
+      id: 'plantilla-epson-l565',
+      name: 'Diagnóstico de calidad de impresión – Epson EcoTank L565',
+      title: 'INFORME TÉCNICO',
+      subtitle: 'Diagnóstico de calidad de impresión – Epson EcoTank L565',
+      headerTag: 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO',
+      serviceType: 'Inspección y diagnóstico técnico',
+      falla: 'Impresión con sombras / dominante azul',
+      motivo: 'Se realiza la evaluación técnica de una impresora Epson EcoTank L565 debido a una anomalía en la calidad de impresión, caracterizada por la aparición de sombras y una dominante de color azul en los documentos impresos.',
+      verificaciones: [
+        {
+          title: 'Inspección del bus de datos del cabezal',
+          desc: 'Se revisó visualmente el bus de datos (cinta flexible) asociado al cabezal. A la inspección, se observa aparentemente en buenas condiciones, sin daños visibles que permitan atribuirle directamente la falla.'
+        },
+        {
+          title: 'Prueba cruzada del cabezal',
+          desc: 'El cabezal de impresión se probó en otra máquina compatible. La prueba reprodujo la misma anomalía de sombras azules, lo que permite asociar la falla al cabezal y no exclusivamente a la impresora originalmente evaluada.'
+        },
+        {
+          title: 'Verificación de la tinta',
+          desc: 'Durante la revisión de la tinta presente en el sistema, se observó que esta tiene una consistencia muy diluida y aparentemente está rendida con agua. Esta condición es compatible con el uso de tinta de baja calidad o adulterada; sin embargo, la composición exacta no fue determinada mediante análisis químico de laboratorio.'
+        }
+      ],
+      diagnostico: `Con base en las verificaciones efectuadas, el cabezal de impresión presenta una falla funcional que genera sombras o una dominante azul en la impresión. La prueba cruzada, al presentar el mismo síntoma en otra impresora, respalda que el origen de la anomalía se encuentra en el cabezal.
+
+La tinta encontrada, por su elevada dilución aparente, constituye una causa probable y relevante del deterioro. El uso de tinta de calidad inadecuada, contaminada o mezclada puede afectar el funcionamiento del sistema de impresión y contribuir a obstrucciones, contaminación o daños en el cabezal.`,
+      propuestaTexto: 'Se recomienda reemplazar el cabezal de impresión y, de forma complementaria, realizar el lavado de los tanques de tinta y del sistema correspondiente antes de cargar tinta nueva de calidad confiable y compatible con el modelo Epson L565. Esta intervención busca retirar residuos o contaminantes y reducir el riesgo de que el nuevo cabezal resulte afectado por tinta remanente.',
+      propuestaItems: [
+        { desc: 'Cambio de cabezal, lavado de tanques y suministro de tinta nueva.', valor: 500000 }
+      ],
+      observaciones: `El valor indicado corresponde al conjunto de actividades descritas en la propuesta de reparación.
+Se recomienda utilizar únicamente tinta nueva, de calidad y compatible con la Epson L565.
+La reparación debe finalizar con pruebas de impresión y verificación de los colores para comprobar el resultado.
+El diagnóstico se basa en inspección visual y pruebas funcionales; no incluye análisis químico de la tinta ni desmontaje destructivo del cabezal.
+El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el daño fue producido por la tinta que se le suministro a la máquina.`,
+      conclusion: 'La Epson EcoTank L565 presenta una falla atribuible al cabezal de impresión, evidenciada por la reproducción de las sombras azules al probarlo en otra máquina. El bus de datos se aprecia en buen estado durante la inspección visual. La tinta muy diluida observada es un factor que contribuyo al daño, aunque no se puede establecer como causa única sin pruebas adicionales. Se propone el reemplazo del cabezal, lavado de tanques y suministro de tinta nueva por un valor total de $500.000 COP.'
+    }
+  ];
+
   // --- App State ---
   const state = {
     // Lee primero lo guardado en localStorage; solo si no hay nada guardado usa el catálogo de ejemplo
@@ -1267,7 +1429,8 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     cobroClientName: getStorage('pr_cobro_client_name', ''),
     cobroClientNit: getStorage('pr_cobro_client_nit', ''),
     cobroClients: getStorage('pr_cobro_clients', [
-      { name: 'Canon de Colombia S.A.S.', nit: '860.000.123-4' }
+      { name: 'Canon de Colombia S.A.S.', nit: '860.000.123-4' },
+      { name: 'TIENDA DE FRENOS IMPORTADOS S.A.S.', nit: '900.611-329-4' }
     ]),
     cobroConceptos: getStorage('pr_cobro_conceptos', [
       { desc: 'Suministro caja de mantenimiento para impresora Canon MC-G03 serial 54496', amount: 160000 }
@@ -1275,6 +1438,33 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     cobroAdelantos: getStorage('pr_cobro_adelantos', []),
     cobroPreviewCollapsed: getStorage('pr_cobro_preview_collapsed', false),
     cobroHistory: getStorage('pr_cobro_history', []),
+
+    // Informes Técnicos State
+    informeConfig: getStorage('pr_informe_config', DEFAULT_INFORME_CONFIG),
+    informeNum: getStorage('pr_informe_num', 1),
+    informeHistory: getStorage('pr_informe_history', []),
+    informePlantillas: getStorage('pr_informe_plantillas', DEFAULT_INFORME_PLANTILLAS),
+    activeSubviewInf: getStorage('pr_active_subview_inf', 'view-informe-tecnico'),
+    informePreviewCollapsed: getStorage('pr_informe_preview_collapsed', false),
+    currentInformeVerificaciones: [
+      {
+        title: 'Inspección del bus de datos del cabezal',
+        desc: 'Se revisó visualmente el bus de datos (cinta flexible) asociado al cabezal. A la inspección, se observa aparentemente en buenas condiciones, sin daños visibles que permitan atribuirle directamente la falla.'
+      },
+      {
+        title: 'Prueba cruzada del cabezal',
+        desc: 'El cabezal de impresión se probó en otra máquina compatible. La prueba reprodujo la misma anomalía de sombras azules, lo que permite asociar la falla al cabezal y no exclusivamente a la impresora originalmente evaluada.'
+      },
+      {
+        title: 'Verificación de la tinta',
+        desc: 'Durante la revisión de la tinta presente en el sistema, se observó que esta tiene una consistencia muy diluida y aparentemente está rendida con agua. Esta condición es compatible con el uso de tinta de baja calidad o adulterada; sin embargo, la composición exacta no fue determinada mediante análisis químico de laboratorio.'
+      }
+    ],
+    currentInformePropuestas: [
+      { desc: 'Cambio de cabezal, lavado de tanques y suministro de tinta nueva.', valor: 500000 }
+    ],
+    currentInformeCustomSections: [],
+
     activeMainSection: getStorage('pr_active_main_section', 'cotizaciones'),
     activeSubviewCot: getStorage('pr_active_subview_cot', 'view-cotizador'),
     activeSubviewCobro: getStorage('pr_active_subview_cobro', 'view-cuentas-cobro')
@@ -1752,11 +1942,32 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       $('hub-stat-cobros-active-count').textContent = `${pendingCobrosCount} ${pendingCobrosCount === 1 ? 'cuenta activa' : 'cuentas activas'}`;
     }
 
+    // Informes Técnicos badges & widgets
+    const infCount = (state.informeHistory && state.informeHistory.length) || 0;
+    const infBadge = $('badge-informes-count');
+    if (infBadge) infBadge.textContent = infCount;
+
+    let infPendingCount = 0;
+    let infPendingTotal = 0;
+    if (Array.isArray(state.informeHistory)) {
+      state.informeHistory.forEach(item => {
+        if (item.status === 'Enviado') {
+          infPendingCount++;
+          const propTotal = (item.propuestaItems || []).reduce((sum, p) => sum + (parseFloat(p.valor) || 0), 0);
+          infPendingTotal += propTotal;
+        }
+      });
+    }
+
+    if ($('hub-stat-informes-count')) $('hub-stat-informes-count').textContent = infCount;
+    if ($('hub-badge-informes-val')) $('hub-badge-informes-val').textContent = infPendingCount;
+    if ($('hub-badge-informes-label')) $('hub-badge-informes-label').textContent = infPendingCount === 1 ? '1 EN ESPERA' : `${infPendingCount} EN ESPERA`;
+
     // Actualizar tarjetas resumen en las pantallas de entrada
     updateSectionEntrySummaries();
   }
 
-  // Tarjetas resumen en las pantallas de entrada de Cuentas de Cobro y Cotizaciones
+  // Tarjetas resumen en las pantallas de entrada de Cuentas de Cobro, Cotizaciones e Informes
   function updateSectionEntrySummaries() {
     // 1. Resumen Cuentas de Cobro
     const cobroHist = Array.isArray(state.cobroHistory) ? state.cobroHistory : [];
@@ -1863,6 +2074,76 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
               </div>
               <div class="entry-pending-row-right">
                 <span class="entry-pending-amount" style="color: var(--primary-neon);">${formatMoney(q.total || 0)}</span>
+                <span class="entry-pending-arrow">→</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // 3. Resumen Informes Técnicos
+    const infHist = Array.isArray(state.informeHistory) ? state.informeHistory : [];
+    const infCountAll = infHist.length;
+    let infPendingCountSummary = 0;
+    let infPendingTotalSummary = 0;
+    let infApprovedCountSummary = 0;
+
+    infHist.forEach(item => {
+      const propTotal = (item.propuestaItems || []).reduce((sum, p) => sum + (parseFloat(p.valor) || 0), 0);
+      if (item.status === 'Enviado') {
+        infPendingCountSummary++;
+        infPendingTotalSummary += propTotal;
+      } else if (item.status === 'Aprobado') {
+        infApprovedCountSummary++;
+      }
+    });
+
+    if ($('inf-entry-badge-status')) {
+      $('inf-entry-badge-status').textContent = `${infCountAll} ${infCountAll === 1 ? 'informe' : 'informes'}`;
+    }
+    if ($('inf-entry-stat-pending-val')) {
+      $('inf-entry-stat-pending-val').textContent = formatMoneyCop(infPendingTotalSummary);
+    }
+    if ($('inf-entry-stat-pending-count')) {
+      $('inf-entry-stat-pending-count').textContent = `${infPendingCountSummary} ${infPendingCountSummary === 1 ? 'informe en espera' : 'informes en espera'}`;
+    }
+    if ($('inf-entry-stat-total-count')) {
+      $('inf-entry-stat-total-count').textContent = infCountAll;
+    }
+    if ($('inf-entry-stat-approved-count')) {
+      $('inf-entry-stat-approved-count').textContent = `${infApprovedCountSummary} ${infApprovedCountSummary === 1 ? 'aprobado' : 'aprobados'} en el historial`;
+    }
+
+    const infRecentList = $('inf-entry-recent-list');
+    if (infRecentList) {
+      if (infCountAll === 0) {
+        infRecentList.innerHTML = `
+          <div class="entry-empty-pending-state">
+            <span class="empty-icon">🛠️</span>
+            <div class="entry-empty-text">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block;">No hay informes técnicos registrados aún</strong>
+              <span style="color: var(--text-muted); font-size: 0.78rem;">Tus diagnósticos técnicos guardados aparecerán aquí con su propuesta y estado.</span>
+            </div>
+          </div>
+        `;
+      } else {
+        const recentInf = infHist.slice(-5).reverse();
+        infRecentList.innerHTML = recentInf.map(item => {
+          const propTotal = (item.propuestaItems || []).reduce((sum, p) => sum + (parseFloat(p.valor) || 0), 0);
+          const st = item.status || 'Borrador';
+          const badgeClass = st === 'Enviado' ? 'badge-enviado' : (st === 'Aprobado' ? 'badge-aprobado' : (st === 'Rechazado' ? 'badge-rechazado' : 'badge-borrador'));
+          return `
+            <div class="entry-pending-row entry-inf-row" data-inf-id="${escapeHtml(item.id || '')}" data-inf-num="${escapeHtml(item.number || '')}" title="Toca para abrir y editar este informe">
+              <div class="entry-pending-row-left">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                  <span class="entry-pending-num" style="color: #38bdf8;">${escapeHtml(item.number || 'INF')}</span>
+                  <span class="card-badge ${badgeClass}" style="font-size: 0.68rem; padding: 1px 6px;">${escapeHtml(st)}</span>
+                </div>
+                <span class="entry-pending-client" style="font-size: 0.82rem;">${escapeHtml(item.clientName || 'Cliente General')} · ${escapeHtml(item.equipment || '')}</span>
+              </div>
+              <div class="entry-pending-row-right">
+                <span class="entry-pending-amount" style="color: #38bdf8; font-size: 0.84rem;">${formatMoneyCop(propTotal)}</span>
                 <span class="entry-pending-arrow">→</span>
               </div>
             </div>
@@ -2494,6 +2775,19 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       if (btnSticky) {
         btnSticky.innerHTML = '<span>📲</span> Enviar PDF';
       }
+    } else if (activeSection && activeSection.id === 'view-informe-tecnico') {
+      stickyBar.style.display = 'flex';
+      const items = (state.currentInformePropuestas || []).filter(p => p.desc || parseFloat(p.valor) > 0);
+      const total = items.reduce((sum, i) => sum + (parseFloat(i.valor) || 0), 0);
+      const numVal = $('inf-num') ? $('inf-num').value : 'INF-0001';
+      const countLabel = $('sticky-count');
+      const amountLabel = $('sticky-total');
+      const btnSticky = $('sticky-btn-pdf');
+      if (countLabel) countLabel.textContent = numVal;
+      if (amountLabel) amountLabel.textContent = formatMoneyCop(total);
+      if (btnSticky) {
+        btnSticky.innerHTML = '<span>👁️</span> Ver PDF';
+      }
     } else {
       stickyBar.style.display = 'none';
     }
@@ -2997,6 +3291,12 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // Inicializar módulo Cuentas de Cobro
     initCobro();
 
+    // Inicializar módulo Informes Técnicos
+    initInforme();
+    renderInformeHistory();
+    renderInformePlantillasList();
+    syncInformeDatosUI();
+
     // Actualizar contadores y vistas de historial
     updateBadges();
     renderCobroHistory();
@@ -3477,6 +3777,1794 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     }
   }
 
+  // ==========================================================================
+  // MÓDULO INFORMES TÉCNICOS DE DIAGNÓSTICO
+  // ==========================================================================
+
+  const INFORME_PREVIEW_COLLAPSE_KEY = 'pr_informe_preview_collapsed';
+
+  function getInformePreviewCollapsed() {
+    try {
+      const val = localStorage.getItem(INFORME_PREVIEW_COLLAPSE_KEY);
+      return val === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setInformePreviewCollapsed(collapsed) {
+    try {
+      localStorage.setItem(INFORME_PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
+    } catch (e) {}
+  }
+
+  function updateInformePreviewCollapseUI(isCollapsed) {
+    const container = $('inf-preview-collapsible');
+    const btn = $('btn-toggle-inf-preview');
+    const txt = $('inf-preview-toggle-text');
+    const icon = $('inf-preview-toggle-icon');
+    if (!container) return;
+
+    if (isCollapsed) {
+      container.classList.add('is-collapsed');
+      if (btn) {
+        btn.classList.add('is-collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+      if (txt) txt.textContent = 'Mostrar vista previa';
+      if (icon) icon.textContent = '▼';
+    } else {
+      container.classList.remove('is-collapsed');
+      if (btn) {
+        btn.classList.remove('is-collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+      if (txt) txt.textContent = 'Ocultar vista previa';
+      if (icon) icon.textContent = '▲';
+    }
+  }
+
+  function toggleInformePreviewCollapse() {
+    const container = $('inf-preview-collapsible');
+    if (!container) return;
+    const willCollapse = !container.classList.contains('is-collapsed');
+    updateInformePreviewCollapseUI(willCollapse);
+    setInformePreviewCollapsed(willCollapse);
+  }
+
+  function formatSpanishDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = String(dateStr).split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      ];
+      return `${day} de ${months[monthIdx] || ''} de ${year}`;
+    }
+    return String(dateStr);
+  }
+
+  function getTodayIsoDate() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatMoneyCop(amount) {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-CO') + ' COP';
+  }
+
+  function formatInformeNumber(num) {
+    if (typeof num === 'string' && num.startsWith('INF-')) return num;
+    const n = parseInt(num, 10) || 1;
+    return `INF-${String(n).padStart(4, '0')}`;
+  }
+
+  function checkInformeNumberCollision(rawNum, id) {
+    const parsedNum = parseInt(rawNum, 10);
+    if (isNaN(parsedNum) || parsedNum <= 0) return;
+    const hasCollision = (state.informeHistory || []).some(
+      h => parseInt(h.rawNumber || h.number?.replace('INF-', ''), 10) === parsedNum && h.id !== id
+    );
+    if (hasCollision || parsedNum >= state.informeNum) {
+      const maxExisting = (state.informeHistory || []).reduce((max, h) => {
+        const n = parseInt(h.rawNumber || h.number?.replace('INF-', ''), 10);
+        return (!isNaN(n) && n > max) ? n : max;
+      }, 0);
+      state.informeNum = Math.max(parsedNum + 1, maxExisting + 1);
+      setStorage('pr_informe_num', state.informeNum);
+      triggerIncrementalSync();
+    }
+  }
+
+  // Clientes para datalist de informes
+  function renderInformeClientsDatalist() {
+    const dl = $('inf-clients-datalist');
+    if (!dl) return;
+    const clients = Array.isArray(state.cobroClients) ? state.cobroClients : [];
+    dl.innerHTML = clients
+      .map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.nit ? 'NIT/CC: ' + c.nit : '')}</option>`)
+      .join('');
+  }
+
+  // UI Renderers para Verificaciones y Trabajos Propuestos
+  function renderInformeVerificacionesUI() {
+    const container = $('inf-verif-items-container');
+    if (!container) return;
+    if (!Array.isArray(state.currentInformeVerificaciones) || state.currentInformeVerificaciones.length === 0) {
+      state.currentInformeVerificaciones = [
+        { title: '', desc: '' }
+      ];
+    }
+
+    container.innerHTML = state.currentInformeVerificaciones.map((item, idx) => `
+      <div class="verif-item-card" data-index="${idx}">
+        <div class="verif-item-top">
+          <div class="verif-item-order">
+            <button type="button" class="btn-icon btn-verif-up" data-index="${idx}" title="Mover arriba" ${idx === 0 ? 'disabled style="opacity:0.3;"' : ''}>▲</button>
+            <button type="button" class="btn-icon btn-verif-down" data-index="${idx}" title="Mover abajo" ${idx === state.currentInformeVerificaciones.length - 1 ? 'disabled style="opacity:0.3;"' : ''}>▼</button>
+            <span style="font-size:0.75rem; color:var(--text-dim); margin-left:4px;">#${idx + 1}</span>
+          </div>
+          <input type="text" class="verif-item-title-input" data-index="${idx}" placeholder="Título en negrita (ej: Prueba cruzada del cabezal)" value="${escapeHtml(item.title)}">
+          <button type="button" class="btn-icon btn-danger btn-verif-del" data-index="${idx}" title="Borrar ítem">🗑️</button>
+        </div>
+        <textarea class="verif-item-desc-input" data-index="${idx}" rows="2" placeholder="Descripción detallada de la prueba...">${escapeHtml(item.desc)}</textarea>
+      </div>
+    `).join('');
+  }
+
+  function renderInformePropuestasUI() {
+    const container = $('inf-propuesta-items-container');
+    if (!container) return;
+    if (!Array.isArray(state.currentInformePropuestas) || state.currentInformePropuestas.length === 0) {
+      state.currentInformePropuestas = [
+        { desc: '', valor: 0 }
+      ];
+    }
+
+    let total = 0;
+    container.innerHTML = state.currentInformePropuestas.map((item, idx) => {
+      const val = parseFloat(item.valor) || 0;
+      total += val;
+      return `
+        <div class="propuesta-row" data-index="${idx}">
+          <input type="text" class="propuesta-row-desc" data-index="${idx}" placeholder="Descripción del trabajo propuesto" value="${escapeHtml(item.desc)}">
+          <input type="number" class="propuesta-row-val" data-index="${idx}" placeholder="0" min="0" step="5000" value="${item.valor ? item.valor : ''}">
+          <button type="button" class="btn-icon btn-danger btn-prop-del" data-index="${idx}" title="Eliminar fila">🗑️</button>
+        </div>
+      `;
+    }).join('');
+
+    const totalEl = $('inf-propuesta-total-val');
+    if (totalEl) totalEl.textContent = formatMoneyCop(total);
+
+    const totalRow = $('inf-propuesta-total-row');
+    if (totalRow) {
+      totalRow.style.display = 'flex';
+    }
+
+    updateMobileStickyBar();
+  }
+
+  function renderInformeCustomSectionsUI() {
+    const container = $('inf-custom-sections-container');
+    if (!container) return;
+    const sections = Array.isArray(state.currentInformeCustomSections) ? state.currentInformeCustomSections : [];
+    container.innerHTML = sections.map((sec, idx) => `
+      <div class="informe-sec-editor custom-sec-editor" data-index="${idx}">
+        <div class="informe-sec-head">
+          <label class="informe-sec-include-toggle">
+            <input type="checkbox" class="custom-sec-inc" data-index="${idx}" ${sec.included !== false ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--primary);">
+            <span>Incluir</span>
+          </label>
+          <input type="text" class="informe-sec-title-input custom-sec-title" data-index="${idx}" value="${escapeHtml(sec.title || 'Sección adicional')}">
+          <button type="button" class="btn-icon btn-danger btn-custom-sec-del" data-index="${idx}" title="Eliminar sección">🗑️</button>
+        </div>
+        <div class="input-group full-width">
+          <textarea class="custom-sec-text" data-index="${idx}" rows="3" placeholder="Contenido de esta sección...">${escapeHtml(sec.content || '')}</textarea>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Extracción completa de datos del formulario actual
+  function getInformeDataFromForm() {
+    const number = $('inf-num') ? $('inf-num').value.trim() : formatInformeNumber(state.informeNum);
+    const headerTag = $('inf-header-tag') ? $('inf-header-tag').value.trim() : (state.informeConfig.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO');
+    const title = $('inf-title') ? $('inf-title').value.trim() : 'INFORME TÉCNICO';
+    const subtitle = $('inf-subtitle') ? $('inf-subtitle').value.trim() : '';
+
+    const clientName = $('inf-client-name') ? $('inf-client-name').value.trim() : '';
+    const clientNit = $('inf-client-nit') ? $('inf-client-nit').value.trim() : '';
+    const equipment = $('inf-equipment') ? $('inf-equipment').value.trim() : '';
+    const serial = $('inf-serial') ? $('inf-serial').value.trim() : '';
+    const rawDate = $('inf-date') ? $('inf-date').value : getTodayIsoDate();
+    const dateFormatted = formatSpanishDate(rawDate);
+    const serviceType = $('inf-service-type') ? $('inf-service-type').value.trim() : (state.informeConfig.serviceType || 'Inspección y diagnóstico técnico');
+    const falla = $('inf-falla') ? $('inf-falla').value.trim() : '';
+
+    const elabName = state.cobroEmisor.name || state.business.name || 'Pedro Luis Roa Mora';
+    const elabCargo = $('inf-elab-cargo') ? $('inf-elab-cargo').value.trim() : (state.informeConfig.cargo || 'Técnico de mantenimiento de equipos de cómputo');
+    const elabCorreo = $('inf-elab-correo') ? $('inf-elab-correo').value.trim() : (state.informeConfig.correo || 'pedrolroam@hotmail.com');
+    const elabCelular = $('inf-elab-celular') ? $('inf-elab-celular').value.trim() : (state.informeConfig.celular || '302 455 5428');
+    const elabDate = $('inf-elab-date') && $('inf-elab-date').value.trim() ? $('inf-elab-date').value.trim() : dateFormatted;
+
+    const includeLogo = $('inf-include-logo') ? $('inf-include-logo').checked : true;
+    const includeFirma = $('inf-include-firma') ? $('inf-include-firma').checked : true;
+    const showNumber = $('inf-show-number') ? $('inf-show-number').checked : false;
+
+    // Secciones numeradas dinámicamente (1..N)
+    const sections = [];
+    let secCounter = 1;
+
+    // 1. Motivo
+    if ($('inf-sec-motivo-inc') && $('inf-sec-motivo-inc').checked) {
+      sections.push({
+        num: secCounter++,
+        type: 'text',
+        title: $('inf-sec-motivo-title') ? $('inf-sec-motivo-title').value.trim() : 'Motivo de la revisión',
+        content: $('inf-sec-motivo-text') ? $('inf-sec-motivo-text').value.trim() : ''
+      });
+    }
+
+    // 2. Verificaciones
+    if ($('inf-sec-verif-inc') && $('inf-sec-verif-inc').checked) {
+      sections.push({
+        num: secCounter++,
+        type: 'verificaciones',
+        title: $('inf-sec-verif-title') ? $('inf-sec-verif-title').value.trim() : 'Verificaciones y pruebas realizadas',
+        items: (state.currentInformeVerificaciones || []).filter(v => v.title || v.desc)
+      });
+    }
+
+    // 3. Diagnóstico
+    if ($('inf-sec-diag-inc') && $('inf-sec-diag-inc').checked) {
+      sections.push({
+        num: secCounter++,
+        type: 'text',
+        title: $('inf-sec-diag-title') ? $('inf-sec-diag-title').value.trim() : 'Diagnóstico técnico',
+        content: $('inf-sec-diag-text') ? $('inf-sec-diag-text').value.trim() : ''
+      });
+    }
+
+    // 4. Recomendación y propuesta
+    if ($('inf-sec-prop-inc') && $('inf-sec-prop-inc').checked) {
+      sections.push({
+        num: secCounter++,
+        type: 'propuesta',
+        title: $('inf-sec-prop-title') ? $('inf-sec-prop-title').value.trim() : 'Recomendación y propuesta de reparación',
+        content: $('inf-sec-prop-text') ? $('inf-sec-prop-text').value.trim() : '',
+        items: (state.currentInformePropuestas || []).filter(p => p.desc || parseFloat(p.valor) > 0)
+      });
+    }
+
+    // 5. Observaciones
+    if ($('inf-sec-obs-inc') && $('inf-sec-obs-inc').checked) {
+      const obsRaw = $('inf-sec-obs-text') ? $('inf-sec-obs-text').value : '';
+      const obsList = obsRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      sections.push({
+        num: secCounter++,
+        type: 'observaciones',
+        title: $('inf-sec-obs-title') ? $('inf-sec-obs-title').value.trim() : 'Observaciones',
+        bullets: obsList,
+        rawText: obsRaw
+      });
+    }
+
+    // 6. Conclusión
+    if ($('inf-sec-conc-inc') && $('inf-sec-conc-inc').checked) {
+      sections.push({
+        num: secCounter++,
+        type: 'text',
+        title: $('inf-sec-conc-title') ? $('inf-sec-conc-title').value.trim() : 'Conclusión',
+        content: $('inf-sec-conc-text') ? $('inf-sec-conc-text').value.trim() : ''
+      });
+    }
+
+    // Secciones custom añadidas por el usuario
+    if (Array.isArray(state.currentInformeCustomSections)) {
+      state.currentInformeCustomSections.forEach(cs => {
+        if (cs.included !== false) {
+          sections.push({
+            num: secCounter++,
+            type: 'text',
+            title: cs.title || 'Información adicional',
+            content: cs.content || ''
+          });
+        }
+      });
+    }
+
+    const propuestaItems = (state.currentInformePropuestas || []).filter(p => p.desc || parseFloat(p.valor) > 0);
+    const propuestaTotal = propuestaItems.reduce((sum, item) => sum + (parseFloat(item.valor) || 0), 0);
+
+    const rawNum = parseInt(String(number).replace(/\D/g, ''), 10) || 1;
+
+    return {
+      id: state.currentInformeId || generateUUID(),
+      number,
+      rawNumber: rawNum,
+      status: state.currentInformeStatus || 'Borrador',
+      headerTag,
+      title,
+      subtitle,
+      clientName,
+      clientNit,
+      equipment,
+      serial,
+      date: rawDate,
+      dateFormatted,
+      serviceType,
+      falla,
+      sections,
+      motivo: $('inf-sec-motivo-text') ? $('inf-sec-motivo-text').value.trim() : '',
+      verificaciones: state.currentInformeVerificaciones || [],
+      diagnostico: $('inf-sec-diag-text') ? $('inf-sec-diag-text').value.trim() : '',
+      propuestaTexto: $('inf-sec-prop-text') ? $('inf-sec-prop-text').value.trim() : '',
+      propuestaItems,
+      propuestaTotal,
+      observaciones: $('inf-sec-obs-text') ? $('inf-sec-obs-text').value : '',
+      conclusion: $('inf-sec-conc-text') ? $('inf-sec-conc-text').value.trim() : '',
+      customSections: state.currentInformeCustomSections || [],
+      secMotivoInc: $('inf-sec-motivo-inc') ? $('inf-sec-motivo-inc').checked : true,
+      secVerifInc: $('inf-sec-verif-inc') ? $('inf-sec-verif-inc').checked : true,
+      secDiagInc: $('inf-sec-diag-inc') ? $('inf-sec-diag-inc').checked : true,
+      secPropInc: $('inf-sec-prop-inc') ? $('inf-sec-prop-inc').checked : true,
+      secObsInc: $('inf-sec-obs-inc') ? $('inf-sec-obs-inc').checked : true,
+      secConcInc: $('inf-sec-conc-inc') ? $('inf-sec-conc-inc').checked : true,
+      elaboradoPor: {
+        name: elabName,
+        cargo: elabCargo,
+        correo: elabCorreo,
+        celular: elabCelular,
+        fecha: elabDate,
+        firma: state.cobroFirma || ''
+      },
+      includeLogo,
+      includeFirma,
+      showNumber,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  // Generador unificado de HTML para la vista previa oficial y para impresión
+  function renderInformeDocumentHtml(data) {
+    if (!data) data = getInformeDataFromForm();
+
+    const sectionsHtml = (data.sections || []).map(sec => {
+      if (sec.type === 'verificaciones') {
+        const items = sec.items || [];
+        return `
+          <div class="doc-informe-section">
+            <h3 class="doc-informe-sec-title">${sec.num}. ${escapeHtml(sec.title)}</h3>
+            <ul class="doc-informe-bullet-list">
+              ${items.map(item => `
+                <li>
+                  ${item.title ? `<strong>${escapeHtml(item.title)}:</strong> ` : ''}${escapeHtml(item.desc || '')}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      if (sec.type === 'propuesta') {
+        const items = sec.items || [];
+        const hasMultiple = items.length > 1;
+        return `
+          <div class="doc-informe-section">
+            <h3 class="doc-informe-sec-title">${sec.num}. ${escapeHtml(sec.title)}</h3>
+            ${sec.content ? `<div class="doc-informe-sec-body" style="margin-bottom: 12px;">${escapeHtml(sec.content).replace(/\n/g, '<br>')}</div>` : ''}
+            <table class="doc-informe-table">
+              <thead>
+                <tr>
+                  <th>TRABAJO PROPUESTO</th>
+                  <th style="text-align: right; width: 170px;">VALOR</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(it => `
+                  <tr>
+                    <td>${escapeHtml(it.desc || '')}</td>
+                    <td style="text-align: right; font-weight: 700;">${formatMoneyCop(it.valor)}</td>
+                  </tr>
+                `).join('')}
+                ${hasMultiple ? `
+                  <tr class="doc-informe-total-row" style="background: #f1f5f9; font-weight: 700;">
+                    <td>TOTAL</td>
+                    <td style="text-align: right; color: #0284c7;">${formatMoneyCop(data.propuestaTotal)}</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      if (sec.type === 'observaciones') {
+        const bullets = sec.bullets || [];
+        return `
+          <div class="doc-informe-section">
+            <h3 class="doc-informe-sec-title">${sec.num}. ${escapeHtml(sec.title)}</h3>
+            <ul class="doc-informe-bullet-list">
+              ${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      // Default text section (Motivo, Diagnóstico, Conclusión, Custom)
+      const paragraphs = (sec.content || '').split('\n').filter(p => p.trim().length > 0);
+      return `
+        <div class="doc-informe-section">
+          <h3 class="doc-informe-sec-title">${sec.num}. ${escapeHtml(sec.title)}</h3>
+          <div class="doc-informe-sec-body">
+            ${paragraphs.map(p => `<p style="margin-bottom: 8px;">${escapeHtml(p)}</p>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const elab = data.elaboradoPor || {};
+    const signatureImg = (data.includeFirma !== false && elab.firma)
+      ? `<img src="${elab.firma}" alt="Firma digital" class="doc-informe-firma-img">`
+      : '';
+
+    return `
+      <div class="doc-informe-page-wrapper">
+        <div class="doc-informe-top-tag">${escapeHtml(data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO')}</div>
+        
+        <div class="doc-informe-header">
+          ${data.includeLogo ? '<div style="margin-bottom: 12px;"><img src="assets/logo.png" alt="Logo" class="doc-informe-logo" style="width: 54px; height: 54px; object-fit: contain;"></div>' : ''}
+          <h1 class="doc-informe-title">${escapeHtml(data.title || 'INFORME TÉCNICO')}</h1>
+          ${data.subtitle ? `<div class="doc-informe-subtitle">${escapeHtml(data.subtitle)}</div>` : ''}
+          ${data.showNumber ? `<div style="font-size: 0.82rem; color: #0284c7; font-weight: 600; margin-top: 4px;">${escapeHtml(data.number)}</div>` : ''}
+        </div>
+
+        <div class="doc-informe-ficha">
+          <div class="doc-informe-ficha-row-top">
+            <div class="doc-informe-ficha-field">
+              <span class="doc-informe-ficha-label">CLIENTE</span>
+              <span class="doc-informe-ficha-val">${escapeHtml(data.clientName || 'Cliente General')}${data.clientNit ? ' · NIT: ' + escapeHtml(data.clientNit) : ''}</span>
+            </div>
+          </div>
+          <div class="doc-informe-ficha-grid">
+            <div class="doc-informe-ficha-field">
+              <span class="doc-informe-ficha-label">EQUIPO EVALUADO</span>
+              <span class="doc-informe-ficha-val">${escapeHtml(data.equipment || 'No especificado')}${data.serial ? ' (S/N: ' + escapeHtml(data.serial) + ')' : ''}</span>
+            </div>
+            <div class="doc-informe-ficha-field">
+              <span class="doc-informe-ficha-label">FECHA DEL INFORME</span>
+              <span class="doc-informe-ficha-val">${escapeHtml(data.dateFormatted || '')}</span>
+            </div>
+            <div class="doc-informe-ficha-field">
+              <span class="doc-informe-ficha-label">FALLA REPORTADA</span>
+              <span class="doc-informe-ficha-val">${escapeHtml(data.falla || 'Diagnóstico preventivo')}</span>
+            </div>
+            <div class="doc-informe-ficha-field">
+              <span class="doc-informe-ficha-label">TIPO DE SERVICIO</span>
+              <span class="doc-informe-ficha-val">${escapeHtml(data.serviceType || 'Inspección y diagnóstico técnico')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-informe-sections-container">
+          ${sectionsHtml}
+        </div>
+
+        <div class="doc-informe-firmas">
+          <div class="doc-informe-firmas-left">
+            <div class="doc-informe-firmas-label">ELABORADO POR</div>
+            <div class="doc-informe-firmas-name">${escapeHtml(elab.name || 'Pedro Luis Roa Mora')}</div>
+            <div class="doc-informe-firmas-sub">${escapeHtml(elab.cargo || 'Técnico de mantenimiento')}</div>
+            <div class="doc-informe-firmas-sub">Correo: ${escapeHtml(elab.correo || 'pedrolroam@hotmail.com')}</div>
+            <div class="doc-informe-firmas-sub">Celular: ${escapeHtml(elab.celular || '302 455 5428')}</div>
+          </div>
+          <div class="doc-informe-firmas-right">
+            <div class="doc-informe-firma-line-block">
+              <div class="doc-informe-firma-canvas-box">
+                ${signatureImg}
+              </div>
+              <div class="doc-informe-firma-label-line">
+                Firma: ______________________________
+              </div>
+              <div class="doc-informe-firma-date">
+                Fecha: ${escapeHtml(elab.fecha || data.dateFormatted || '')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-informe-page-footer">
+          Informe técnico · ${escapeHtml(data.equipment || 'Diagnóstico de hardware')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderInformePreview(data) {
+    const paper = $('informe-document');
+    if (!paper) return;
+    const docData = data || getInformeDataFromForm();
+    paper.innerHTML = renderInformeDocumentHtml(docData);
+    if ($('inf-badge-number')) {
+      $('inf-badge-number').textContent = docData.number;
+    }
+  }
+
+  // Generador de texto corto para WhatsApp y portapapeles
+  function generateInformePlainText(data) {
+    if (!data) data = getInformeDataFromForm();
+    const propTotalStr = formatMoneyCop(data.propuestaTotal);
+    let text = `*${data.title}* - ${data.number}\n`;
+    text += `👤 *Cliente:* ${data.clientName || 'Cliente General'}${data.clientNit ? ' (NIT: ' + data.clientNit + ')' : ''}\n`;
+    text += `💻 *Equipo:* ${data.equipment || 'Equipo evaluado'}${data.serial ? ' - S/N: ' + data.serial : ''}\n`;
+    text += `⚠️ *Falla:* ${data.falla || 'Diagnóstico técnico'}\n`;
+
+    const diagSec = (data.sections || []).find(s => s.type === 'text' && s.title.toLowerCase().includes('diagnóstico'));
+    if (diagSec && diagSec.content) {
+      const summary = diagSec.content.split('\n')[0].substring(0, 220);
+      text += `🔍 *Diagnóstico:* ${summary}...\n`;
+    }
+
+    if (data.propuestaTotal > 0) {
+      text += `💰 *Propuesta de reparación:* ${propTotalStr}\n`;
+    }
+
+    text += `📅 *Fecha:* ${data.dateFormatted}\n`;
+    text += `👨‍🔧 *Elaborado por:* ${data.elaboradoPor?.name || 'Pedro Roa'} - Cel: ${data.elaboradoPor?.celular || '302 455 5428'}\n`;
+    return text;
+  }
+
+  // Inicialización de valores del formulario de Informes
+  function initInforme() {
+    if (!$('view-informe-tecnico')) return;
+
+    if ($('inf-date') && !$('inf-date').value) {
+      $('inf-date').value = getTodayIsoDate();
+    }
+    if ($('inf-elab-date') && !$('inf-elab-date').value) {
+      $('inf-elab-date').value = formatSpanishDate($('inf-date').value);
+    }
+    if ($('inf-num')) {
+      $('inf-num').value = formatInformeNumber(state.informeNum);
+    }
+    if ($('inf-elab-name')) {
+      $('inf-elab-name').value = state.cobroEmisor.name || state.business.name || 'Pedro Luis Roa Mora';
+    }
+    if ($('inf-elab-cargo')) {
+      $('inf-elab-cargo').value = state.informeConfig.cargo || DEFAULT_INFORME_CONFIG.cargo;
+    }
+    if ($('inf-elab-correo')) {
+      $('inf-elab-correo').value = state.informeConfig.correo || DEFAULT_INFORME_CONFIG.correo;
+    }
+    if ($('inf-elab-celular')) {
+      $('inf-elab-celular').value = state.informeConfig.celular || DEFAULT_INFORME_CONFIG.celular;
+    }
+    if ($('inf-header-tag')) {
+      $('inf-header-tag').value = state.informeConfig.headerTag || DEFAULT_INFORME_CONFIG.headerTag;
+    }
+    if ($('inf-service-type')) {
+      $('inf-service-type').value = state.informeConfig.serviceType || DEFAULT_INFORME_CONFIG.serviceType;
+    }
+    if ($('inf-sec-obs-text') && !$('inf-sec-obs-text').value) {
+      $('inf-sec-obs-text').value = state.informeConfig.defaultObs || DEFAULT_INFORME_CONFIG.defaultObs;
+    }
+
+    // Cargar textos del modelo Epson EcoTank L565 por defecto si los campos están vacíos
+    if ($('inf-sec-motivo-text') && !$('inf-sec-motivo-text').value) {
+      $('inf-sec-motivo-text').value = 'Se realiza la evaluación técnica de una impresora Epson EcoTank L565 debido a una anomalía en la calidad de impresión, caracterizada por la aparición de sombras y una dominante de color azul en los documentos impresos.';
+    }
+    if ($('inf-sec-diag-text') && !$('inf-sec-diag-text').value) {
+      $('inf-sec-diag-text').value = `Con base en las verificaciones efectuadas, el cabezal de impresión presenta una falla funcional que genera sombras o una dominante azul en la impresión. La prueba cruzada, al presentar el mismo síntoma en otra impresora, respalda que el origen de la anomalía se encuentra en el cabezal.\n\nLa tinta encontrada, por su elevada dilución aparente, constituye una causa probable y relevante del deterioro. El uso de tinta de calidad inadecuada, contaminada o mezclada puede afectar el funcionamiento del sistema de impresión y contribuir a obstrucciones, contaminación o daños en el cabezal.`;
+    }
+    if ($('inf-sec-prop-text') && !$('inf-sec-prop-text').value) {
+      $('inf-sec-prop-text').value = 'Se recomienda reemplazar el cabezal de impresión y, de forma complementaria, realizar el lavado de los tanques de tinta y del sistema correspondiente antes de cargar tinta nueva de calidad confiable y compatible con el modelo Epson L565. Esta intervención busca retirar residuos o contaminantes y reducir el riesgo de que el nuevo cabezal resulte afectado por tinta remanente.';
+    }
+    if ($('inf-sec-conc-text') && !$('inf-sec-conc-text').value) {
+      $('inf-sec-conc-text').value = 'La Epson EcoTank L565 presenta una falla atribuible al cabezal de impresión, evidenciada por la reproducción de las sombras azules al probarlo en otra máquina. El bus de datos se aprecia en buen estado durante la inspección visual. La tinta muy diluida observada es un factor que contribuyo al daño, aunque no se puede establecer como causa única sin pruebas adicionales. Se propone el reemplazo del cabezal, lavado de tanques y suministro de tinta nueva por un valor total de $500.000 COP.';
+    }
+
+    renderInformeClientsDatalist();
+    renderInformeVerificacionesUI();
+    renderInformePropuestasUI();
+    renderInformeCustomSectionsUI();
+    renderInformePreview();
+  }
+
+  // Guardar informe actual en el historial
+  function saveCurrentInforme(showToastMsg = true) {
+    const data = getInformeDataFromForm();
+    saveCobroClient(data.clientName, data.clientNit);
+
+    const existingIdx = (state.informeHistory || []).findIndex(
+      h => h.id === data.id || (h.number && h.number === data.number)
+    );
+
+    if (existingIdx >= 0) {
+      data.id = state.informeHistory[existingIdx].id || data.id;
+      data.status = state.informeHistory[existingIdx].status || data.status || 'Borrador';
+      state.informeHistory[existingIdx] = data;
+    } else {
+      data.id = isValidUUID(data.id) ? data.id : generateUUID();
+      data.status = data.status || 'Borrador';
+      state.informeHistory.push(data);
+      checkInformeNumberCollision(data.rawNumber, data.id);
+    }
+
+    state.currentInformeId = data.id;
+    state.currentInformeStatus = data.status;
+
+    setStorage('pr_informe_history', state.informeHistory);
+    updateBadges();
+    renderInformeHistory();
+
+    if (showToastMsg) {
+      showToast(`Informe técnico ${data.number} guardado con éxito`, '💾');
+    }
+    triggerIncrementalSync();
+    return true;
+  }
+
+  // Restablecer formulario para un nuevo informe
+  function resetInformeForm() {
+    state.currentInformeId = generateUUID();
+    state.currentInformeStatus = 'Borrador';
+    
+    // Consecutivo nuevo
+    const nextNumber = formatInformeNumber(state.informeNum);
+    if ($('inf-num')) $('inf-num').value = nextNumber;
+    if ($('inf-badge-number')) $('inf-badge-number').textContent = nextNumber;
+
+    if ($('inf-client-name')) $('inf-client-name').value = '';
+    if ($('inf-client-nit')) $('inf-client-nit').value = '';
+    if ($('inf-equipment')) $('inf-equipment').value = '';
+    if ($('inf-serial')) $('inf-serial').value = '';
+    if ($('inf-falla')) $('inf-falla').value = '';
+
+    const todayIso = getTodayIsoDate();
+    if ($('inf-date')) $('inf-date').value = todayIso;
+    if ($('inf-elab-date')) $('inf-elab-date').value = formatSpanishDate(todayIso);
+
+    if ($('inf-header-tag')) $('inf-header-tag').value = state.informeConfig.headerTag || DEFAULT_INFORME_CONFIG.headerTag;
+    if ($('inf-title')) $('inf-title').value = 'INFORME TÉCNICO';
+    if ($('inf-subtitle')) $('inf-subtitle').value = '';
+    if ($('inf-service-type')) $('inf-service-type').value = state.informeConfig.serviceType || DEFAULT_INFORME_CONFIG.serviceType;
+
+    // Resetear textos a predeterminados
+    if ($('inf-sec-motivo-text')) $('inf-sec-motivo-text').value = '';
+    if ($('inf-sec-diag-text')) $('inf-sec-diag-text').value = '';
+    if ($('inf-sec-prop-text')) $('inf-sec-prop-text').value = '';
+    if ($('inf-sec-obs-text')) $('inf-sec-obs-text').value = state.informeConfig.defaultObs || DEFAULT_INFORME_CONFIG.defaultObs;
+    if ($('inf-sec-conc-text')) $('inf-sec-conc-text').value = '';
+
+    // Checkboxes activadas
+    ['motivo', 'verif', 'diag', 'prop', 'obs', 'conc'].forEach(key => {
+      const chk = $(`inf-sec-${key}-inc`);
+      if (chk) chk.checked = true;
+    });
+
+    if ($('inf-include-logo')) $('inf-include-logo').checked = true;
+    if ($('inf-include-firma')) $('inf-include-firma').checked = true;
+    if ($('inf-show-number')) $('inf-show-number').checked = false;
+
+    // Listas vacías / mínimas
+    state.currentInformeVerificaciones = [{ title: '', desc: '' }];
+    state.currentInformePropuestas = [{ desc: '', valor: 0 }];
+    state.currentInformeCustomSections = [];
+
+    renderInformeVerificacionesUI();
+    renderInformePropuestasUI();
+    renderInformeCustomSectionsUI();
+    renderInformePreview();
+
+    showToast(`Nuevo informe ${nextNumber} preparado`, '✨');
+  }
+
+  // Cargar un informe guardado para editarlo
+  function loadInformeFromHistory(idOrNum) {
+    const item = (state.informeHistory || []).find(h => h.id === idOrNum || h.number === idOrNum);
+    if (!item) return;
+
+    state.currentInformeId = item.id;
+    state.currentInformeStatus = item.status || 'Borrador';
+
+    if ($('inf-num')) $('inf-num').value = item.number || formatInformeNumber(item.rawNumber);
+    if ($('inf-header-tag')) $('inf-header-tag').value = item.headerTag || '';
+    if ($('inf-title')) $('inf-title').value = item.title || 'INFORME TÉCNICO';
+    if ($('inf-subtitle')) $('inf-subtitle').value = item.subtitle || '';
+
+    if ($('inf-client-name')) $('inf-client-name').value = item.clientName || '';
+    if ($('inf-client-nit')) $('inf-client-nit').value = item.clientNit || '';
+    if ($('inf-equipment')) $('inf-equipment').value = item.equipment || '';
+    if ($('inf-serial')) $('inf-serial').value = item.serial || '';
+    if ($('inf-date')) $('inf-date').value = item.date || getTodayIsoDate();
+    if ($('inf-service-type')) $('inf-service-type').value = item.serviceType || '';
+    if ($('inf-falla')) $('inf-falla').value = item.falla || '';
+
+    if ($('inf-sec-motivo-text')) $('inf-sec-motivo-text').value = item.motivo || '';
+    if ($('inf-sec-diag-text')) $('inf-sec-diag-text').value = item.diagnostico || '';
+    if ($('inf-sec-prop-text')) $('inf-sec-prop-text').value = item.propuestaTexto || '';
+    if ($('inf-sec-obs-text')) $('inf-sec-obs-text').value = item.observaciones || '';
+    if ($('inf-sec-conc-text')) $('inf-sec-conc-text').value = item.conclusion || '';
+
+    if ($('inf-sec-motivo-inc')) $('inf-sec-motivo-inc').checked = item.secMotivoInc !== false;
+    if ($('inf-sec-verif-inc')) $('inf-sec-verif-inc').checked = item.secVerifInc !== false;
+    if ($('inf-sec-diag-inc')) $('inf-sec-diag-inc').checked = item.secDiagInc !== false;
+    if ($('inf-sec-prop-inc')) $('inf-sec-prop-inc').checked = item.secPropInc !== false;
+    if ($('inf-sec-obs-inc')) $('inf-sec-obs-inc').checked = item.secObsInc !== false;
+    if ($('inf-sec-conc-inc')) $('inf-sec-conc-inc').checked = item.secConcInc !== false;
+
+    if ($('inf-include-logo')) $('inf-include-logo').checked = item.includeLogo !== false;
+    if ($('inf-include-firma')) $('inf-include-firma').checked = item.includeFirma !== false;
+    if ($('inf-show-number')) $('inf-show-number').checked = item.showNumber === true;
+
+    if (item.elaboradoPor) {
+      if ($('inf-elab-cargo')) $('inf-elab-cargo').value = item.elaboradoPor.cargo || '';
+      if ($('inf-elab-correo')) $('inf-elab-correo').value = item.elaboradoPor.correo || '';
+      if ($('inf-elab-celular')) $('inf-elab-celular').value = item.elaboradoPor.celular || '';
+      if ($('inf-elab-date')) $('inf-elab-date').value = item.elaboradoPor.fecha || item.dateFormatted || '';
+    }
+
+    state.currentInformeVerificaciones = Array.isArray(item.verificaciones) ? JSON.parse(JSON.stringify(item.verificaciones)) : [];
+    state.currentInformePropuestas = Array.isArray(item.propuestaItems) ? JSON.parse(JSON.stringify(item.propuestaItems)) : [];
+    state.currentInformeCustomSections = Array.isArray(item.customSections) ? JSON.parse(JSON.stringify(item.customSections)) : [];
+
+    renderInformeVerificacionesUI();
+    renderInformePropuestasUI();
+    renderInformeCustomSectionsUI();
+    renderInformePreview();
+
+    switchSubview('view-informe-tecnico');
+    showToast(`Informe ${item.number} cargado para edición`, '📖');
+  }
+
+  // Duplicar un informe
+  function duplicateInforme(idOrNum) {
+    const item = (state.informeHistory || []).find(h => h.id === idOrNum || h.number === idOrNum);
+    if (!item) return;
+
+    loadInformeFromHistory(idOrNum);
+    state.currentInformeId = generateUUID();
+    state.currentInformeStatus = 'Borrador';
+
+    const newNum = formatInformeNumber(state.informeNum);
+    if ($('inf-num')) $('inf-num').value = newNum;
+    if ($('inf-badge-number')) $('inf-badge-number').textContent = newNum;
+
+    const todayIso = getTodayIsoDate();
+    if ($('inf-date')) $('inf-date').value = todayIso;
+    if ($('inf-elab-date')) $('inf-elab-date').value = formatSpanishDate(todayIso);
+
+    renderInformePreview();
+    showToast(`Copia creada con consecutivo ${newNum}. Puedes modificarla y guardarla.`, '📋');
+  }
+
+  // Cambiar estado de un informe en el historial
+  function changeInformeStatus(id, newStatus) {
+    const item = (state.informeHistory || []).find(h => h.id === id);
+    if (!item) return;
+    item.status = newStatus;
+    item.updatedAt = new Date().toISOString();
+    setStorage('pr_informe_history', state.informeHistory);
+    updateBadges();
+    renderInformeHistory();
+    triggerIncrementalSync();
+    showToast(`Estado de ${item.number} actualizado a "${newStatus}"`, '🏷️');
+  }
+
+  // Eliminar informe
+  function deleteInforme(id) {
+    const idx = (state.informeHistory || []).findIndex(h => h.id === id);
+    if (idx < 0) return;
+    const item = state.informeHistory[idx];
+    if (confirm(`¿Estás seguro de eliminar el informe ${item.number || ''} de ${item.clientName || 'Cliente General'}?`)) {
+      if (item.id) {
+        recordTombstone(item.id, 'informe_tecnico');
+      }
+      state.informeHistory.splice(idx, 1);
+      setStorage('pr_informe_history', state.informeHistory);
+      updateBadges();
+      renderInformeHistory();
+      triggerIncrementalSync();
+      showToast('Informe eliminado del historial', '🗑️');
+    }
+  }
+
+  // Cross-Module Bridges: Convertir a Cuenta de Cobro o Cotización sin guardar
+  function createCobroFromInforme(id) {
+    const inf = (state.informeHistory || []).find(h => h.id === id);
+    if (!inf) return;
+
+    const items = (inf.propuestaItems || []).filter(p => p.desc || parseFloat(p.valor) > 0);
+    const conceptos = items.length > 0
+      ? items.map(p => ({ desc: p.desc, amount: parseFloat(p.valor) || 0 }))
+      : [{ desc: `Diagnóstico y reparación de ${inf.equipment || 'equipo'}`, amount: inf.propuestaTotal || 0 }];
+
+    state.cobroClientName = inf.clientName || '';
+    state.cobroClientNit = inf.clientNit || '';
+    state.cobroConceptos = conceptos;
+    state.cobroAdelantos = [];
+
+    if ($('cc-client-name')) $('cc-client-name').value = inf.clientName || '';
+    if ($('cc-client-nit')) $('cc-client-nit').value = inf.clientNit || '';
+
+    setStorage('pr_cobro_conceptos', state.cobroConceptos);
+    setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+
+    renderCobroConceptos();
+    renderCobroAdelantos();
+    renderCobroPreview();
+
+    enterSection('cuentas-cobro', 'view-cuentas-cobro');
+    showToast('Datos del informe cargados en Nueva Cuenta de Cobro. Revisa y guarda cuando estés listo.', '💼');
+  }
+
+  function createCotizacionFromInforme(id) {
+    const inf = (state.informeHistory || []).find(h => h.id === id);
+    if (!inf) return;
+
+    const items = (inf.propuestaItems || []).filter(p => p.desc || parseFloat(p.valor) > 0);
+    const quoteItems = items.length > 0
+      ? items.map(p => {
+          const val = parseFloat(p.valor) || 0;
+          return {
+            category: 'Servicio Técnico',
+            name: p.desc,
+            qty: 1,
+            price: val,
+            subtotal: val
+          };
+        })
+      : [{
+          category: 'Servicio Técnico',
+          name: `Reparación y mantenimiento de ${inf.equipment || 'equipo'}`,
+          qty: 1,
+          price: inf.propuestaTotal || 0,
+          subtotal: inf.propuestaTotal || 0
+        }];
+
+    state.currentQuote.clientName = inf.clientName || '';
+    state.currentQuote.equipment = inf.equipment || '';
+    state.currentQuote.items = quoteItems;
+
+    if ($('q-client-name')) $('q-client-name').value = inf.clientName || '';
+    if ($('q-equipment')) $('q-equipment').value = inf.equipment || '';
+
+    renderQuoteItems();
+    renderLivePreview();
+
+    enterSection('cotizaciones', 'view-cotizador');
+    showToast('Datos del informe cargados en Nueva Cotización. Revisa y guarda cuando estés listo.', '📋');
+  }
+
+  // Renderizar lista del Historial de Informes Técnicos
+  function renderInformeHistory() {
+    const list = $('inf-history-list');
+    if (!list) return;
+
+    const hist = Array.isArray(state.informeHistory) ? state.informeHistory : [];
+    const searchVal = ($('inf-hist-search') ? $('inf-hist-search').value : '').trim().toLowerCase();
+    const statusFilter = $('inf-hist-filter-status') ? $('inf-hist-filter-status').value : 'all';
+    const monthFilter = $('inf-hist-filter-month') ? $('inf-hist-filter-month').value : '';
+
+    // Filtrar
+    const filtered = hist.filter(item => {
+      if (searchVal) {
+        const text = `${item.number || ''} ${item.clientName || ''} ${item.clientNit || ''} ${item.equipment || ''} ${item.serial || ''} ${item.falla || ''}`.toLowerCase();
+        if (!text.includes(searchVal)) return false;
+      }
+      if (statusFilter !== 'all' && (item.status || 'Borrador') !== statusFilter) {
+        return false;
+      }
+      if (monthFilter && item.date) {
+        if (!item.date.startsWith(monthFilter)) return false;
+      }
+      return true;
+    });
+
+    // Estadísticas
+    const totalCount = hist.length;
+    let pendingCount = 0;
+    let totalPropuestas = 0;
+    hist.forEach(h => {
+      const val = (h.propuestaItems || []).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+      totalPropuestas += val;
+      if (h.status === 'Enviado') pendingCount++;
+    });
+
+    if ($('inf-stat-total-count')) $('inf-stat-total-count').textContent = totalCount;
+    if ($('inf-stat-pending-count')) $('inf-stat-pending-count').textContent = pendingCount;
+    if ($('inf-stat-total-propuestas')) $('inf-stat-total-propuestas').textContent = formatMoneyCop(totalPropuestas);
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state" style="padding: 40px 16px; text-align: center;">
+          <span style="font-size: 2.4rem; display: block; margin-bottom: 8px;">🛠️</span>
+          <h4 style="font-size: 1.05rem; margin-bottom: 6px;">No se encontraron informes</h4>
+          <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 380px; margin: 0 auto 16px;">
+            ${hist.length === 0 ? 'Crea tu primer informe de diagnóstico técnico para computadores, impresoras y hardware.' : 'No hay informes que coincidan con los filtros seleccionados.'}
+          </p>
+          <button type="button" class="btn-primary" id="btn-empty-create-inf" style="margin: 0 auto; font-size: 0.82rem; padding: 8px 16px;">
+            <span>✨</span> Crear Nuevo Informe
+          </button>
+        </div>
+      `;
+      const emptyBtn = $('btn-empty-create-inf');
+      if (emptyBtn) {
+        emptyBtn.addEventListener('click', () => {
+          resetInformeForm();
+          switchSubview('view-informe-tecnico');
+        });
+      }
+      return;
+    }
+
+    // Ordenar de más reciente a más antiguo
+    const sorted = [...filtered].reverse();
+
+    list.innerHTML = sorted.map(item => {
+      const st = item.status || 'Borrador';
+      const badgeClass = st === 'Enviado' ? 'badge-enviado' : (st === 'Aprobado' ? 'badge-aprobado' : (st === 'Rechazado' ? 'badge-rechazado' : 'badge-borrador'));
+      const propTotal = (item.propuestaItems || []).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+
+      return `
+        <div class="cobro-history-card" data-inf-id="${escapeHtml(item.id)}">
+          <div class="cobro-card-top">
+            <div class="cobro-card-num-group">
+              <span class="cobro-card-number" style="color: #38bdf8;">${escapeHtml(item.number || 'INF')}</span>
+              <span class="cobro-card-date">${escapeHtml(item.dateFormatted || item.date || '')}</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select class="inf-status-select card-badge ${badgeClass}" data-inf-id="${escapeHtml(item.id)}" style="cursor: pointer; border: none; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;" title="Cambiar estado del informe">
+                <option value="Borrador" ${st === 'Borrador' ? 'selected' : ''}>Borrador</option>
+                <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                <option value="Aprobado" ${st === 'Aprobado' ? 'selected' : ''}>Aprobado</option>
+                <option value="Rechazado" ${st === 'Rechazado' ? 'selected' : ''}>Rechazado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="cobro-card-client-row">
+            <div>
+              <div class="cobro-card-client-name" style="font-size: 0.95rem;">${escapeHtml(item.clientName || 'Cliente General')}</div>
+              ${item.clientNit ? `<div class="cobro-card-client-nit">NIT: ${escapeHtml(item.clientNit)}</div>` : ''}
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">PROPUESTA:</span>
+              <span class="cobro-card-saldo-val" style="color: #38bdf8;">${formatMoneyCop(propTotal)}</span>
+            </div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.18); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 12px; font-size: 0.8rem; border-left: 3px solid #38bdf8;">
+            <div><strong>Equipo:</strong> ${escapeHtml(item.equipment || 'No especificado')}${item.serial ? ' (S/N: ' + escapeHtml(item.serial) + ')' : ''}</div>
+            ${item.falla ? `<div style="color: var(--text-muted); margin-top: 2px;"><strong>Falla:</strong> ${escapeHtml(item.falla)}</div>` : ''}
+          </div>
+
+          <div class="cobro-card-actions" style="position: relative;">
+            <button type="button" class="btn-primary btn-inf-act-open" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
+              <span>📖</span> Abrir
+            </button>
+            <button type="button" class="btn-secondary btn-inf-act-dup" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
+              <span>📋</span> Duplicar
+            </button>
+            <button type="button" class="btn-secondary btn-inf-act-pdf" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
+              <span>👁️</span> Ver PDF
+            </button>
+            <button type="button" class="btn-whatsapp btn-inf-act-wa" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 12px; font-size: 0.8rem;">
+              <span>📲</span> WhatsApp
+            </button>
+            
+            <div style="position: relative; margin-left: auto;">
+              <button type="button" class="btn-secondary btn-inf-more-trigger" data-inf-id="${escapeHtml(item.id)}" style="padding: 6px 10px; font-size: 0.85rem;" title="Más opciones">
+                ⋮ Más
+              </button>
+              <div class="dropdown-menu inf-more-dropdown" id="dropdown-${escapeHtml(item.id)}" style="display: none; position: absolute; right: 0; bottom: calc(100% + 4px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 50; min-width: 220px; padding: 6px 0;">
+                <button type="button" class="dropdown-item btn-inf-create-cobro" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <span>💼</span> Crear cuenta de cobro
+                </button>
+                <button type="button" class="dropdown-item btn-inf-create-cot" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <span>📋</span> Crear cotización
+                </button>
+                <button type="button" class="dropdown-item btn-inf-save-tpl" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <span>📑</span> Guardar como plantilla
+                </button>
+                <button type="button" class="dropdown-item btn-inf-copy-txt" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <span>📋</span> Copiar texto resumen
+                </button>
+                <div style="height: 1px; background: var(--border); margin: 4px 0;"></div>
+                <button type="button" class="dropdown-item btn-inf-del" data-inf-id="${escapeHtml(item.id)}" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; color: #f87171; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <span>🗑️</span> Eliminar informe
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Exportar e Importar Historial de Informes
+  function exportInformeHistory() {
+    try {
+      const dataStr = JSON.stringify(state.informeHistory, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informes_tecnicos_backup_${getTodayIsoDate()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Historial de informes exportado con éxito', '📥');
+    } catch (e) {
+      showToast('Error al exportar historial', '⚠️');
+    }
+  }
+
+  function importInformeHistory(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if (!Array.isArray(parsed)) throw new Error('Formato no válido');
+        let added = 0;
+        parsed.forEach(item => {
+          if (!item.id) item.id = generateUUID();
+          const idx = state.informeHistory.findIndex(h => h.id === item.id);
+          if (idx >= 0) {
+            state.informeHistory[idx] = item;
+          } else {
+            state.informeHistory.push(item);
+            added++;
+          }
+        });
+        setStorage('pr_informe_history', state.informeHistory);
+        updateBadges();
+        renderInformeHistory();
+        triggerIncrementalSync();
+        showToast(`Importados ${parsed.length} informes (${added} nuevos)`, '📤');
+      } catch (err) {
+        showToast('Error al leer el archivo JSON de informes', '❌');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ==========================================================================
+  // PLANTILLAS DE INFORMES TÉCNICOS
+  // ==========================================================================
+
+  function renderInformePlantillasList() {
+    const list = $('inf-plantillas-list');
+    if (!list) return;
+    const tpls = Array.isArray(state.informePlantillas) ? state.informePlantillas : [];
+
+    if (tpls.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state" style="padding: 30px 16px; text-align: center;">
+          <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📑</span>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">No tienes plantillas guardadas aún. Puedes guardar tus informes frecuentes como plantilla.</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = tpls.map(t => `
+      <div class="card" style="padding: 14px; background: rgba(22, 26, 36, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
+          <div>
+            <strong style="font-size: 0.95rem; color: #38bdf8; display: block;">${escapeHtml(t.name || 'Plantilla de diagnóstico')}</strong>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(t.subtitle || t.title || '')}</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-primary btn-tpl-use" data-tpl-id="${escapeHtml(t.id)}" style="padding: 5px 12px; font-size: 0.78rem;">
+              <span>✨</span> Usar plantilla
+            </button>
+            <button type="button" class="btn-secondary btn-tpl-rename" data-tpl-id="${escapeHtml(t.id)}" style="padding: 5px 10px; font-size: 0.78rem;" title="Renombrar plantilla">
+              ✏️
+            </button>
+            <button type="button" class="btn-icon btn-danger btn-tpl-del" data-tpl-id="${escapeHtml(t.id)}" style="padding: 5px 8px; font-size: 0.78rem;" title="Eliminar plantilla">
+              🗑️
+            </button>
+          </div>
+        </div>
+        ${t.motivo ? `<div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(t.motivo)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function saveCurrentAsPlantilla(nameOverride = null) {
+    const data = getInformeDataFromForm();
+    let name = nameOverride;
+    if (!name) {
+      name = prompt('Nombre para la nueva plantilla:', data.subtitle || 'Diagnóstico de equipo');
+    }
+    if (!name || !name.trim()) return;
+    name = name.trim();
+
+    const tpl = {
+      id: generateUUID(),
+      name,
+      title: data.title,
+      subtitle: data.subtitle,
+      headerTag: data.headerTag,
+      serviceType: data.serviceType,
+      falla: data.falla,
+      motivo: data.motivo,
+      verificaciones: Array.isArray(data.verificaciones) ? JSON.parse(JSON.stringify(data.verificaciones)) : [],
+      diagnostico: data.diagnostico,
+      propuestaTexto: data.propuestaTexto,
+      propuestaItems: Array.isArray(data.propuestaItems) ? data.propuestaItems.map(p => ({ desc: p.desc, valor: 0 })) : [],
+      observaciones: data.observaciones,
+      conclusion: data.conclusion,
+      customSections: Array.isArray(data.customSections) ? JSON.parse(JSON.stringify(data.customSections)) : [],
+      updatedAt: new Date().toISOString()
+    };
+
+    if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
+    state.informePlantillas.push(tpl);
+    setStorage('pr_informe_plantillas', state.informePlantillas);
+    renderInformePlantillasList();
+    triggerIncrementalSync();
+    showToast(`Plantilla "${name}" guardada con éxito`, '💾');
+  }
+
+  function applyPlantilla(tplId) {
+    const tpl = (state.informePlantillas || []).find(t => t.id === tplId);
+    if (!tpl) return;
+
+    if ($('inf-header-tag')) $('inf-header-tag').value = tpl.headerTag || '';
+    if ($('inf-title')) $('inf-title').value = tpl.title || 'INFORME TÉCNICO';
+    if ($('inf-subtitle')) $('inf-subtitle').value = tpl.subtitle || '';
+    if ($('inf-service-type')) $('inf-service-type').value = tpl.serviceType || '';
+    if ($('inf-falla')) $('inf-falla').value = tpl.falla || '';
+
+    if ($('inf-sec-motivo-text')) $('inf-sec-motivo-text').value = tpl.motivo || '';
+    if ($('inf-sec-diag-text')) $('inf-sec-diag-text').value = tpl.diagnostico || '';
+    if ($('inf-sec-prop-text')) $('inf-sec-prop-text').value = tpl.propuestaTexto || '';
+    if ($('inf-sec-obs-text')) $('inf-sec-obs-text').value = tpl.observaciones || '';
+    if ($('inf-sec-conc-text')) $('inf-sec-conc-text').value = tpl.conclusion || '';
+
+    state.currentInformeVerificaciones = Array.isArray(tpl.verificaciones) ? JSON.parse(JSON.stringify(tpl.verificaciones)) : [];
+    state.currentInformePropuestas = Array.isArray(tpl.propuestaItems) ? JSON.parse(JSON.stringify(tpl.propuestaItems)) : [{ desc: '', valor: 0 }];
+    state.currentInformeCustomSections = Array.isArray(tpl.customSections) ? JSON.parse(JSON.stringify(tpl.customSections)) : [];
+
+    renderInformeVerificacionesUI();
+    renderInformePropuestasUI();
+    renderInformeCustomSectionsUI();
+    renderInformePreview();
+
+    switchSubview('view-informe-tecnico');
+    showToast(`Plantilla "${tpl.name}" aplicada correctamente`, '📑');
+  }
+
+  function renamePlantilla(tplId) {
+    const tpl = (state.informePlantillas || []).find(t => t.id === tplId);
+    if (!tpl) return;
+    const newName = prompt('Nuevo nombre para la plantilla:', tpl.name || '');
+    if (!newName || !newName.trim()) return;
+    tpl.name = newName.trim();
+    tpl.updatedAt = new Date().toISOString();
+    setStorage('pr_informe_plantillas', state.informePlantillas);
+    renderInformePlantillasList();
+    triggerIncrementalSync();
+    showToast('Plantilla renombrada con éxito', '✏️');
+  }
+
+  function deletePlantilla(tplId) {
+    const idx = (state.informePlantillas || []).findIndex(t => t.id === tplId);
+    if (idx < 0) return;
+    const tpl = state.informePlantillas[idx];
+    if (confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) {
+      recordTombstone(tpl.id, 'plantilla_informe');
+      state.informePlantillas.splice(idx, 1);
+      setStorage('pr_informe_plantillas', state.informePlantillas);
+      renderInformePlantillasList();
+      triggerIncrementalSync();
+      showToast('Plantilla eliminada', '🗑️');
+    }
+  }
+
+  // ==========================================================================
+  // MIS DATOS (INFORMES TÉCNICOS)
+  // ==========================================================================
+
+  function syncInformeDatosUI() {
+    if (!$('view-informe-datos')) return;
+    const cfg = state.informeConfig || DEFAULT_INFORME_CONFIG;
+    if ($('inf-datos-cargo')) $('inf-datos-cargo').value = cfg.cargo || DEFAULT_INFORME_CONFIG.cargo;
+    if ($('inf-datos-correo')) $('inf-datos-correo').value = cfg.correo || DEFAULT_INFORME_CONFIG.correo;
+    if ($('inf-datos-celular')) $('inf-datos-celular').value = cfg.celular || DEFAULT_INFORME_CONFIG.celular;
+    if ($('inf-datos-tag')) $('inf-datos-tag').value = cfg.headerTag || DEFAULT_INFORME_CONFIG.headerTag;
+    if ($('inf-datos-service')) $('inf-datos-service').value = cfg.serviceType || DEFAULT_INFORME_CONFIG.serviceType;
+    if ($('inf-datos-obs')) $('inf-datos-obs').value = cfg.defaultObs || DEFAULT_INFORME_CONFIG.defaultObs;
+  }
+
+  function saveInformeDatosFromUI() {
+    state.informeConfig = {
+      cargo: $('inf-datos-cargo') ? $('inf-datos-cargo').value.trim() : DEFAULT_INFORME_CONFIG.cargo,
+      correo: $('inf-datos-correo') ? $('inf-datos-correo').value.trim() : DEFAULT_INFORME_CONFIG.correo,
+      celular: $('inf-datos-celular') ? $('inf-datos-celular').value.trim() : DEFAULT_INFORME_CONFIG.celular,
+      headerTag: $('inf-datos-tag') ? $('inf-datos-tag').value.trim() : DEFAULT_INFORME_CONFIG.headerTag,
+      serviceType: $('inf-datos-service') ? $('inf-datos-service').value.trim() : DEFAULT_INFORME_CONFIG.serviceType,
+      defaultObs: $('inf-datos-obs') ? $('inf-datos-obs').value : DEFAULT_INFORME_CONFIG.defaultObs
+    };
+
+    setStorage('pr_informe_config', state.informeConfig);
+
+    // Actualizar campos en el formulario de informe si están con valores predeterminados
+    if ($('inf-elab-cargo')) $('inf-elab-cargo').value = state.informeConfig.cargo;
+    if ($('inf-elab-correo')) $('inf-elab-correo').value = state.informeConfig.correo;
+    if ($('inf-elab-celular')) $('inf-elab-celular').value = state.informeConfig.celular;
+    if ($('inf-header-tag')) $('inf-header-tag').value = state.informeConfig.headerTag;
+    if ($('inf-service-type')) $('inf-service-type').value = state.informeConfig.serviceType;
+
+    renderInformePreview();
+    triggerIncrementalSync();
+    showToast('Datos de informes técnicos guardados', '💾');
+  }
+
+  // ==========================================================================
+  // EVENT LISTENERS DE INFORMES TÉCNICOS
+  // ==========================================================================
+
+  function setupInformeEvents() {
+    // 1. Toggle colapsar vista previa
+    const btnToggleInfPrev = $('btn-toggle-inf-preview');
+    if (btnToggleInfPrev) {
+      btnToggleInfPrev.addEventListener('click', toggleInformePreviewCollapse);
+    }
+    updateInformePreviewCollapseUI(getInformePreviewCollapsed());
+
+    // 2. Escuchar cambios en campos de texto para actualizar preview en tiempo real
+    const liveInputIds = [
+      'inf-header-tag', 'inf-title', 'inf-subtitle',
+      'inf-client-name', 'inf-client-nit', 'inf-equipment', 'inf-serial',
+      'inf-date', 'inf-service-type', 'inf-falla',
+      'inf-sec-motivo-title', 'inf-sec-motivo-text',
+      'inf-sec-verif-title',
+      'inf-sec-diag-title', 'inf-sec-diag-text',
+      'inf-sec-prop-title', 'inf-sec-prop-text',
+      'inf-sec-obs-title', 'inf-sec-obs-text',
+      'inf-sec-conc-title', 'inf-sec-conc-text',
+      'inf-elab-cargo', 'inf-elab-correo', 'inf-elab-celular', 'inf-elab-date', 'inf-num'
+    ];
+
+    liveInputIds.forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', () => renderInformePreview());
+      }
+    });
+
+    // Escuchar selección de cliente en datalist para autocompletar NIT
+    const clientInput = $('inf-client-name');
+    if (clientInput) {
+      clientInput.addEventListener('change', () => {
+        const val = clientInput.value.trim().toLowerCase();
+        const found = (state.cobroClients || []).find(c => c.name.toLowerCase() === val);
+        if (found && found.nit && $('inf-client-nit')) {
+          $('inf-client-nit').value = found.nit;
+          renderInformePreview();
+        }
+      });
+    }
+
+    // Fecha del informe actualiza automáticamente la fecha en elaborado por si no ha sido personalizada
+    const dateInput = $('inf-date');
+    if (dateInput) {
+      dateInput.addEventListener('change', () => {
+        if ($('inf-elab-date')) {
+          $('inf-elab-date').value = formatSpanishDate(dateInput.value);
+        }
+        renderInformePreview();
+      });
+    }
+
+    // Toggles de incluir secciones y casillas de visualización
+    const toggleIds = [
+      'inf-sec-motivo-inc', 'inf-sec-verif-inc', 'inf-sec-diag-inc',
+      'inf-sec-prop-inc', 'inf-sec-obs-inc', 'inf-sec-conc-inc',
+      'inf-include-logo', 'inf-include-firma', 'inf-show-number'
+    ];
+
+    toggleIds.forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('change', () => renderInformePreview());
+      }
+    });
+
+    // 3. Verificaciones y pruebas interacciones
+    const btnAddVerif = $('btn-inf-add-verif');
+    if (btnAddVerif) {
+      btnAddVerif.addEventListener('click', () => {
+        if (!Array.isArray(state.currentInformeVerificaciones)) state.currentInformeVerificaciones = [];
+        state.currentInformeVerificaciones.push({ title: '', desc: '' });
+        renderInformeVerificacionesUI();
+        renderInformePreview();
+      });
+    }
+
+    const verifContainer = $('inf-verif-items-container');
+    if (verifContainer) {
+      verifContainer.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.index, 10);
+        if (isNaN(idx) || !state.currentInformeVerificaciones[idx]) return;
+        if (e.target.classList.contains('verif-item-title-input')) {
+          state.currentInformeVerificaciones[idx].title = e.target.value;
+        } else if (e.target.classList.contains('verif-item-desc-input')) {
+          state.currentInformeVerificaciones[idx].desc = e.target.value;
+        }
+        renderInformePreview();
+      });
+
+      verifContainer.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('.btn-verif-del');
+        if (delBtn) {
+          const idx = parseInt(delBtn.dataset.index, 10);
+          if (!isNaN(idx) && state.currentInformeVerificaciones[idx]) {
+            state.currentInformeVerificaciones.splice(idx, 1);
+            if (state.currentInformeVerificaciones.length === 0) {
+              state.currentInformeVerificaciones.push({ title: '', desc: '' });
+            }
+            renderInformeVerificacionesUI();
+            renderInformePreview();
+          }
+          return;
+        }
+
+        const upBtn = e.target.closest('.btn-verif-up');
+        if (upBtn) {
+          const idx = parseInt(upBtn.dataset.index, 10);
+          if (idx > 0) {
+            const temp = state.currentInformeVerificaciones[idx];
+            state.currentInformeVerificaciones[idx] = state.currentInformeVerificaciones[idx - 1];
+            state.currentInformeVerificaciones[idx - 1] = temp;
+            renderInformeVerificacionesUI();
+            renderInformePreview();
+          }
+          return;
+        }
+
+        const downBtn = e.target.closest('.btn-verif-down');
+        if (downBtn) {
+          const idx = parseInt(downBtn.dataset.index, 10);
+          if (idx < state.currentInformeVerificaciones.length - 1) {
+            const temp = state.currentInformeVerificaciones[idx];
+            state.currentInformeVerificaciones[idx] = state.currentInformeVerificaciones[idx + 1];
+            state.currentInformeVerificaciones[idx + 1] = temp;
+            renderInformeVerificacionesUI();
+            renderInformePreview();
+          }
+          return;
+        }
+      });
+    }
+
+    // 4. Trabajos Propuestos interacciones
+    const btnAddTrabajo = $('btn-inf-add-trabajo');
+    if (btnAddTrabajo) {
+      btnAddTrabajo.addEventListener('click', () => {
+        if (!Array.isArray(state.currentInformePropuestas)) state.currentInformePropuestas = [];
+        state.currentInformePropuestas.push({ desc: '', valor: 0 });
+        renderInformePropuestasUI();
+        renderInformePreview();
+      });
+    }
+
+    const propContainer = $('inf-propuesta-items-container');
+    if (propContainer) {
+      propContainer.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.index, 10);
+        if (isNaN(idx) || !state.currentInformePropuestas[idx]) return;
+        if (e.target.classList.contains('propuesta-row-desc')) {
+          state.currentInformePropuestas[idx].desc = e.target.value;
+        } else if (e.target.classList.contains('propuesta-row-val')) {
+          state.currentInformePropuestas[idx].valor = parseFloat(e.target.value) || 0;
+          let total = 0;
+          state.currentInformePropuestas.forEach(p => total += (parseFloat(p.valor) || 0));
+          if ($('inf-propuesta-total-val')) $('inf-propuesta-total-val').textContent = formatMoneyCop(total);
+          updateMobileStickyBar();
+        }
+        renderInformePreview();
+      });
+
+      propContainer.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('.btn-prop-del');
+        if (delBtn) {
+          const idx = parseInt(delBtn.dataset.index, 10);
+          if (!isNaN(idx) && state.currentInformePropuestas[idx]) {
+            state.currentInformePropuestas.splice(idx, 1);
+            if (state.currentInformePropuestas.length === 0) {
+              state.currentInformePropuestas.push({ desc: '', valor: 0 });
+            }
+            renderInformePropuestasUI();
+            renderInformePreview();
+          }
+        }
+      });
+    }
+
+    // 5. Secciones personalizadas extras
+    const btnAddCustomSec = $('btn-inf-add-custom-section');
+    if (btnAddCustomSec) {
+      btnAddCustomSec.addEventListener('click', () => {
+        if (!Array.isArray(state.currentInformeCustomSections)) state.currentInformeCustomSections = [];
+        state.currentInformeCustomSections.push({
+          title: `Sección adicional ${state.currentInformeCustomSections.length + 1}`,
+          content: '',
+          included: true
+        });
+        renderInformeCustomSectionsUI();
+        renderInformePreview();
+      });
+    }
+
+    const customSecContainer = $('inf-custom-sections-container');
+    if (customSecContainer) {
+      customSecContainer.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.index, 10);
+        if (isNaN(idx) || !state.currentInformeCustomSections[idx]) return;
+        if (e.target.classList.contains('custom-sec-title')) {
+          state.currentInformeCustomSections[idx].title = e.target.value;
+        } else if (e.target.classList.contains('custom-sec-text')) {
+          state.currentInformeCustomSections[idx].content = e.target.value;
+        }
+        renderInformePreview();
+      });
+
+      customSecContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('custom-sec-inc')) {
+          const idx = parseInt(e.target.dataset.index, 10);
+          if (!isNaN(idx) && state.currentInformeCustomSections[idx]) {
+            state.currentInformeCustomSections[idx].included = e.target.checked;
+            renderInformePreview();
+          }
+        }
+      });
+
+      customSecContainer.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('.btn-custom-sec-del');
+        if (delBtn) {
+          const idx = parseInt(delBtn.dataset.index, 10);
+          if (!isNaN(idx) && state.currentInformeCustomSections[idx]) {
+            state.currentInformeCustomSections.splice(idx, 1);
+            renderInformeCustomSectionsUI();
+            renderInformePreview();
+          }
+        }
+      });
+    }
+
+    // 6. Restablecer observaciones a predeterminadas
+    const btnResetObs = $('btn-inf-reset-obs');
+    if (btnResetObs) {
+      btnResetObs.addEventListener('click', () => {
+        if ($('inf-sec-obs-text')) {
+          $('inf-sec-obs-text').value = state.informeConfig.defaultObs || DEFAULT_INFORME_CONFIG.defaultObs;
+          renderInformePreview();
+          showToast('Observaciones restablecidas a las de Mis datos', '🔄');
+        }
+      });
+    }
+
+    // 7. Acciones principales del formulario
+    const btnSave = $('btn-inf-save');
+    if (btnSave) {
+      btnSave.addEventListener('click', () => saveCurrentInforme(true));
+    }
+
+    const btnNew = $('btn-inf-new');
+    if (btnNew) {
+      btnNew.addEventListener('click', resetInformeForm);
+    }
+
+    const btnPreviewPdf = $('btn-inf-preview-pdf');
+    if (btnPreviewPdf) {
+      btnPreviewPdf.addEventListener('click', () => {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        renderInformePreview(data);
+        window.PedroRoaPdf.previewInformePdf(data);
+      });
+    }
+
+    const btnDownloadPdf = $('btn-inf-download-pdf');
+    if (btnDownloadPdf) {
+      btnDownloadPdf.addEventListener('click', () => {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentInforme(false);
+        showToast('Descargando archivo PDF...', '📥');
+        window.PedroRoaPdf.downloadInformePdf(data);
+      });
+    }
+
+    const btnPrint = $('btn-inf-print');
+    if (btnPrint) {
+      btnPrint.addEventListener('click', () => {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentInforme(false);
+        renderInformePreview(data);
+        window.print();
+      });
+    }
+
+    const btnWhatsAppPdf = $('btn-inf-whatsapp-pdf');
+    if (btnWhatsAppPdf) {
+      btnWhatsAppPdf.addEventListener('click', async () => {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentInforme(false);
+        const result = await window.PedroRoaPdf.shareInformePdfViaWhatsApp(data);
+        if (result && result.success && result.method === 'native-share') {
+          showToast('Compartiendo PDF de informe directamente en WhatsApp...', '🚀');
+        }
+      });
+    }
+
+    const btnWhatsAppText = $('btn-inf-whatsapp-text');
+    if (btnWhatsAppText) {
+      btnWhatsAppText.addEventListener('click', () => {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        saveCurrentInforme(false);
+        const text = generateInformePlainText(data);
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+      });
+    }
+
+    const btnCopyText = $('btn-inf-copy-text');
+    if (btnCopyText) {
+      btnCopyText.addEventListener('click', async () => {
+        const data = getInformeDataFromForm();
+        const text = generateInformePlainText(data);
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('Texto del informe copiado al portapapeles', '📋');
+        } catch (e) {
+          showToast('No se pudo copiar automáticamente', '⚠️');
+        }
+      });
+    }
+
+    // Botones rápidos de plantilla en el formulario
+    const btnPickTpl = $('btn-inf-pick-template');
+    if (btnPickTpl) {
+      btnPickTpl.addEventListener('click', () => switchSubview('view-informe-plantillas'));
+    }
+
+    const btnQuickSaveTpl = $('btn-inf-quick-save-template');
+    if (btnQuickSaveTpl) {
+      btnQuickSaveTpl.addEventListener('click', () => saveCurrentAsPlantilla());
+    }
+
+    // 8. Eventos de la lista del historial
+    const histList = $('inf-history-list');
+    if (histList) {
+      histList.addEventListener('click', (e) => {
+        const openBtn = e.target.closest('.btn-inf-act-open');
+        if (openBtn) {
+          loadInformeFromHistory(openBtn.dataset.infId);
+          return;
+        }
+
+        const dupBtn = e.target.closest('.btn-inf-act-dup');
+        if (dupBtn) {
+          duplicateInforme(dupBtn.dataset.infId);
+          return;
+        }
+
+        const pdfBtn = e.target.closest('.btn-inf-act-pdf');
+        if (pdfBtn) {
+          const item = (state.informeHistory || []).find(h => h.id === pdfBtn.dataset.infId);
+          if (item) window.PedroRoaPdf.previewInformePdf(item);
+          return;
+        }
+
+        const waBtn = e.target.closest('.btn-inf-act-wa');
+        if (waBtn) {
+          const item = (state.informeHistory || []).find(h => h.id === waBtn.dataset.infId);
+          if (item) window.PedroRoaPdf.shareInformePdfViaWhatsApp(item);
+          return;
+        }
+
+        // Dropdown toggle
+        const moreBtn = e.target.closest('.btn-inf-more-trigger');
+        if (moreBtn) {
+          e.stopPropagation();
+          const drop = $(`dropdown-${moreBtn.dataset.infId}`);
+          document.querySelectorAll('.inf-more-dropdown').forEach(d => {
+            if (d !== drop) d.style.display = 'none';
+          });
+          if (drop) {
+            drop.style.display = drop.style.display === 'block' ? 'none' : 'block';
+          }
+          return;
+        }
+
+        // Acciones del dropdown
+        const cobroBtn = e.target.closest('.btn-inf-create-cobro');
+        if (cobroBtn) {
+          createCobroFromInforme(cobroBtn.dataset.infId);
+          return;
+        }
+
+        const cotBtn = e.target.closest('.btn-inf-create-cot');
+        if (cotBtn) {
+          createCotizacionFromInforme(cotBtn.dataset.infId);
+          return;
+        }
+
+        const tplBtn = e.target.closest('.btn-inf-save-tpl');
+        if (tplBtn) {
+          const item = (state.informeHistory || []).find(h => h.id === tplBtn.dataset.infId);
+          if (item) {
+            const name = prompt('Nombre para la plantilla a partir de este informe:', item.subtitle || item.equipment || 'Plantilla');
+            if (name) {
+              const tpl = {
+                id: generateUUID(),
+                name: name.trim(),
+                title: item.title,
+                subtitle: item.subtitle,
+                headerTag: item.headerTag,
+                serviceType: item.serviceType,
+                falla: item.falla,
+                motivo: item.motivo,
+                verificaciones: Array.isArray(item.verificaciones) ? JSON.parse(JSON.stringify(item.verificaciones)) : [],
+                diagnostico: item.diagnostico,
+                propuestaTexto: item.propuestaTexto,
+                propuestaItems: Array.isArray(item.propuestaItems) ? item.propuestaItems.map(p => ({ desc: p.desc, valor: 0 })) : [],
+                observaciones: item.observaciones,
+                conclusion: item.conclusion,
+                customSections: Array.isArray(item.customSections) ? JSON.parse(JSON.stringify(item.customSections)) : [],
+                updatedAt: new Date().toISOString()
+              };
+              if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
+              state.informePlantillas.push(tpl);
+              setStorage('pr_informe_plantillas', state.informePlantillas);
+              renderInformePlantillasList();
+              triggerIncrementalSync();
+              showToast(`Plantilla "${name}" guardada con éxito`, '💾');
+            }
+          }
+          return;
+        }
+
+        const copyBtn = e.target.closest('.btn-inf-copy-txt');
+        if (copyBtn) {
+          const item = (state.informeHistory || []).find(h => h.id === copyBtn.dataset.infId);
+          if (item) {
+            const text = generateInformePlainText(item);
+            navigator.clipboard.writeText(text)
+              .then(() => showToast('Resumen del informe copiado', '📋'))
+              .catch(() => showToast('No se pudo copiar', '⚠️'));
+          }
+          return;
+        }
+
+        const delBtn = e.target.closest('.btn-inf-del');
+        if (delBtn) {
+          deleteInforme(delBtn.dataset.infId);
+          return;
+        }
+      });
+
+      histList.addEventListener('change', (e) => {
+        if (e.target.classList.contains('inf-status-select')) {
+          changeInformeStatus(e.target.dataset.infId, e.target.value);
+        }
+      });
+    }
+
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.inf-more-dropdown').forEach(d => d.style.display = 'none');
+    });
+
+    // Filtros del historial
+    const histSearch = $('inf-hist-search');
+    if (histSearch) histSearch.addEventListener('input', renderInformeHistory);
+
+    const histFilterStatus = $('inf-hist-filter-status');
+    if (histFilterStatus) histFilterStatus.addEventListener('change', renderInformeHistory);
+
+    const histFilterMonth = $('inf-hist-filter-month');
+    if (histFilterMonth) histFilterMonth.addEventListener('change', renderInformeHistory);
+
+    const btnClearFilters = $('btn-inf-clear-filters');
+    if (btnClearFilters) {
+      btnClearFilters.addEventListener('click', () => {
+        if (histSearch) histSearch.value = '';
+        if (histFilterStatus) histFilterStatus.value = 'all';
+        if (histFilterMonth) histFilterMonth.value = '';
+        renderInformeHistory();
+      });
+    }
+
+    // Exportar e Importar Historial
+    const btnExpHist = $('btn-inf-export-history');
+    if (btnExpHist) btnExpHist.addEventListener('click', exportInformeHistory);
+
+    const btnImpHist = $('btn-inf-import-history');
+    const inputImpHist = $('inf-import-history-file');
+    if (btnImpHist && inputImpHist) {
+      btnImpHist.addEventListener('click', () => inputImpHist.click());
+      inputImpHist.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          importInformeHistory(e.target.files[0]);
+          inputImpHist.value = '';
+        }
+      });
+    }
+
+    // 9. Plantillas de Informes
+    const plantillasList = $('inf-plantillas-list');
+    if (plantillasList) {
+      plantillasList.addEventListener('click', (e) => {
+        const useBtn = e.target.closest('.btn-tpl-use');
+        if (useBtn) {
+          applyPlantilla(useBtn.dataset.tplId);
+          return;
+        }
+
+        const renBtn = e.target.closest('.btn-tpl-rename');
+        if (renBtn) {
+          renamePlantilla(renBtn.dataset.tplId);
+          return;
+        }
+
+        const delBtn = e.target.closest('.btn-tpl-del');
+        if (delBtn) {
+          deletePlantilla(delBtn.dataset.tplId);
+          return;
+        }
+      });
+    }
+
+    // 10. Mis Datos Informes
+    const btnSaveInfDatos = $('btn-save-inf-datos');
+    if (btnSaveInfDatos) {
+      btnSaveInfDatos.addEventListener('click', saveInformeDatosFromUI);
+    }
+
+    const btnResetDatosObs = $('btn-inf-reset-datos-obs');
+    if (btnResetDatosObs) {
+      btnResetDatosObs.addEventListener('click', () => {
+        if ($('inf-datos-obs')) {
+          $('inf-datos-obs').value = DEFAULT_INFORME_CONFIG.defaultObs;
+          showToast('Observaciones predeterminadas restablecidas', '🔄');
+        }
+      });
+    }
+
+    // Click en tarjetas recientes de la pantalla de entrada de informes
+    const recentInfContainer = $('inf-entry-recent-list');
+    if (recentInfContainer) {
+      recentInfContainer.addEventListener('click', (e) => {
+        const row = e.target.closest('.entry-inf-row');
+        if (row && row.dataset.infId) {
+          loadInformeFromHistory(row.dataset.infId);
+        }
+      });
+    }
+  }
+
   // --- Event Listeners Setup ---
   // Mapa de relación entre subvistas y secciones principales
   const SUBVIEW_SECTION_MAP = {
@@ -3486,7 +5574,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     'view-config': 'cotizaciones',
     'view-cuentas-cobro': 'cuentas-cobro',
     'view-cobro-historial': 'cuentas-cobro',
-    'view-cobro-emisor': 'cuentas-cobro'
+    'view-cobro-emisor': 'cuentas-cobro',
+    'view-informe-tecnico': 'informes',
+    'view-informe-historial': 'informes',
+    'view-informe-plantillas': 'informes',
+    'view-informe-datos': 'informes'
   };
 
   const SUBVIEW_NAMES_MAP = {
@@ -3496,10 +5588,14 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     'view-config': 'Mi Negocio',
     'view-cuentas-cobro': 'Nueva Cuenta',
     'view-cobro-historial': 'Historial de Cuentas',
-    'view-cobro-emisor': 'Mis Datos de Emisor'
+    'view-cobro-emisor': 'Mis Datos de Emisor',
+    'view-informe-tecnico': 'Nuevo informe',
+    'view-informe-historial': 'Historial de informes',
+    'view-informe-plantillas': 'Plantillas',
+    'view-informe-datos': 'Mis datos'
   };
 
-  // Volver al Menú Principal (Solo 2 Opciones)
+  // Volver al Menú Principal (Ahora 3 Opciones)
   function goToMainMenu() {
     const navWrap = $('section-nav-wrapper');
     if (navWrap) navWrap.style.display = 'none';
@@ -3515,10 +5611,14 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Entrar a una sección principal ('cotizaciones' o 'cuentas-cobro')
+  // Entrar a una sección principal ('cotizaciones', 'cuentas-cobro' o 'informes')
   function enterSection(section, targetSubview = null) {
     const isCobro = section === 'cuentas-cobro';
-    const mainSection = isCobro ? 'cuentas-cobro' : 'cotizaciones';
+    const isInforme = section === 'informes';
+    let mainSection = 'cotizaciones';
+    if (isCobro) mainSection = 'cuentas-cobro';
+    if (isInforme) mainSection = 'informes';
+
     state.activeMainSection = mainSection;
     setStorage('pr_active_main_section', mainSection);
 
@@ -3529,25 +5629,39 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // Actualizar indicador de sección activa
     const badge = $('section-active-badge');
     if (badge) {
-      badge.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
+      if (isInforme) {
+        badge.textContent = '🛠️ Informes técnicos';
+      } else if (isCobro) {
+        badge.textContent = '💼 Cuentas de cobro';
+      } else {
+        badge.textContent = '📋 Cotizaciones';
+      }
     }
 
     // Alternar submenú visible
     const subCot = $('submenu-cotizaciones');
     const subCobro = $('submenu-cuentas-cobro');
-    if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
-    if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
+    const subInf = $('submenu-informes');
+    if (subCot) subCot.style.display = (mainSection === 'cotizaciones') ? 'flex' : 'none';
+    if (subCobro) subCobro.style.display = (mainSection === 'cuentas-cobro') ? 'flex' : 'none';
+    if (subInf) subInf.style.display = (mainSection === 'informes') ? 'flex' : 'none';
 
     // Determinar subvista a mostrar
     let subviewToOpen = targetSubview;
     if (!subviewToOpen) {
-      subviewToOpen = isCobro
-        ? (state.activeSubviewCobro || 'view-cuentas-cobro')
-        : (state.activeSubviewCot || 'view-cotizador');
+      if (isInforme) {
+        subviewToOpen = state.activeSubviewInf || 'view-informe-tecnico';
+      } else if (isCobro) {
+        subviewToOpen = state.activeSubviewCobro || 'view-cuentas-cobro';
+      } else {
+        subviewToOpen = state.activeSubviewCot || 'view-cotizador';
+      }
     }
 
     if (SUBVIEW_SECTION_MAP[subviewToOpen] !== mainSection) {
-      subviewToOpen = isCobro ? 'view-cuentas-cobro' : 'view-cotizador';
+      if (isInforme) subviewToOpen = 'view-informe-tecnico';
+      else if (isCobro) subviewToOpen = 'view-cuentas-cobro';
+      else subviewToOpen = 'view-cotizador';
     }
 
     switchSubview(subviewToOpen, mainSection);
@@ -3563,6 +5677,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (!$(viewId)) return;
     const targetSection = forcedSection || SUBVIEW_SECTION_MAP[viewId] || 'cotizaciones';
     const isCobro = targetSection === 'cuentas-cobro';
+    const isInforme = targetSection === 'informes';
 
     state.activeMainSection = targetSection;
     setStorage('pr_active_main_section', targetSection);
@@ -3573,13 +5688,21 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     const badge = $('section-active-badge');
     if (badge) {
-      badge.textContent = isCobro ? '💼 Cuentas de cobro' : '📋 Cotizaciones';
+      if (isInforme) {
+        badge.textContent = '🛠️ Informes técnicos';
+      } else if (isCobro) {
+        badge.textContent = '💼 Cuentas de cobro';
+      } else {
+        badge.textContent = '📋 Cotizaciones';
+      }
     }
 
     const subCot = $('submenu-cotizaciones');
     const subCobro = $('submenu-cuentas-cobro');
-    if (subCot) subCot.style.display = isCobro ? 'none' : 'flex';
-    if (subCobro) subCobro.style.display = isCobro ? 'flex' : 'none';
+    const subInf = $('submenu-informes');
+    if (subCot) subCot.style.display = (targetSection === 'cotizaciones') ? 'flex' : 'none';
+    if (subCobro) subCobro.style.display = (targetSection === 'cuentas-cobro') ? 'flex' : 'none';
+    if (subInf) subInf.style.display = (targetSection === 'informes') ? 'flex' : 'none';
 
     // Actualizar botones de submenú activos
     document.querySelectorAll('.subnav-btn, .tab-btn').forEach(btn => {
@@ -3593,7 +5716,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     $(viewId).classList.add('active');
 
     // Guardar última subvista en localStorage con try/catch
-    if (targetSection === 'cuentas-cobro') {
+    if (targetSection === 'informes') {
+      state.activeSubviewInf = viewId;
+      setStorage('pr_active_subview_inf', viewId);
+    } else if (targetSection === 'cuentas-cobro') {
       state.activeSubviewCobro = viewId;
       setStorage('pr_active_subview_cobro', viewId);
     } else {
@@ -3611,6 +5737,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       renderHistory();
     } else if (viewId === 'view-catalogo') {
       renderCatalogManager();
+    } else if (viewId === 'view-informe-historial') {
+      renderInformeHistory();
+    } else if (viewId === 'view-informe-plantillas') {
+      renderInformePlantillasList();
+    } else if (viewId === 'view-informe-datos') {
+      syncInformeDatosUI();
+    } else if (viewId === 'view-informe-tecnico') {
+      renderInformePreview();
+      updateSectionEntrySummaries();
     }
 
     // Barra fija inferior en móviles
@@ -3631,6 +5766,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnMainCobro = $('btn-main-cobro');
     if (btnMainCobro) {
       btnMainCobro.addEventListener('click', () => enterSection('cuentas-cobro'));
+    }
+
+    const btnMainInf = $('btn-main-informes');
+    if (btnMainInf) {
+      btnMainInf.addEventListener('click', () => enterSection('informes'));
     }
 
     // Botón para volver al Menú Principal
@@ -3656,6 +5796,32 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const btnCotEntryHist = $('btn-cot-entry-view-history');
     if (btnCotEntryHist) {
       btnCotEntryHist.addEventListener('click', () => switchSubview('view-historial'));
+    }
+
+    const btnInfEntryHist = $('btn-inf-entry-view-history');
+    if (btnInfEntryHist) {
+      btnInfEntryHist.addEventListener('click', () => switchSubview('view-informe-historial'));
+    }
+
+    const btnHistNewInf = $('btn-hist-create-new-inf');
+    if (btnHistNewInf) {
+      btnHistNewInf.addEventListener('click', () => {
+        resetInformeForm();
+        switchSubview('view-informe-tecnico');
+      });
+    }
+
+    const btnPlantillasNewInf = $('btn-plantillas-new-inf');
+    if (btnPlantillasNewInf) {
+      btnPlantillasNewInf.addEventListener('click', () => {
+        resetInformeForm();
+        switchSubview('view-informe-tecnico');
+      });
+    }
+
+    const btnBackToInf = $('btn-back-to-inf-form');
+    if (btnBackToInf) {
+      btnBackToInf.addEventListener('click', () => switchSubview('view-informe-tecnico'));
     }
 
     // Delegación de clics en la lista de cuentas pendientes del resumen de entrada
@@ -4246,6 +6412,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         saveCobroClient(data.clientName, data.clientNit);
         renderCobroPreview(data);
         window.PedroRoaPdf.previewCobroPdf(data);
+      } else if (activeSection && activeSection.id === 'view-informe-tecnico') {
+        const data = getInformeDataFromForm();
+        saveCobroClient(data.clientName, data.clientNit);
+        renderInformePreview(data);
+        window.PedroRoaPdf.previewInformePdf(data);
       } else {
         handleSendPdfWhatsApp();
       }
@@ -4377,6 +6548,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     // Inicializar eventos de Cuentas de Cobro
     setupCobroEvents();
+
+    // Inicializar eventos de Informes Técnicos
+    setupInformeEvents();
+
     updateMobileStickyBar();
 
     // Inicializar eventos de Sincronización en la Nube

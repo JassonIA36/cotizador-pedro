@@ -124,6 +124,22 @@
             <span>👤</span> Mis Datos
           </button>
         </div>
+
+        <!-- Submenú Informes Técnicos -->
+        <div id="submenu-informes" class="submenu-nav-group" role="tablist" aria-label="Opciones de Informes Técnicos" style="display: none;">
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-informe-tecnico" data-view="view-informe-tecnico" role="tab" aria-selected="true">
+            <span>✨</span> Nuevo informe
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-historial" data-view="view-informe-historial" role="tab" aria-selected="false">
+            <span>📜</span> Historial <span class="badge-count" id="badge-informes-count">0</span>
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-plantillas" data-view="view-informe-plantillas" role="tab" aria-selected="false">
+            <span>📑</span> Plantillas
+          </button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-datos" data-view="view-informe-datos" role="tab" aria-selected="false">
+            <span>👤</span> Mis datos
+          </button>
+        </div>
       </div>
 
     </div>
@@ -211,6 +227,41 @@
               <span class="btn-hub-open">Entrar a Cuentas de cobro →</span>
             </div>
           </button>
+
+          <!-- Opción 3: Informes Técnicos -->
+          <button type="button" id="btn-main-informes" class="hub-action-card card-informes" data-section="informes">
+            <div class="hub-card-top-row">
+              <div class="hub-card-title-group">
+                <div class="hub-card-icon-wrap icon-informes">
+                  <span class="hub-big-icon">🛠️</span>
+                </div>
+                <div class="hub-card-meta">
+                  <div class="hub-card-heading-wrap">
+                    <h3 class="hub-card-heading">Informes técnicos</h3>
+                    <span class="hub-status-pill pill-informes">DIAGNÓSTICO</span>
+                  </div>
+                  <span class="hub-card-subheading">Diagnóstico de equipos & hardware</span>
+                </div>
+              </div>
+              <div class="hub-card-status-badge">
+                <span class="status-badge-label" id="hub-badge-informes-label">EN ESPERA</span>
+                <span class="status-badge-val val-cyan" id="hub-badge-informes-val">0</span>
+              </div>
+            </div>
+
+            <p class="hub-card-desc">Elabora diagnósticos técnicos para computadores, impresoras y hardware con pruebas realizadas, propuesta económica de reparación y formato oficial en PDF.</p>
+            
+            <div class="hub-card-pills">
+              <span class="hub-pill">✨ Nuevo informe</span>
+              <span class="hub-pill">📜 Historial</span>
+              <span class="hub-pill">📑 Plantillas</span>
+              <span class="hub-pill">👤 Mis Datos</span>
+            </div>
+
+            <div class="hub-card-action">
+              <span class="btn-hub-open">Entrar a Informes técnicos →</span>
+            </div>
+          </button>
         </div>
 
         <!-- Widgets de resumen rápido y soporte (según diseño Stitch) -->
@@ -231,6 +282,15 @@
             </div>
             <div class="stat-card-number stat-amber" id="hub-stat-cobros-pending">$0</div>
             <div class="stat-card-foot" id="hub-stat-cobros-active-count">0 cuentas con saldo</div>
+          </div>
+
+          <div class="hub-stat-card">
+            <div class="stat-card-header">
+              <span class="stat-card-title">INFORMES ACTIVOS</span>
+              <span class="stat-card-icon">🛠️</span>
+            </div>
+            <div class="stat-card-number stat-cyan" id="hub-stat-informes-count">0</div>
+            <div class="stat-card-foot" id="hub-stat-informes-pending">0 en espera de respuesta</div>
           </div>
         </div>
 
@@ -1345,6 +1405,543 @@
       </div>
     </section>
 
+    <!-- ========================================================
+         VISTA NUEVA: INFORMES TÉCNICOS DE DIAGNÓSTICO
+         ======================================================== -->
+    <section id="view-informe-tecnico" class="view-section">
+      <div class="cotizador-workspace">
+        
+        <!-- Columna Izquierda: Formulario y Editor del Informe -->
+        <div class="cotizador-form-col">
+
+          <!-- Tarjeta Resumen en la Pantalla de Entrada de Informes Técnicos -->
+          <div id="informe-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                <span>🛠️</span> Informes Técnicos de Diagnóstico
+              </div>
+              <span class="card-badge" id="inf-entry-badge-status">0 informes</span>
+            </div>
+
+            <!-- Resumen con métricas: Cantidad informes, Esperando respuesta, Valor propuestas -->
+            <div class="entry-stats-grid">
+              <div class="entry-stat-card stat-pending-glow">
+                <span class="entry-stat-label text-cyan" style="color: #38bdf8;">Enviados (En espera)</span>
+                <span class="entry-stat-val text-cyan" id="inf-entry-stat-pending-val" style="color: #38bdf8;">$0</span>
+                <span class="entry-stat-sub" id="inf-entry-stat-pending-count">0 informes en espera</span>
+              </div>
+              <div class="entry-stat-card stat-paid-glow">
+                <span class="entry-stat-label text-emerald">Total Informes</span>
+                <span class="entry-stat-val text-emerald" id="inf-entry-stat-total-count">0</span>
+                <span class="entry-stat-sub" id="inf-entry-stat-approved-count">registrados en el historial</span>
+              </div>
+            </div>
+
+            <!-- Lista de los últimos 3 a 5 informes -->
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                <span>📜</span> Últimos informes registrados:
+              </div>
+              <div id="inf-entry-recent-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-inf-entry-view-history" class="btn-entry-history-full">
+                  📜 Ver historial completo →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 1. Encabezado del Informe -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>🏷️</span> Encabezado del Informe
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" id="btn-inf-pick-template" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;" title="Cargar textos desde una plantilla guardada">
+                  📑 Usar plantilla
+                </button>
+                <button type="button" id="btn-inf-quick-save-template" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;" title="Guardar los textos actuales como plantilla">
+                  💾 Guardar como plantilla
+                </button>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="input-group full-width">
+                <label for="inf-header-tag">Etiqueta superior pequeña (mayúsculas)</label>
+                <input id="inf-header-tag" type="text" value="SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO" placeholder="SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO">
+              </div>
+              <div class="input-group">
+                <label for="inf-title">Título del documento</label>
+                <input id="inf-title" type="text" value="INFORME TÉCNICO" placeholder="INFORME TÉCNICO">
+              </div>
+              <div class="input-group">
+                <label for="inf-subtitle">Subtítulo (ej. modelo y falla)</label>
+                <input id="inf-subtitle" type="text" value="Diagnóstico de calidad de impresión – Epson EcoTank L565" placeholder="Ej: Diagnóstico de calidad de impresión – Epson EcoTank L565">
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Ficha del Informe -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>📋</span> Ficha del Informe
+              </div>
+              <span class="card-badge" id="inf-badge-number">INF-0001</span>
+            </div>
+            <div class="form-grid">
+              <div class="input-group">
+                <label for="inf-client-name">Cliente</label>
+                <input id="inf-client-name" type="text" list="inf-clients-datalist" placeholder="Escribe o selecciona cliente..." autocomplete="off">
+                <datalist id="inf-clients-datalist"></datalist>
+              </div>
+              <div class="input-group">
+                <label for="inf-client-nit">NIT o C.C.</label>
+                <input id="inf-client-nit" type="text" placeholder="Ej: 900.611-329-4">
+              </div>
+              <div class="input-group">
+                <label for="inf-equipment">Equipo evaluado</label>
+                <input id="inf-equipment" type="text" value="Impresora Epson EcoTank L565" placeholder="Ej: Impresora Epson EcoTank L565">
+              </div>
+              <div class="input-group">
+                <label for="inf-serial">Serial (opcional)</label>
+                <input id="inf-serial" type="text" placeholder="Ej: X47K012948">
+              </div>
+              <div class="input-group">
+                <label for="inf-date">Fecha del informe</label>
+                <input id="inf-date" type="date">
+              </div>
+              <div class="input-group">
+                <label for="inf-service-type">Tipo de servicio</label>
+                <input id="inf-service-type" type="text" value="Inspección y diagnóstico técnico" placeholder="Inspección y diagnóstico técnico">
+              </div>
+              <div class="input-group full-width">
+                <label for="inf-falla">Falla reportada</label>
+                <input id="inf-falla" type="text" value="Impresión con sombras / dominante azul" placeholder="Ej: Impresión con sombras / dominante azul">
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Secciones Numeradas (Todo Editable) -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>📝</span> Secciones del Informe
+              </div>
+              <button type="button" id="btn-inf-add-custom-section" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
+                + Agregar sección extra
+              </button>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+              Edita el título o texto de cada sección y usa la casilla "Incluir" para activarla u ocultarla. La numeración (1, 2, 3...) se recalcula automáticamente en el documento.
+            </p>
+
+            <!-- Sección 1: Motivo de la revisión -->
+            <div class="informe-sec-editor" id="sec-editor-motivo">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-motivo-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-motivo-title" class="informe-sec-title-input" value="Motivo de la revisión">
+              </div>
+              <div class="input-group full-width">
+                <textarea id="inf-sec-motivo-text" rows="3" placeholder="Describe la razón inicial por la que ingresó el equipo..."></textarea>
+              </div>
+            </div>
+
+            <!-- Sección 2: Verificaciones y pruebas realizadas -->
+            <div class="informe-sec-editor" id="sec-editor-verificaciones">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-verif-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-verif-title" class="informe-sec-title-input" value="Verificaciones y pruebas realizadas">
+                <button type="button" id="btn-inf-add-verif" class="btn-primary" style="padding: 4px 10px; font-size: 0.78rem;">
+                  + Agregar prueba
+                </button>
+              </div>
+              <div id="inf-verif-items-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Ítems dinámicos -->
+              </div>
+            </div>
+
+            <!-- Sección 3: Diagnóstico técnico -->
+            <div class="informe-sec-editor" id="sec-editor-diagnostico">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-diag-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-diag-title" class="informe-sec-title-input" value="Diagnóstico técnico">
+              </div>
+              <div class="input-group full-width">
+                <textarea id="inf-sec-diag-text" rows="5" placeholder="Explica detalladamente la causa de la falla detectada..."></textarea>
+              </div>
+            </div>
+
+            <!-- Sección 4: Recomendación y propuesta de reparación -->
+            <div class="informe-sec-editor" id="sec-editor-propuesta">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-prop-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-prop-title" class="informe-sec-title-input" value="Recomendación y propuesta de reparación">
+              </div>
+              <div class="input-group full-width" style="margin-bottom: 12px;">
+                <label for="inf-sec-prop-text">Texto explicativo de la recomendación</label>
+                <textarea id="inf-sec-prop-text" rows="3" placeholder="Recomendaciones previas al trabajo propuesto..."></textarea>
+              </div>
+
+              <!-- Tabla interactiva de Trabajos Propuestos -->
+              <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="font-size: 0.85rem; color: var(--text-main);">Trabajos Propuestos y Costos</strong>
+                  <button type="button" id="btn-inf-add-trabajo" class="btn-cyan" style="padding: 4px 10px; font-size: 0.78rem;">
+                    + Agregar trabajo
+                  </button>
+                </div>
+                <div id="inf-propuesta-items-container" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Filas dinámicas -->
+                </div>
+                <div id="inf-propuesta-total-row" style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border); font-size: 0.95rem; font-weight: 700;">
+                  <span>TOTAL PROPUESTA:</span>
+                  <span id="inf-propuesta-total-val" style="color: var(--whatsapp);">$0 COP</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección 5: Observaciones -->
+            <div class="informe-sec-editor" id="sec-editor-observaciones">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-obs-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-obs-title" class="informe-sec-title-input" value="Observaciones">
+                <button type="button" id="btn-inf-reset-obs" class="btn-icon" style="font-size: 0.75rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer a observaciones predeterminadas de Mis datos">
+                  🔄 Restablecer predeterminadas
+                </button>
+              </div>
+              <div class="input-group full-width">
+                <textarea id="inf-sec-obs-text" rows="4" placeholder="Escribe una observación por línea (se muestran como viñetas)..."></textarea>
+              </div>
+            </div>
+
+            <!-- Sección 6: Conclusión -->
+            <div class="informe-sec-editor" id="sec-editor-conclusion">
+              <div class="informe-sec-head">
+                <label class="informe-sec-include-toggle">
+                  <input type="checkbox" id="inf-sec-conc-inc" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir</span>
+                </label>
+                <input type="text" id="inf-sec-conc-title" class="informe-sec-title-input" value="Conclusión">
+              </div>
+              <div class="input-group full-width">
+                <textarea id="inf-sec-conc-text" rows="4" placeholder="Conclusión final del diagnóstico técnico..."></textarea>
+              </div>
+            </div>
+
+            <!-- Contenedor para Secciones Extras del Usuario -->
+            <div id="inf-custom-sections-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          </div>
+
+          <!-- 4. Elaborado por & Opciones del Documento -->
+          <div class="card np">
+            <div class="card-header">
+              <div class="card-title">
+                <span>👤</span> Elaborado por & Opciones
+              </div>
+            </div>
+            
+            <div class="form-grid">
+              <div class="input-group">
+                <label for="inf-elab-name">Nombre</label>
+                <input id="inf-elab-name" type="text" readonly style="opacity: 0.9;">
+              </div>
+              <div class="input-group">
+                <label for="inf-elab-cargo">Cargo</label>
+                <input id="inf-elab-cargo" type="text" placeholder="Técnico de mantenimiento de equipos de cómputo">
+              </div>
+              <div class="input-group">
+                <label for="inf-elab-correo">Correo electrónico</label>
+                <input id="inf-elab-correo" type="email" placeholder="pedrolroam@hotmail.com">
+              </div>
+              <div class="input-group">
+                <label for="inf-elab-celular">Celular</label>
+                <input id="inf-elab-celular" type="tel" placeholder="302 455 5428">
+              </div>
+              <div class="input-group">
+                <label for="inf-elab-date">Fecha de firma</label>
+                <input id="inf-elab-date" type="text" placeholder="30 de septiembre de 2026">
+              </div>
+              <div class="input-group">
+                <label for="inf-num">Número de informe (consecutivo propio)</label>
+                <input id="inf-num" type="text" value="INF-0001" placeholder="INF-0001">
+              </div>
+
+              <!-- Casillas de configuración del documento -->
+              <div class="input-group full-width" style="margin-top: 6px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="inf-include-logo" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir logo en el documento</span>
+                </label>
+              </div>
+
+              <div class="input-group full-width">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="inf-include-firma" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Incluir firma digitalizada</span>
+                </label>
+              </div>
+
+              <div class="input-group full-width">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                  <input type="checkbox" id="inf-show-number" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                  <span>Mostrar número de informe en el documento (desactivado por defecto)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Acciones Principales -->
+          <div class="card np" style="background: rgba(22, 26, 36, 0.95); border: 1px solid var(--border-light);">
+            <div class="card-header" style="margin-bottom: 10px;">
+              <div class="card-title">
+                <span>🚀</span> Acciones de Envío y Exportación
+              </div>
+            </div>
+            
+            <div class="action-bar">
+              <button id="btn-inf-whatsapp-pdf" type="button" class="btn-whatsapp action-main-btn">
+                <span>📲</span> Enviar PDF por WhatsApp
+              </button>
+              <button id="btn-inf-download-pdf" type="button" class="btn-primary">
+                <span>📥</span> Descargar PDF
+              </button>
+              <button id="btn-inf-preview-pdf" type="button">
+                <span>👁️</span> Ver PDF
+              </button>
+              <button id="btn-inf-save" type="button" class="btn-primary">
+                <span>💾</span> Guardar Informe
+              </button>
+              <button id="btn-inf-whatsapp-text" type="button">
+                <span>💬</span> WhatsApp Solo Texto
+              </button>
+              <button id="btn-inf-copy-text" type="button">
+                <span>📋</span> Copiar Texto
+              </button>
+              <button id="btn-inf-print" type="button">
+                <span>🖨️</span> Imprimir / PDF
+              </button>
+              <button id="btn-inf-new" type="button" class="btn-danger">
+                <span>✨</span> Nuevo Informe
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna Derecha: Vista Previa Oficial -->
+        <div class="cotizador-preview-col">
+          <div class="doc-preview-wrapper">
+            <!-- Barra con toggle -->
+            <div class="preview-header-bar np">
+              <h3 class="preview-heading">
+                <span>👁️</span> Vista Previa del Informe Técnico
+              </h3>
+              <button id="btn-toggle-inf-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
+                <span id="inf-preview-toggle-icon">▲</span>
+                <span id="inf-preview-toggle-text">Ocultar vista previa</span>
+              </button>
+            </div>
+
+            <!-- Contenedor plegable -->
+            <div id="inf-preview-collapsible" class="preview-collapsible-content">
+              <div class="preview-collapsible-inner">
+                <div class="doc-paper doc-informe-paper" id="informe-document">
+                  <!-- Generado dinámicamente -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA NUEVA: HISTORIAL DE INFORMES TÉCNICOS
+         ======================================================== -->
+    <section id="view-informe-historial" class="view-section">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📜</span> Historial de Informes Técnicos
+          </div>
+          <button type="button" class="btn-primary" id="btn-hist-create-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
+            <span>✨</span> Nuevo Informe
+          </button>
+        </div>
+        
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
+          Revisa informes anteriores, consulta estados, exporta a PDF, comparte por WhatsApp o genera cotizaciones y cuentas de cobro automáticamente.
+        </p>
+
+        <!-- Tarjetas de Resumen -->
+        <div class="cobro-stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Informes</div>
+            <div class="stat-value" id="inf-stat-total-count">0</div>
+            <div class="stat-sub">Registrados en el dispositivo</div>
+          </div>
+          <div class="stat-card stat-card-pending">
+            <div class="stat-label">Enviados (En espera)</div>
+            <div class="stat-value text-cyan" id="inf-stat-pending-count" style="color: #38bdf8;">0</div>
+            <div class="stat-sub">Esperando respuesta del cliente</div>
+          </div>
+          <div class="stat-card stat-card-paid">
+            <div class="stat-label">Total Propuestas</div>
+            <div class="stat-value text-emerald" id="inf-stat-total-propuestas">$0</div>
+            <div class="stat-sub">Valor en propuestas de reparación</div>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="cobro-filters-bar">
+          <div class="filter-input-wrap search-wrap">
+            <label for="inf-hist-search" class="sr-only">Buscar por cliente, equipo o número</label>
+            <input type="text" id="inf-hist-search" placeholder="🔍 Buscar por cliente, equipo, serial o número..." autocomplete="off">
+          </div>
+          <div class="filter-input-wrap select-wrap">
+            <label for="inf-hist-filter-status" class="sr-only">Filtrar por estado</label>
+            <select id="inf-hist-filter-status">
+              <option value="all">Todos los estados</option>
+              <option value="Borrador">Borrador</option>
+              <option value="Enviado">Enviado</option>
+              <option value="Aprobado">Aprobado</option>
+              <option value="Rechazado">Rechazado</option>
+            </select>
+          </div>
+          <div class="filter-input-wrap month-wrap">
+            <label for="inf-hist-filter-month" class="sr-only">Filtrar por mes</label>
+            <input type="month" id="inf-hist-filter-month" title="Filtrar por mes y año">
+          </div>
+          <button type="button" id="btn-inf-clear-filters" class="btn-secondary" style="min-height: 42px; font-size: 0.82rem; padding: 0 12px;">
+            Limpiar
+          </button>
+        </div>
+
+        <!-- Respaldo -->
+        <div class="cobro-backup-bar">
+          <div class="backup-info">
+            <span>💾 Respaldo de informes:</span>
+          </div>
+          <div class="backup-actions">
+            <button type="button" id="btn-inf-export-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;">
+              <span>📥</span> Exportar historial (.json)
+            </button>
+            <button type="button" id="btn-inf-import-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;">
+              <span>📤</span> Importar historial (.json)
+            </button>
+            <input type="file" id="inf-import-history-file" accept=".json,application/json" style="display: none;">
+          </div>
+        </div>
+
+        <!-- Lista -->
+        <div id="inf-history-list" class="cobro-history-list"></div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA NUEVA: PLANTILLAS DE INFORMES TÉCNICOS
+         ======================================================== -->
+    <section id="view-informe-plantillas" class="view-section">
+      <div class="card" style="max-width: 860px; margin: 0 auto;">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📑</span> Plantillas de Informes Técnicos
+          </div>
+          <button type="button" class="btn-primary" id="btn-plantillas-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
+            <span>✨</span> Nuevo Informe
+          </button>
+        </div>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
+          Guarda y reutiliza diagnósticos, pruebas y recomendaciones frecuentes para computadores, impresoras y hardware.
+        </p>
+
+        <div id="inf-plantillas-list" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Se llena dinámicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         VISTA NUEVA: MIS DATOS (INFORMES TÉCNICOS)
+         ======================================================== -->
+    <section id="view-informe-datos" class="view-section">
+      <div class="card" style="max-width: 820px; margin: 0 auto;">
+        <div class="card-header">
+          <div class="card-title">
+            <span>👤</span> Mis Datos · Informes Técnicos
+          </div>
+          <button type="button" class="btn-secondary" id="btn-back-to-inf-form" style="padding: 6px 12px; font-size: 0.8rem; min-height: 38px;">
+            ← Ir a Crear Informe
+          </button>
+        </div>
+        
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
+          Tu nombre, teléfono, logo y firma digital se reutilizan automáticamente de tu perfil oficial. Aquí configuras tus datos específicos para los informes técnicos.
+        </p>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="inf-datos-cargo">Cargo profesional</label>
+            <input id="inf-datos-cargo" type="text" value="Técnico de mantenimiento de equipos de cómputo">
+          </div>
+          <div class="input-group">
+            <label for="inf-datos-correo">Correo electrónico</label>
+            <input id="inf-datos-correo" type="email" value="pedrolroam@hotmail.com">
+          </div>
+          <div class="input-group">
+            <label for="inf-datos-celular">Celular de contacto</label>
+            <input id="inf-datos-celular" type="tel" value="302 455 5428">
+          </div>
+          <div class="input-group">
+            <label for="inf-datos-tag">Etiqueta superior predeterminada</label>
+            <input id="inf-datos-tag" type="text" value="SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO">
+          </div>
+          <div class="input-group full-width">
+            <label for="inf-datos-service">Tipo de servicio predeterminado</label>
+            <input id="inf-datos-service" type="text" value="Inspección y diagnóstico técnico">
+          </div>
+          <div class="input-group full-width">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="inf-datos-obs" style="margin-bottom: 0;">Observaciones predeterminadas (una por línea)</label>
+              <button type="button" id="btn-inf-reset-datos-obs" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer textos por defecto">
+                🔄 Restablecer
+              </button>
+            </div>
+            <textarea id="inf-datos-obs" rows="5" style="font-size: 0.85rem; line-height: 1.45;"></textarea>
+            <span style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">Estas observaciones se insertan automáticamente al crear un nuevo informe. Los informes ya guardados no se modificarán.</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
+          <button type="button" id="btn-save-inf-datos" class="btn-primary" style="min-height: 44px; padding: 10px 22px;">
+            <span>💾</span> Guardar Mis Datos
+          </button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra Fija Inferior para Celulares (Quick Mobile Sticky Bar) -->
@@ -1424,7 +2021,7 @@
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/app.js?v=2.6.5"></script>
+  <script src="js/app.js?v=2.7.0"></script>
 
 </body>
 </html>
