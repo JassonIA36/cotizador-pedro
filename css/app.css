@@ -4252,6 +4252,17 @@ html, body {
   transform: translateY(-1px);
 }
 
+#auth-modal-overlay {
+  z-index: 99999 !important;
+  background: rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+#auth-modal-overlay.active {
+  display: flex !important;
+}
+
 .auth-modal-box {
   animation: modal-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

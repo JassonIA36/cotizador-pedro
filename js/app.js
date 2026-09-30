@@ -137,6 +137,19 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   // SUPABASE CLOUD SYNC ENGINE (Offline-First, Realtime & Multi-Dispositivo)
   // ==========================================================================
 
+  function generateUUID() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      try {
+        return crypto.randomUUID();
+      } catch (e) {}
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   function isValidUUID(str) {
     return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
   }
@@ -144,7 +157,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   function ensureItemUuid(item) {
     if (!item) return '';
     if (!item.id || !isValidUUID(item.id)) {
-      item.id = crypto.randomUUID();
+      item.id = generateUUID();
     }
     if (!item.updatedAt) {
       item.updatedAt = new Date().toISOString();
@@ -155,7 +168,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   function getConfigId() {
     let id = getStorage('pr_config_uuid', null);
     if (!id || !isValidUUID(id)) {
-      id = crypto.randomUUID();
+      id = generateUUID();
       setStorage('pr_config_uuid', id);
     }
     return id;
@@ -164,7 +177,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   function getConsecutivoId() {
     let id = getStorage('pr_consecutivo_uuid', null);
     if (!id || !isValidUUID(id)) {
-      id = crypto.randomUUID();
+      id = generateUUID();
       setStorage('pr_consecutivo_uuid', id);
     }
     return id;
@@ -932,6 +945,32 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     }
   }
 
+  function openAuthModal() {
+    const authOverlay = $('auth-modal-overlay');
+    if (!authOverlay) return;
+    const authErrorAlert = $('auth-error-alert');
+    if (authErrorAlert) {
+      authErrorAlert.style.display = 'none';
+      authErrorAlert.textContent = '';
+    }
+    authOverlay.style.display = 'flex';
+    authOverlay.classList.add('active');
+    const authEmail = $('auth-email-input');
+    setTimeout(() => {
+      if (authEmail) authEmail.focus();
+    }, 150);
+  }
+
+  function closeAuthModal() {
+    const authOverlay = $('auth-modal-overlay');
+    if (!authOverlay) return;
+    authOverlay.style.display = 'none';
+    authOverlay.classList.remove('active');
+  }
+
+  window.openAuthModal = openAuthModal;
+  window.closeAuthModal = closeAuthModal;
+
   function initSyncEngine() {
     try {
       if (Array.isArray(state.history)) state.history.forEach(ensureItemUuid);
@@ -950,15 +989,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           } else {
             syncState.user = null;
             setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+            openAuthModal();
           }
         }).catch(err => {
           console.warn('Error al verificar sesión de Supabase:', err);
           setSyncStatus('offline', 'Modo local listo');
+          openAuthModal();
         });
 
         syncState.client.auth.onAuthStateChange((event, session) => {
           if (session && session.user) {
             syncState.user = session.user;
+            closeAuthModal();
             updateSyncUI();
           } else {
             syncState.user = null;
@@ -967,6 +1009,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         });
       } else {
         setSyncStatus('offline', 'Modo local listo (Sin conexión)');
+        openAuthModal();
       }
 
       window.addEventListener('online', () => {
@@ -987,6 +1030,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     } catch (e) {
       console.warn('Fallo iniciando motor de sincronización:', e);
       setSyncStatus('error', 'Modo local activo');
+      openAuthModal();
     }
   }
 
@@ -1000,23 +1044,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     const btnTogglePwd = $('btn-toggle-auth-pwd');
     const btnAuthSubmit = $('btn-auth-submit');
     const authBtnIcon = $('auth-btn-icon');
-
-    function openAuthModal() {
-      if (!authOverlay) return;
-      if (authErrorAlert) {
-        authErrorAlert.style.display = 'none';
-        authErrorAlert.textContent = '';
-      }
-      authOverlay.style.display = 'flex';
-      setTimeout(() => {
-        if (authEmail) authEmail.focus();
-      }, 100);
-    }
-
-    function closeAuthModal() {
-      if (!authOverlay) return;
-      authOverlay.style.display = 'none';
-    }
 
     const topbarBtn = $('topbar-sync-btn');
     if (topbarBtn) {
@@ -1874,10 +1901,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // Check if exists
     const existingIdx = state.history.findIndex(h => h.quoteNumber === data.quoteNumber);
     if (existingIdx >= 0) {
-      data.id = state.history[existingIdx].id || crypto.randomUUID();
+      data.id = state.history[existingIdx].id || generateUUID();
       state.history[existingIdx] = data;
     } else {
-      data.id = data.id || crypto.randomUUID();
+      data.id = data.id || generateUUID();
       state.history.push(data);
       checkQuoteNumberCollision(data.quoteNumber, data.id);
     }
@@ -2119,10 +2146,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       if (nit) state.cobroClients[idx].nit = nit;
       state.cobroClients[idx].updatedAt = nowIso;
       if (!state.cobroClients[idx].id || !isValidUUID(state.cobroClients[idx].id)) {
-        state.cobroClients[idx].id = crypto.randomUUID();
+        state.cobroClients[idx].id = generateUUID();
       }
     } else {
-      state.cobroClients.unshift({ id: crypto.randomUUID(), name, nit, updatedAt: nowIso });
+      state.cobroClients.unshift({ id: generateUUID(), name, nit, updatedAt: nowIso });
     }
     if (state.cobroClients.length > 40) state.cobroClients.pop();
     setStorage('pr_cobro_clients', state.cobroClients);
@@ -2990,11 +3017,11 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (existingIdx >= 0) {
       data.id = (state.cobroHistory[existingIdx] && isValidUUID(state.cobroHistory[existingIdx].id))
         ? state.cobroHistory[existingIdx].id
-        : (isValidUUID(data.id) ? data.id : crypto.randomUUID());
+        : (isValidUUID(data.id) ? data.id : generateUUID());
       data.status = state.cobroHistory[existingIdx].status || 'pendiente';
       state.cobroHistory[existingIdx] = data;
     } else {
-      data.id = isValidUUID(data.id) ? data.id : crypto.randomUUID();
+      data.id = isValidUUID(data.id) ? data.id : generateUUID();
       data.status = 'pendiente';
       state.cobroHistory.push(data);
       checkCobroNumberCollision(data.cobroNum, data.id);
@@ -4029,7 +4056,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     $('btn-cat-add-new').addEventListener('click', () => {
       state.catalog.unshift({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         c: 'Servicios',
         n: '',
         p: 0,
