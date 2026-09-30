@@ -29,9 +29,9 @@
   <!-- TopBar Stitch Design -->
   <div class="topbar-status np">
     <div class="topbar-status-inner">
-      <div class="topbar-sync-status">
-        <span class="sync-dot"></span>
-        <span class="sync-text">Sistema sincronizado · Modo offline listo · Almacenamiento local</span>
+      <div class="topbar-sync-status" id="topbar-sync-btn" role="button" tabindex="0" title="Ver estado de sincronización con Supabase (Toca para iniciar sesión o sincronizar)">
+        <span class="sync-dot" id="sync-dot"></span>
+        <span class="sync-text" id="sync-text">Modo local · Iniciar sesión para sincronizar</span>
       </div>
       <div class="topbar-contact-info">
         <a href="tel:+573024555428" class="topbar-link">📞 +57 302 4555428</a>
@@ -1063,6 +1063,53 @@
           Estos datos son fijos para todas tus cuentas de cobro. Se guardan automáticamente en tu dispositivo.
         </p>
 
+        <!-- Panel de Sincronización en la Nube -->
+        <div class="sync-panel-card card" style="margin-bottom: 20px; background: rgba(14, 16, 24, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px;">
+          <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">☁️</span>
+                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización en la Nube (Supabase)</strong>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                Sincroniza tus datos entre el PC y el celular automáticamente.
+              </div>
+            </div>
+            <span class="card-badge sync-status-badge">Modo local</span>
+          </div>
+
+          <div class="sync-grid-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">👤 Cuenta:</span>
+              <strong class="sync-user-email-text" style="font-size: 0.82rem; color: var(--text-main); word-break: break-all;">No has iniciado sesión</strong>
+            </div>
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">📡 Estado:</span>
+              <span class="sync-status-detail-text" style="font-size: 0.82rem; color: var(--text-muted);">Modo local listo</span>
+            </div>
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">🕒 Última sincronización:</span>
+              <span class="sync-last-time-text" style="font-size: 0.82rem; color: var(--text-muted);">Nunca</span>
+            </div>
+          </div>
+
+          <div class="sync-actions-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
+              <span class="sync-btn-icon">🔄</span> Sincronizar ahora
+            </button>
+            <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
+              🔑 Iniciar sesión
+            </button>
+            <button type="button" class="btn-secondary btn-export-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Descargar copia completa de respaldo en JSON">
+              📥 Exportar (.json)
+            </button>
+            <button type="button" class="btn-secondary btn-import-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Restaurar datos desde archivo JSON">
+              📤 Importar (.json)
+            </button>
+            <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
+          </div>
+        </div>
+
         <div class="form-grid">
           <div class="input-group">
             <label for="cc-emisor-name-tab">Tu nombre completo</label>
@@ -1201,6 +1248,53 @@
           </button>
         </div>
 
+        <!-- Panel de Sincronización en la Nube -->
+        <div class="sync-panel-card card" style="margin-bottom: 20px; background: rgba(14, 16, 24, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px;">
+          <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">☁️</span>
+                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización en la Nube (Supabase)</strong>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                Sincroniza tus cotizaciones, catálogo y datos entre PC y celular.
+              </div>
+            </div>
+            <span class="card-badge sync-status-badge">Modo local</span>
+          </div>
+
+          <div class="sync-grid-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">👤 Cuenta:</span>
+              <strong class="sync-user-email-text" style="font-size: 0.82rem; color: var(--text-main); word-break: break-all;">No has iniciado sesión</strong>
+            </div>
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">📡 Estado:</span>
+              <span class="sync-status-detail-text" style="font-size: 0.82rem; color: var(--text-muted);">Modo local listo</span>
+            </div>
+            <div>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">🕒 Última sincronización:</span>
+              <span class="sync-last-time-text" style="font-size: 0.82rem; color: var(--text-muted);">Nunca</span>
+            </div>
+          </div>
+
+          <div class="sync-actions-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
+              <span class="sync-btn-icon">🔄</span> Sincronizar ahora
+            </button>
+            <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
+              🔑 Iniciar sesión
+            </button>
+            <button type="button" class="btn-secondary btn-export-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Descargar copia completa de respaldo en JSON">
+              📥 Exportar (.json)
+            </button>
+            <button type="button" class="btn-secondary btn-import-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Restaurar datos desde archivo JSON">
+              📤 Importar (.json)
+            </button>
+            <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
+          </div>
+        </div>
+
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-md); border: 1px solid var(--border);">
           <img src="assets/logo.png" alt="Logo de Pedro Roa" style="width: 56px; height: 56px; border-radius: 8px; border: 1px solid var(--border-light); background: rgba(255,255,255,0.05);">
           <div>
@@ -1276,7 +1370,51 @@
     </div>
   </div>
 
+  <!-- Modal Inicio de Sesión Supabase -->
+  <div id="auth-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" style="display: none;">
+    <div class="modal-content auth-modal-box" style="max-width: 440px;">
+      <div class="auth-modal-top" style="text-align: center; margin-bottom: 16px;">
+        <div style="font-size: 2.2rem; margin-bottom: 6px;">☁️</div>
+        <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.15rem;">Sincronización Pedro Roa PRO</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
+          Inicia sesión con tu cuenta para sincronizar tus cotizaciones, cuentas de cobro y catálogo entre tu PC y tu celular.
+        </p>
+      </div>
+
+      <div id="auth-error-alert" class="auth-error-alert" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--danger-bg); border: 1px solid var(--danger); color: #fca5a5; font-size: 0.82rem; margin-bottom: 14px; line-height: 1.4;"></div>
+
+      <form id="form-auth-login" onsubmit="return false;">
+        <div class="input-group full-width" style="margin-bottom: 12px;">
+          <label for="auth-email-input">Correo electrónico</label>
+          <input type="email" id="auth-email-input" placeholder="tu-correo@ejemplo.com" required autocomplete="email" inputmode="email">
+        </div>
+
+        <div class="input-group full-width" style="margin-bottom: 16px;">
+          <label for="auth-password-input">Contraseña</label>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="auth-password-input" placeholder="Tu contraseña" required autocomplete="current-password" style="width: 100%; padding-right: 42px;">
+            <button type="button" id="btn-toggle-auth-pwd" class="btn-icon" style="position: absolute; right: 6px; width: 32px; height: 32px; background: transparent; border: none; font-size: 0.9rem;" title="Mostrar/ocultar contraseña" aria-label="Mostrar contraseña">👁️</button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button type="submit" id="btn-auth-submit" class="btn-primary" style="min-height: 44px; justify-content: center; font-size: 0.9rem;">
+            <span id="auth-btn-icon">☁️</span> Iniciar Sesión
+          </button>
+          <button type="button" id="btn-auth-close" class="btn-secondary" style="min-height: 40px; justify-content: center; font-size: 0.84rem;">
+            Continuar en modo local (sin cuenta)
+          </button>
+        </div>
+      </form>
+
+      <p style="font-size: 0.74rem; color: var(--text-dim); text-align: center; margin-top: 14px; line-height: 1.3;">
+        🔒 Tus datos se guardan primero en tu dispositivo y se sincronizan de forma cifrada con Supabase. Funciona 100% sin internet.
+      </p>
+    </div>
+  </div>
+
   <!-- Scripts (Carga de librerías locales para funcionamiento 100% Offline) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/jspdf.umd.min.js"></script>
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>

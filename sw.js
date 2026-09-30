@@ -1,5 +1,5 @@
 // Service Worker for Cotizador Pedro Roa PWA
-const CACHE_NAME = 'pedro-roa-cotizador-v2.5';
+const CACHE_NAME = 'pedro-roa-cotizador-v2.6';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -48,6 +48,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   
+  // No cachear llamadas a la API ni autenticación de Supabase
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {

@@ -1,6 +1,10 @@
 /**
- * Cotizador Pedro Roa - Core Application Logic
+ * Cotizador Pedro Roa - Core Application Logic & Supabase Sync
  */
+
+// Supabase Configuration
+const SUPABASE_URL = "https://shzyqffmovlrpsndyfer.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
 (function () {
   'use strict';
@@ -127,6 +131,1045 @@
     try {
       localStorage.setItem(key, JSON.stringify(val));
     } catch (e) {}
+  }
+
+  // ==========================================================================
+  // SUPABASE CLOUD SYNC ENGINE (Offline-First, Realtime & Multi-Dispositivo)
+  // ==========================================================================
+
+  function isValidUUID(str) {
+    return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  }
+
+  function ensureItemUuid(item) {
+    if (!item) return '';
+    if (!item.id || !isValidUUID(item.id)) {
+      item.id = crypto.randomUUID();
+    }
+    if (!item.updatedAt) {
+      item.updatedAt = new Date().toISOString();
+    }
+    return item.id;
+  }
+
+  function getConfigId() {
+    let id = getStorage('pr_config_uuid', null);
+    if (!id || !isValidUUID(id)) {
+      id = crypto.randomUUID();
+      setStorage('pr_config_uuid', id);
+    }
+    return id;
+  }
+
+  function getConsecutivoId() {
+    let id = getStorage('pr_consecutivo_uuid', null);
+    if (!id || !isValidUUID(id)) {
+      id = crypto.randomUUID();
+      setStorage('pr_consecutivo_uuid', id);
+    }
+    return id;
+  }
+
+  function getTombstones() {
+    return getStorage('pr_deleted_records', {});
+  }
+
+  function recordTombstone(id, tipo) {
+    if (!id) return;
+    const tombs = getTombstones();
+    tombs[id] = { id, tipo, deleted: true, updated_at: new Date().toISOString() };
+    setStorage('pr_deleted_records', tombs);
+    markSyncPending();
+  }
+
+  function cleanLocalTombstones(cloudMap) {
+    try {
+      const tombs = getTombstones();
+      let changed = false;
+      Object.keys(tombs).forEach(id => {
+        const cloudRec = cloudMap.get(id);
+        if (cloudRec && cloudRec.deleted === true) {
+          delete tombs[id];
+          changed = true;
+        }
+      });
+      if (changed) {
+        setStorage('pr_deleted_records', tombs);
+      }
+    } catch (e) {
+      console.warn('Error limpiando marcas de borrado:', e);
+    }
+  }
+
+  const syncState = {
+    client: null,
+    user: null,
+    status: 'no-auth',
+    statusMessage: 'Modo local listo',
+    lastSyncTime: getStorage('pr_sync_last_time', null),
+    pendingChanges: getStorage('pr_sync_pending', false),
+    isSyncing: false,
+    debounceTimer: null
+  };
+
+  function markSyncPending() {
+    syncState.pendingChanges = true;
+    setStorage('pr_sync_pending', true);
+    if (syncState.user && navigator.onLine && syncState.status !== 'syncing') {
+      setSyncStatus('pending', 'Pendiente de sincronizar');
+    }
+  }
+
+  function formatSyncTime(dateVal) {
+    if (!dateVal) return 'Nunca';
+    try {
+      const d = (dateVal instanceof Date) ? dateVal : new Date(dateVal);
+      if (isNaN(d.getTime())) return 'Nunca';
+      return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) + ' · ' + d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+    } catch (e) {
+      return 'Nunca';
+    }
+  }
+
+  function setSyncStatus(status, message) {
+    syncState.status = status;
+    syncState.statusMessage = message;
+    updateSyncUI();
+  }
+
+  function updateSyncUI() {
+    try {
+      const dot = $('sync-dot');
+      const txt = $('sync-text');
+      const topbarBtn = $('topbar-sync-btn');
+
+      if (dot && txt) {
+        dot.className = `sync-dot ${syncState.status}`;
+
+        if (!navigator.onLine) {
+          txt.textContent = 'Sin conexión · Modo local activo';
+        } else if (!syncState.user) {
+          txt.textContent = 'Modo local · Iniciar sesión para sincronizar';
+        } else if (syncState.status === 'syncing') {
+          txt.textContent = 'Sincronizando con Supabase...';
+        } else if (syncState.status === 'synced') {
+          txt.textContent = `Sincronizado (${formatSyncTime(syncState.lastSyncTime)})`;
+        } else if (syncState.status === 'pending') {
+          txt.textContent = 'Pendiente de sincronizar con Supabase';
+        } else if (syncState.status === 'error') {
+          txt.textContent = 'Error de sincronización · Modo local seguro';
+        } else {
+          txt.textContent = syncState.statusMessage || 'Modo local activo';
+        }
+      }
+
+      if (topbarBtn) {
+        if (!syncState.user) {
+          topbarBtn.title = 'Modo local (Sin cuenta). Toca aquí para iniciar sesión y sincronizar.';
+        } else {
+          topbarBtn.title = `Cuenta: ${syncState.user.email} · Estado: ${syncState.statusMessage || syncState.status}. Toca para sincronizar.`;
+        }
+      }
+
+      const emailEls = document.querySelectorAll('.sync-user-email-text');
+      emailEls.forEach(el => {
+        el.textContent = syncState.user ? syncState.user.email : 'No has iniciado sesión';
+      });
+
+      const detailEls = document.querySelectorAll('.sync-status-detail-text');
+      detailEls.forEach(el => {
+        if (!navigator.onLine) {
+          el.textContent = 'Sin conexión (Modo local activo)';
+        } else if (!syncState.user) {
+          el.textContent = 'Modo local (Sin sesión iniciada)';
+        } else if (syncState.status === 'syncing') {
+          el.textContent = 'Sincronizando ahora...';
+        } else if (syncState.status === 'synced') {
+          el.textContent = '🟢 Todo sincronizado con la nube';
+        } else if (syncState.status === 'pending') {
+          el.textContent = '🟡 Cambios pendientes por subir';
+        } else if (syncState.status === 'error') {
+          el.textContent = '🔴 ' + (syncState.statusMessage || 'Error al conectar');
+        } else {
+          el.textContent = syncState.statusMessage || 'Listo';
+        }
+      });
+
+      const timeEls = document.querySelectorAll('.sync-last-time-text');
+      timeEls.forEach(el => {
+        el.textContent = formatSyncTime(syncState.lastSyncTime);
+      });
+
+      const badgeEls = document.querySelectorAll('.sync-status-badge');
+      badgeEls.forEach(badge => {
+        let badgeClass = 'card-badge sync-status-badge';
+        let badgeText = 'Modo local';
+
+        if (!navigator.onLine) {
+          badgeClass += ' badge-offline';
+          badgeText = 'Sin conexión';
+        } else if (!syncState.user) {
+          badgeClass += ' badge-auth';
+          badgeText = 'Sin cuenta';
+        } else if (syncState.status === 'syncing') {
+          badgeClass += ' badge-syncing';
+          badgeText = 'Sincronizando...';
+        } else if (syncState.status === 'synced') {
+          badgeClass += ' badge-synced';
+          badgeText = 'Sincronizado';
+        } else if (syncState.status === 'pending') {
+          badgeClass += ' badge-pending';
+          badgeText = 'Pendiente';
+        } else if (syncState.status === 'error') {
+          badgeClass += ' badge-error';
+          badgeText = 'Error';
+        }
+        badge.className = badgeClass;
+        badge.textContent = badgeText;
+      });
+
+      const authBtns = document.querySelectorAll('.btn-trigger-auth');
+      authBtns.forEach(btn => {
+        if (syncState.user) {
+          btn.innerHTML = '🚪 Cerrar sesión';
+          btn.className = 'btn-danger btn-trigger-auth';
+          btn.title = 'Cerrar sesión en este dispositivo (los datos locales se conservan)';
+        } else {
+          btn.innerHTML = '🔑 Iniciar sesión';
+          btn.className = 'btn-secondary btn-trigger-auth';
+          btn.title = 'Iniciar sesión para sincronizar datos con tu celular y otros dispositivos';
+        }
+      });
+
+      const icons = document.querySelectorAll('.sync-btn-icon');
+      icons.forEach(ic => {
+        if (syncState.isSyncing) {
+          ic.classList.add('spinning');
+        } else {
+          ic.classList.remove('spinning');
+        }
+      });
+
+    } catch (e) {
+      console.warn('Error actualizando interfaz de sincronización:', e);
+    }
+  }
+
+  function handleSyncError(err) {
+    let msg = 'Error al sincronizar con la nube.';
+    const errStr = (err && (err.message || err.error_description || (typeof err === 'string' ? err : JSON.stringify(err)))) || '';
+
+    if (!navigator.onLine || errStr.includes('Failed to fetch') || errStr.includes('NetworkError') || errStr.includes('ERR_INTERNET_DISCONNECTED')) {
+      setSyncStatus('offline', 'Sin conexión a internet. Cambios guardados en tu dispositivo.');
+      return;
+    }
+
+    if (errStr.includes('Invalid login credentials') || errStr.includes('invalid_grant')) {
+      msg = 'Credenciales incorrectas. Verifica tu correo y contraseña.';
+      setSyncStatus('error', msg);
+      return;
+    }
+
+    if (errStr.includes('paused') || errStr.includes('503') || errStr.includes('500') || errStr.includes('Server error')) {
+      msg = 'El proyecto de Supabase está temporalmente pausado o en mantenimiento. La app sigue en modo local.';
+      setSyncStatus('error', msg);
+      return;
+    }
+
+    if (errStr.includes('JWT') || errStr.includes('token') || errStr.includes('not authenticated')) {
+      msg = 'La sesión expiró. Inicia sesión nuevamente.';
+      setSyncStatus('no-auth', msg);
+      return;
+    }
+
+    setSyncStatus('error', msg);
+  }
+
+  function getAllLocalRecords() {
+    const records = [];
+
+    // 1. Catálogo
+    if (Array.isArray(state.catalog)) {
+      state.catalog.forEach(item => {
+        ensureItemUuid(item);
+        records.push({
+          id: item.id,
+          tipo: 'catalogo',
+          datos: { c: item.c, n: item.n, p: item.p },
+          deleted: false,
+          updated_at: item.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
+    // 2. Cotizaciones
+    if (Array.isArray(state.history)) {
+      state.history.forEach(quote => {
+        ensureItemUuid(quote);
+        records.push({
+          id: quote.id,
+          tipo: 'cotizacion',
+          datos: { ...quote },
+          deleted: false,
+          updated_at: quote.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
+    // 3. Cuentas de Cobro
+    if (Array.isArray(state.cobroHistory)) {
+      state.cobroHistory.forEach(cobro => {
+        ensureItemUuid(cobro);
+        records.push({
+          id: cobro.id,
+          tipo: 'cuenta_cobro',
+          datos: { ...cobro },
+          deleted: false,
+          updated_at: cobro.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
+    // 4. Clientes
+    if (Array.isArray(state.cobroClients)) {
+      state.cobroClients.forEach(client => {
+        ensureItemUuid(client);
+        records.push({
+          id: client.id,
+          tipo: 'cliente',
+          datos: { name: client.name, nit: client.nit },
+          deleted: false,
+          updated_at: client.updatedAt || new Date().toISOString()
+        });
+      });
+    }
+
+    // 5. Config (Mis datos, Logo y Firma)
+    const configId = getConfigId();
+    const configUpdatedAt = getStorage('pr_config_updated_at', new Date().toISOString());
+    records.push({
+      id: configId,
+      tipo: 'config',
+      datos: {
+        business: state.business,
+        cobroEmisor: state.cobroEmisor,
+        cobroLegalText: state.cobroLegalText,
+        cobroDefaultNotes: state.cobroDefaultNotes,
+        cobroFirma: state.cobroFirma || '',
+        logo: window.PEDRO_ROA_LOGO || ''
+      },
+      deleted: false,
+      updated_at: configUpdatedAt
+    });
+
+    // 6. Consecutivos
+    const consecutivoId = getConsecutivoId();
+    const consecutivoUpdatedAt = getStorage('pr_consecutivo_updated_at', new Date().toISOString());
+    records.push({
+      id: consecutivoId,
+      tipo: 'consecutivo',
+      datos: {
+        quoteNumber: state.quoteNumber,
+        cobroNum: state.cobroNum
+      },
+      deleted: false,
+      updated_at: consecutivoUpdatedAt
+    });
+
+    // 7. Tombstones (eliminados localmente)
+    const tombs = getTombstones();
+    Object.values(tombs).forEach(tomb => {
+      records.push({
+        id: tomb.id,
+        tipo: tomb.tipo,
+        datos: {},
+        deleted: true,
+        updated_at: tomb.updated_at
+      });
+    });
+
+    return records;
+  }
+
+  function applyCloudRecordToLocal(cloudRec) {
+    try {
+      const { id, tipo, datos, deleted, updated_at } = cloudRec;
+
+      if (deleted) {
+        recordTombstone(id, tipo);
+        if (tipo === 'cotizacion') {
+          const idx = state.history.findIndex(h => h.id === id);
+          if (idx >= 0) {
+            state.history.splice(idx, 1);
+            setStorage('pr_history', state.history);
+          }
+        } else if (tipo === 'cuenta_cobro') {
+          const idx = state.cobroHistory.findIndex(h => h.id === id);
+          if (idx >= 0) {
+            state.cobroHistory.splice(idx, 1);
+            setStorage('pr_cobro_history', state.cobroHistory);
+          }
+        } else if (tipo === 'catalogo') {
+          const idx = state.catalog.findIndex(c => c.id === id);
+          if (idx >= 0) {
+            state.catalog.splice(idx, 1);
+            saveCatalogToStorage(state.catalog);
+          }
+        } else if (tipo === 'cliente') {
+          const idx = state.cobroClients.findIndex(c => c.id === id);
+          if (idx >= 0) {
+            state.cobroClients.splice(idx, 1);
+            setStorage('pr_cobro_clients', state.cobroClients);
+          }
+        }
+        return;
+      }
+
+      // Registro activo
+      if (tipo === 'cotizacion' && datos) {
+        const quote = { ...datos, id, updatedAt: updated_at };
+        const idx = state.history.findIndex(h => h.id === id || h.quoteNumber === quote.quoteNumber);
+        if (idx >= 0) {
+          state.history[idx] = quote;
+        } else {
+          state.history.push(quote);
+        }
+        setStorage('pr_history', state.history);
+      } else if (tipo === 'cuenta_cobro' && datos) {
+        const cobro = { ...datos, id, updatedAt: updated_at };
+        const idx = state.cobroHistory.findIndex(h => h.id === id || parseInt(h.cobroNum, 10) === parseInt(cobro.cobroNum, 10));
+        if (idx >= 0) {
+          state.cobroHistory[idx] = cobro;
+        } else {
+          state.cobroHistory.push(cobro);
+        }
+        setStorage('pr_cobro_history', state.cobroHistory);
+      } else if (tipo === 'catalogo' && datos) {
+        const item = { ...datos, id, updatedAt: updated_at };
+        const idx = state.catalog.findIndex(c => c.id === id || (c.n === item.n && c.c === item.c));
+        if (idx >= 0) {
+          state.catalog[idx] = item;
+        } else {
+          state.catalog.push(item);
+        }
+        saveCatalogToStorage(state.catalog);
+      } else if (tipo === 'cliente' && datos) {
+        const client = { ...datos, id, updatedAt: updated_at };
+        const idx = state.cobroClients.findIndex(c => c.id === id || (c.name && c.name.toLowerCase() === (client.name || '').toLowerCase()));
+        if (idx >= 0) {
+          state.cobroClients[idx] = client;
+        } else {
+          state.cobroClients.push(client);
+        }
+        setStorage('pr_cobro_clients', state.cobroClients);
+      } else if (tipo === 'config' && datos) {
+        if (datos.business) {
+          state.business = { ...state.business, ...datos.business };
+          setStorage('pr_business', state.business);
+          if ($('b-name')) $('b-name').value = state.business.name;
+          if ($('b-phone')) $('b-phone').value = formatLocalPhone(state.business.phone, state.business.prefix || '57');
+          if ($('b-address')) $('b-address').value = state.business.address || '';
+          if ($('b-terms')) $('b-terms').value = state.business.terms || '';
+        }
+        if (datos.cobroEmisor) {
+          state.cobroEmisor = { ...state.cobroEmisor, ...datos.cobroEmisor };
+          setStorage('pr_cobro_emisor', state.cobroEmisor);
+          syncEmisorTabUI();
+        }
+        if (datos.cobroLegalText) {
+          state.cobroLegalText = datos.cobroLegalText;
+          setStorage('pr_cobro_legal_text', state.cobroLegalText);
+          if ($('cc-legal-text-tab')) $('cc-legal-text-tab').value = state.cobroLegalText;
+        }
+        if (datos.cobroDefaultNotes) {
+          state.cobroDefaultNotes = datos.cobroDefaultNotes;
+          setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
+          if ($('cc-default-notes-tab')) $('cc-default-notes-tab').value = state.cobroDefaultNotes;
+        }
+        if (typeof datos.cobroFirma === 'string') {
+          state.cobroFirma = datos.cobroFirma;
+          setStorage('pr_cobro_firma', state.cobroFirma);
+          renderCobroFirmaUI();
+        }
+        setStorage('pr_config_updated_at', updated_at);
+      } else if (tipo === 'consecutivo' && datos) {
+        if (typeof datos.quoteNumber === 'number' && datos.quoteNumber > state.quoteNumber) {
+          state.quoteNumber = datos.quoteNumber;
+          setStorage('pr_quote_num', state.quoteNumber);
+        }
+        if (typeof datos.cobroNum === 'number' && datos.cobroNum > state.cobroNum) {
+          state.cobroNum = datos.cobroNum;
+          setStorage('pr_cobro_num', state.cobroNum);
+          if ($('cc-num')) $('cc-num').value = state.cobroNum;
+        }
+        setStorage('pr_consecutivo_updated_at', updated_at);
+      }
+    } catch (e) {
+      console.warn('Error aplicando registro de nube a local:', e);
+    }
+  }
+
+  // Sincronización completa con Supabase
+  async function performSync(options = {}) {
+    if (syncState.isSyncing) return;
+    if (!navigator.onLine) {
+      setSyncStatus('offline', 'Sin conexión a internet. Modo local activo.');
+      return;
+    }
+    if (!syncState.client || !syncState.user) {
+      setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+      return;
+    }
+
+    syncState.isSyncing = true;
+    setSyncStatus('syncing', 'Sincronizando...');
+    updateSyncUI();
+
+    try {
+      // 1. Descargar registros del usuario en Supabase
+      const { data: cloudRows, error: fetchError } = await syncState.client
+        .from('registros')
+        .select('id, tipo, datos, deleted, updated_at');
+
+      if (fetchError) throw fetchError;
+
+      const cloudMap = new Map();
+      (cloudRows || []).forEach(row => cloudMap.set(row.id, row));
+
+      const cloudConfig = (cloudRows || []).find(r => r.tipo === 'config');
+      if (cloudConfig) {
+        setStorage('pr_config_uuid', cloudConfig.id);
+      }
+      const cloudConsecutivo = (cloudRows || []).find(r => r.tipo === 'consecutivo');
+      if (cloudConsecutivo) {
+        setStorage('pr_consecutivo_uuid', cloudConsecutivo.id);
+      }
+
+      // Preparar registros locales actuales
+      const localRecords = getAllLocalRecords();
+      const localMap = new Map();
+      localRecords.forEach(rec => localMap.set(rec.id, rec));
+
+      const toUpload = [];
+      let uploadedCount = 0;
+      let downloadedCount = 0;
+
+      // 2. Comparar Local con Nube (subir nuevos o locales más recientes)
+      for (const [id, localRec] of localMap.entries()) {
+        const cloudRec = cloudMap.get(id);
+        if (!cloudRec) {
+          toUpload.push({
+            id: localRec.id,
+            tipo: localRec.tipo,
+            datos: localRec.datos,
+            deleted: localRec.deleted || false,
+            updated_at: localRec.updated_at
+          });
+          uploadedCount++;
+        } else {
+          const localTime = new Date(localRec.updated_at).getTime();
+          const cloudTime = new Date(cloudRec.updated_at).getTime();
+
+          if (localTime > cloudTime) {
+            toUpload.push({
+              id: localRec.id,
+              tipo: localRec.tipo,
+              datos: localRec.datos,
+              deleted: localRec.deleted || false,
+              updated_at: localRec.updated_at
+            });
+            uploadedCount++;
+          }
+        }
+      }
+
+      // 3. Comparar Nube con Local (descargar registros de la nube)
+      for (const [id, cloudRec] of cloudMap.entries()) {
+        const localRec = localMap.get(id);
+        if (!localRec) {
+          applyCloudRecordToLocal(cloudRec);
+          downloadedCount++;
+        } else {
+          const localTime = new Date(localRec.updated_at).getTime();
+          const cloudTime = new Date(cloudRec.updated_at).getTime();
+
+          if (cloudTime > localTime) {
+            applyCloudRecordToLocal(cloudRec);
+            downloadedCount++;
+          }
+        }
+      }
+
+      // 4. Subir a Supabase en lotes de hasta 50 filas
+      if (toUpload.length > 0) {
+        for (let i = 0; i < toUpload.length; i += 50) {
+          const chunk = toUpload.slice(i, i + 50);
+          const { error: upsertErr } = await syncState.client
+            .from('registros')
+            .upsert(chunk, { onConflict: 'id' });
+          if (upsertErr) throw upsertErr;
+        }
+      }
+
+      cleanLocalTombstones(cloudMap);
+
+      const nowIso = new Date().toISOString();
+      syncState.lastSyncTime = nowIso;
+      setStorage('pr_sync_last_time', nowIso);
+      syncState.pendingChanges = false;
+      setStorage('pr_sync_pending', false);
+
+      setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+
+      const firstSyncKey = 'pr_first_sync_done_' + syncState.user.id;
+      if (options.isInitial || !getStorage(firstSyncKey, false)) {
+        setStorage(firstSyncKey, true);
+        showToast(`Sincronización completada: se subieron ${uploadedCount}, se bajaron ${downloadedCount}`, '☁️');
+      } else if (uploadedCount > 0 || downloadedCount > 0) {
+        showToast(`Sincronizado: ${uploadedCount} subidos, ${downloadedCount} descargados`, '☁️');
+      }
+
+      renderHistory();
+      renderCobroHistory();
+      renderCatalogSelect();
+      renderCatalogManager();
+      updateBadges();
+
+    } catch (err) {
+      console.error('Error durante la sincronización:', err);
+      handleSyncError(err);
+    } finally {
+      syncState.isSyncing = false;
+      updateSyncUI();
+    }
+  }
+
+  function triggerIncrementalSync(delay = 1200) {
+    markSyncPending();
+    updateSyncUI();
+    if (!navigator.onLine || !syncState.user || !syncState.client) return;
+
+    clearTimeout(syncState.debounceTimer);
+    syncState.debounceTimer = setTimeout(() => {
+      performSync();
+    }, delay);
+  }
+
+  function getCalculatedNextQuoteNum() {
+    let max = 0;
+    if (Array.isArray(state.history)) {
+      state.history.forEach(h => {
+        const m = String(h.quoteNumber || '').match(/\d+/);
+        if (m) max = Math.max(max, parseInt(m[0], 10));
+      });
+    }
+    return Math.max(max, state.quoteNumber || 0) + 1;
+  }
+
+  function getCalculatedNextCobroNum() {
+    let max = 0;
+    if (Array.isArray(state.cobroHistory)) {
+      state.cobroHistory.forEach(h => {
+        const n = parseInt(h.cobroNum, 10);
+        if (!isNaN(n)) max = Math.max(max, n);
+      });
+    }
+    return Math.max(max, parseInt(state.cobroNum, 10) || 0) + 1;
+  }
+
+  function checkQuoteNumberCollision(quoteNumber, currentId) {
+    if (!Array.isArray(state.history)) return;
+    const duplicates = state.history.filter(h => h.quoteNumber === quoteNumber && h.id !== currentId);
+    if (duplicates.length > 0) {
+      showToast(`⚠️ Aviso: Ya existe una cotización guardada con el número ${quoteNumber}. Se recomienda verificar los consecutivos.`, '⚠️');
+    }
+  }
+
+  function checkCobroNumberCollision(cobroNum, currentId) {
+    if (!Array.isArray(state.cobroHistory)) return;
+    const duplicates = state.cobroHistory.filter(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10) && h.id !== currentId);
+    if (duplicates.length > 0) {
+      showToast(`⚠️ Aviso: Ya existe una cuenta de cobro guardada con el número ${cobroNum}. Se recomienda verificar los consecutivos.`, '⚠️');
+    }
+  }
+
+  function exportGlobalBackup() {
+    try {
+      const backup = {
+        app: 'Pedro Roa Cotizador PRO',
+        version: '2.6',
+        exportedAt: new Date().toISOString(),
+        history: state.history,
+        cobroHistory: state.cobroHistory,
+        catalog: state.catalog,
+        cobroClients: state.cobroClients,
+        business: state.business,
+        cobroEmisor: state.cobroEmisor,
+        cobroLegalText: state.cobroLegalText,
+        cobroDefaultNotes: state.cobroDefaultNotes,
+        cobroFirma: state.cobroFirma || '',
+        quoteNumber: state.quoteNumber,
+        cobroNum: state.cobroNum
+      };
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `respaldo-pedro-roa-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Respaldo exportado exitosamente', '📥');
+    } catch (e) {
+      console.error('Error al exportar respaldo:', e);
+      showToast('Error al exportar el respaldo manual', '❌');
+    }
+  }
+
+  function importGlobalBackup(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if (!parsed || typeof parsed !== 'object') {
+          showToast('El archivo seleccionado no es un respaldo válido', '⚠️');
+          return;
+        }
+
+        if (confirm('¿Restaurar los datos desde este archivo de respaldo?\n\nLos registros se fusionarán con los actuales y se sincronizarán con la nube.')) {
+          let added = 0;
+          if (Array.isArray(parsed.history)) {
+            parsed.history.forEach(qh => {
+              ensureItemUuid(qh);
+              const idx = state.history.findIndex(h => h.id === qh.id || h.quoteNumber === qh.quoteNumber);
+              if (idx >= 0) state.history[idx] = { ...state.history[idx], ...qh };
+              else { state.history.push(qh); added++; }
+            });
+            setStorage('pr_history', state.history);
+          }
+          if (Array.isArray(parsed.cobroHistory)) {
+            parsed.cobroHistory.forEach(ch => {
+              ensureItemUuid(ch);
+              const idx = state.cobroHistory.findIndex(h => h.id === ch.id || parseInt(h.cobroNum, 10) === parseInt(ch.cobroNum, 10));
+              if (idx >= 0) state.cobroHistory[idx] = { ...state.cobroHistory[idx], ...ch };
+              else { state.cobroHistory.push(ch); added++; }
+            });
+            setStorage('pr_cobro_history', state.cobroHistory);
+          }
+          if (Array.isArray(parsed.catalog)) {
+            parsed.catalog.forEach(item => {
+              ensureItemUuid(item);
+              const idx = state.catalog.findIndex(c => c.id === item.id || (c.n === item.n && c.c === item.c));
+              if (idx >= 0) state.catalog[idx] = { ...state.catalog[idx], ...item };
+              else state.catalog.push(item);
+            });
+            saveCatalogToStorage(state.catalog);
+          }
+          if (Array.isArray(parsed.cobroClients)) {
+            parsed.cobroClients.forEach(client => {
+              ensureItemUuid(client);
+              const idx = state.cobroClients.findIndex(c => c.id === client.id || (c.name && c.name.toLowerCase() === (client.name || '').toLowerCase()));
+              if (idx >= 0) state.cobroClients[idx] = { ...state.cobroClients[idx], ...client };
+              else state.cobroClients.push(client);
+            });
+            setStorage('pr_cobro_clients', state.cobroClients);
+          }
+          if (parsed.business) {
+            state.business = { ...state.business, ...parsed.business };
+            setStorage('pr_business', state.business);
+          }
+          if (parsed.cobroEmisor) {
+            state.cobroEmisor = { ...state.cobroEmisor, ...parsed.cobroEmisor };
+            setStorage('pr_cobro_emisor', state.cobroEmisor);
+          }
+          if (parsed.cobroLegalText) {
+            state.cobroLegalText = parsed.cobroLegalText;
+            setStorage('pr_cobro_legal_text', state.cobroLegalText);
+          }
+          if (parsed.cobroDefaultNotes) {
+            state.cobroDefaultNotes = parsed.cobroDefaultNotes;
+            setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
+          }
+          if (parsed.cobroFirma) {
+            state.cobroFirma = parsed.cobroFirma;
+            setStorage('pr_cobro_firma', state.cobroFirma);
+          }
+
+          setStorage('pr_config_updated_at', new Date().toISOString());
+          renderHistory();
+          renderCobroHistory();
+          renderCatalogSelect();
+          renderCatalogManager();
+          updateBadges();
+          showToast(`Respaldo restaurado con éxito (${added} registros incorporados)`, '✅');
+          triggerIncrementalSync();
+        }
+      } catch (err) {
+        console.error('Error importando archivo:', err);
+        showToast('Error al leer el archivo de respaldo', '❌');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function initSupabaseClient() {
+    try {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        syncState.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Error inicializando Supabase Client:', e);
+    }
+  }
+
+  function initSyncEngine() {
+    try {
+      if (Array.isArray(state.history)) state.history.forEach(ensureItemUuid);
+      if (Array.isArray(state.cobroHistory)) state.cobroHistory.forEach(ensureItemUuid);
+      if (Array.isArray(state.catalog)) state.catalog.forEach(ensureItemUuid);
+      if (Array.isArray(state.cobroClients)) state.cobroClients.forEach(ensureItemUuid);
+
+      initSupabaseClient();
+
+      if (syncState.client) {
+        syncState.client.auth.getSession().then(({ data: { session }, error }) => {
+          if (!error && session && session.user) {
+            syncState.user = session.user;
+            setSyncStatus('synced', `Conectado como ${session.user.email}`);
+            performSync();
+          } else {
+            syncState.user = null;
+            setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+          }
+        }).catch(err => {
+          console.warn('Error al verificar sesión de Supabase:', err);
+          setSyncStatus('offline', 'Modo local listo');
+        });
+
+        syncState.client.auth.onAuthStateChange((event, session) => {
+          if (session && session.user) {
+            syncState.user = session.user;
+            updateSyncUI();
+          } else {
+            syncState.user = null;
+            setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+          }
+        });
+      } else {
+        setSyncStatus('offline', 'Modo local listo (Sin conexión)');
+      }
+
+      window.addEventListener('online', () => {
+        showToast('Conexión a internet restablecida. Sincronizando...', '🌐');
+        if (syncState.user) {
+          performSync();
+        } else {
+          setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+        }
+      });
+
+      window.addEventListener('offline', () => {
+        setSyncStatus('offline', 'Sin conexión · Modo local activo');
+      });
+
+      updateSyncUI();
+
+    } catch (e) {
+      console.warn('Fallo iniciando motor de sincronización:', e);
+      setSyncStatus('error', 'Modo local activo');
+    }
+  }
+
+  function setupSyncEvents() {
+    const authOverlay = $('auth-modal-overlay');
+    const authForm = $('form-auth-login');
+    const authEmail = $('auth-email-input');
+    const authPassword = $('auth-password-input');
+    const authErrorAlert = $('auth-error-alert');
+    const btnAuthClose = $('btn-auth-close');
+    const btnTogglePwd = $('btn-toggle-auth-pwd');
+    const btnAuthSubmit = $('btn-auth-submit');
+    const authBtnIcon = $('auth-btn-icon');
+
+    function openAuthModal() {
+      if (!authOverlay) return;
+      if (authErrorAlert) {
+        authErrorAlert.style.display = 'none';
+        authErrorAlert.textContent = '';
+      }
+      authOverlay.style.display = 'flex';
+      setTimeout(() => {
+        if (authEmail) authEmail.focus();
+      }, 100);
+    }
+
+    function closeAuthModal() {
+      if (!authOverlay) return;
+      authOverlay.style.display = 'none';
+    }
+
+    const topbarBtn = $('topbar-sync-btn');
+    if (topbarBtn) {
+      topbarBtn.addEventListener('click', () => {
+        if (!syncState.user) {
+          openAuthModal();
+        } else {
+          showToast('Iniciando sincronización...', '🔄');
+          performSync();
+        }
+      });
+      topbarBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          topbarBtn.click();
+        }
+      });
+    }
+
+    if (btnTogglePwd && authPassword) {
+      btnTogglePwd.addEventListener('click', () => {
+        const isPwd = authPassword.type === 'password';
+        authPassword.type = isPwd ? 'text' : 'password';
+        btnTogglePwd.textContent = isPwd ? '🙈' : '👁️';
+      });
+    }
+
+    if (btnAuthClose) {
+      btnAuthClose.addEventListener('click', closeAuthModal);
+    }
+
+    if (authForm) {
+      authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = (authEmail.value || '').trim();
+        const password = (authPassword.value || '').trim();
+
+        if (!email || !password) {
+          if (authErrorAlert) {
+            authErrorAlert.style.display = 'block';
+            authErrorAlert.textContent = 'Por favor ingresa tu correo y contraseña.';
+          }
+          return;
+        }
+
+        if (!syncState.client) {
+          initSupabaseClient();
+        }
+
+        if (!syncState.client) {
+          if (authErrorAlert) {
+            authErrorAlert.style.display = 'block';
+            authErrorAlert.textContent = 'No se pudo conectar con el servicio de autenticación. Verifica tu conexión a internet.';
+          }
+          return;
+        }
+
+        if (btnAuthSubmit) {
+          btnAuthSubmit.disabled = true;
+          if (authBtnIcon) authBtnIcon.className = 'sync-btn-icon spinning';
+          btnAuthSubmit.innerHTML = '<span>⏳</span> Verificando credenciales...';
+        }
+
+        try {
+          const { data, error } = await syncState.client.auth.signInWithPassword({
+            email,
+            password
+          });
+
+          if (error) throw error;
+
+          if (data && data.user) {
+            syncState.user = data.user;
+            closeAuthModal();
+            showToast(`¡Bienvenido! Sesión iniciada como ${data.user.email}`, '✅');
+            updateSyncUI();
+            performSync({ isInitial: true });
+          }
+        } catch (err) {
+          console.error('Error al iniciar sesión:', err);
+          let errText = 'Error al iniciar sesión.';
+          const str = err.message || '';
+          if (str.includes('Invalid login credentials') || str.includes('invalid_grant')) {
+            errText = 'Correo o contraseña incorrectos. Verifica tus datos de acceso.';
+          } else if (!navigator.onLine || str.includes('Failed to fetch')) {
+            errText = 'No hay conexión a internet. La aplicación continuará funcionando en modo local.';
+          } else if (str.includes('paused') || str.includes('503')) {
+            errText = 'El proyecto de Supabase está temporalmente pausado o en mantenimiento.';
+          } else {
+            errText = `Error: ${str}`;
+          }
+
+          if (authErrorAlert) {
+            authErrorAlert.style.display = 'block';
+            authErrorAlert.textContent = errText;
+          }
+        } finally {
+          if (btnAuthSubmit) {
+            btnAuthSubmit.disabled = false;
+            btnAuthSubmit.innerHTML = '<span id="auth-btn-icon">☁️</span> Iniciar Sesión';
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-trigger-sync').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!syncState.user) {
+          openAuthModal();
+        } else {
+          showToast('Sincronizando con Supabase...', '🔄');
+          performSync();
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-trigger-auth').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (syncState.user) {
+          if (confirm('¿Cerrar sesión en este dispositivo?\n\nTus cotizaciones y cuentas permanecerán guardadas en este equipo, pero no se sincronizarán con la nube hasta que vuelvas a iniciar sesión.')) {
+            if (syncState.client) {
+              await syncState.client.auth.signOut();
+            }
+            syncState.user = null;
+            setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+            showToast('Sesión cerrada. La app continúa en modo local.', 'ℹ️');
+          }
+        } else {
+          openAuthModal();
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-export-all-backup').forEach(btn => {
+      btn.addEventListener('click', exportGlobalBackup);
+    });
+
+    document.querySelectorAll('.btn-import-all-backup').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fileInput = btn.parentElement.querySelector('.input-import-all-file');
+        if (fileInput) fileInput.click();
+      });
+    });
+
+    document.querySelectorAll('.input-import-all-file').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          importGlobalBackup(file);
+          input.value = '';
+        }
+      });
+    });
   }
 
   // --- Valores por defecto para Cuentas de Cobro ---
@@ -576,8 +1619,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
   function duplicateQuoteFromHistory(idx) {
     const saved = state.history[idx];
     if (!saved) return;
-    state.quoteNumber++;
+    state.quoteNumber = getCalculatedNextQuoteNum();
     setStorage('pr_quote_num', state.quoteNumber);
+    triggerIncrementalSync();
 
     $('q-client-name').value = saved.clientName || '';
     if (saved.clientPrefix && $('q-client-prefix')) {
@@ -825,17 +1869,22 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
   function saveCurrentToHistory(auto = false) {
     if (state.currentQuote.items.length === 0) return;
     const data = getFullQuoteData();
+    data.updatedAt = new Date().toISOString();
     
     // Check if exists
     const existingIdx = state.history.findIndex(h => h.quoteNumber === data.quoteNumber);
     if (existingIdx >= 0) {
+      data.id = state.history[existingIdx].id || crypto.randomUUID();
       state.history[existingIdx] = data;
     } else {
+      data.id = data.id || crypto.randomUUID();
       state.history.push(data);
+      checkQuoteNumberCollision(data.quoteNumber, data.id);
     }
     setStorage('pr_history', state.history);
     renderHistory();
     if (!auto) showToast('Cotización guardada en el historial', '💾');
+    triggerIncrementalSync();
   }
 
   function validateHasItems() {
@@ -1064,15 +2113,21 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     name = (name || '').trim();
     nit = (nit || '').trim();
     if (!name) return;
+    const nowIso = new Date().toISOString();
     const idx = state.cobroClients.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
     if (idx >= 0) {
       if (nit) state.cobroClients[idx].nit = nit;
+      state.cobroClients[idx].updatedAt = nowIso;
+      if (!state.cobroClients[idx].id || !isValidUUID(state.cobroClients[idx].id)) {
+        state.cobroClients[idx].id = crypto.randomUUID();
+      }
     } else {
-      state.cobroClients.unshift({ name, nit });
+      state.cobroClients.unshift({ id: crypto.randomUUID(), name, nit, updatedAt: nowIso });
     }
     if (state.cobroClients.length > 40) state.cobroClients.pop();
     setStorage('pr_cobro_clients', state.cobroClients);
     renderCobroClientsDatalist();
+    triggerIncrementalSync();
   }
 
   function renderCobroClientsDatalist() {
@@ -1908,6 +2963,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     updateBadges();
     renderCobroHistory();
     syncEmisorTabUI();
+    initSyncEngine();
   }
 
   // ==========================================================================
@@ -1928,16 +2984,20 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const data = getFullCobroData();
     const rawNum = parseInt(state.cobroNum, 10) || 1;
     data.cobroNum = rawNum;
-    data.id = 'CC-' + data.cobroNumber;
     data.updatedAt = new Date().toISOString();
 
     const existingIdx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
     if (existingIdx >= 0) {
+      data.id = (state.cobroHistory[existingIdx] && isValidUUID(state.cobroHistory[existingIdx].id))
+        ? state.cobroHistory[existingIdx].id
+        : (isValidUUID(data.id) ? data.id : crypto.randomUUID());
       data.status = state.cobroHistory[existingIdx].status || 'pendiente';
       state.cobroHistory[existingIdx] = data;
     } else {
+      data.id = isValidUUID(data.id) ? data.id : crypto.randomUUID();
       data.status = 'pendiente';
       state.cobroHistory.push(data);
+      checkCobroNumberCollision(data.cobroNum, data.id);
     }
 
     setStorage('pr_cobro_history', state.cobroHistory);
@@ -1946,6 +3006,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (showToastMsg) {
       showToast(`Cuenta de cobro N° ${data.cobroNumber} guardada en el historial`, '💾');
     }
+    triggerIncrementalSync();
     return true;
   }
 
@@ -2160,8 +3221,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     if (!item) return;
 
     // Calcular el siguiente número consecutivo mayor disponible
-    const maxInHistory = state.cobroHistory.reduce((max, h) => Math.max(max, parseInt(h.cobroNum, 10) || 0), 0);
-    const nextNum = Math.max(maxInHistory, parseInt(state.cobroNum, 10) || 0) + 1;
+    const nextNum = getCalculatedNextCobroNum();
 
     state.cobroNum = nextNum;
     state.cobroDocCity = item.city || 'Bogotá';
@@ -2215,6 +3275,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     setStorage('pr_cobro_history', state.cobroHistory);
     renderCobroHistory();
     showToast(`Cuenta N° ${item.cobroNumber || item.cobroNum} marcada como ${item.status === 'pagada' ? 'PAGADA ✅' : 'PENDIENTE ⏳'}`, 'ℹ️');
+    triggerIncrementalSync();
   }
 
   // Eliminar cuenta del historial
@@ -2225,11 +3286,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     const numDisplay = item.cobroNumber || item.cobroNum;
 
     if (confirm(`¿Eliminar definitivamente la cuenta de cobro N° ${numDisplay} del historial?\n\nEsta acción no se puede deshacer.`)) {
+      if (item && item.id) {
+        recordTombstone(item.id, 'cuenta_cobro');
+      }
       state.cobroHistory.splice(idx, 1);
       setStorage('pr_cobro_history', state.cobroHistory);
       updateBadges();
       renderCobroHistory();
       showToast(`Cuenta de cobro N° ${numDisplay} eliminada`, '🗑️');
+      triggerIncrementalSync();
     }
   }
 
@@ -2317,6 +3382,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         let updatedCount = 0;
 
         incoming.forEach(inItem => {
+          ensureItemUuid(inItem);
           const rawNum = parseInt(inItem.cobroNum, 10) || 1;
           const idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
           if (idx >= 0) {
@@ -2332,6 +3398,7 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         updateBadges();
         renderCobroHistory();
         showToast(`Historial importado: ${addedCount} nuevas, ${updatedCount} actualizadas`, '✅');
+        triggerIncrementalSync();
       } catch (err) {
         console.error('Error importando historial:', err);
         showToast('Error al leer el archivo JSON. Verifica el formato.', '❌');
@@ -2751,8 +3818,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         setStorage('pr_cobro_emisor', state.cobroEmisor);
         setStorage('pr_cobro_legal_text', state.cobroLegalText);
         setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
+        setStorage('pr_config_updated_at', new Date().toISOString());
         showToast('Tus datos de emisor y garantías se guardaron correctamente', '💾');
         switchSubview('view-cuentas-cobro');
+        triggerIncrementalSync();
       });
     }
 
@@ -2926,8 +3995,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         terms: $('b-terms').value.trim()
       };
       setStorage('pr_business', state.business);
+      setStorage('pr_config_updated_at', new Date().toISOString());
       showToast('Configuración del negocio guardada con éxito', '💾');
       renderLivePreview();
+      triggerIncrementalSync();
     });
 
     // Reset business default
@@ -2946,8 +4017,10 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
         $('b-address').value = state.business.address;
         $('b-terms').value = state.business.terms;
         setStorage('pr_business', state.business);
+        setStorage('pr_config_updated_at', new Date().toISOString());
         renderLivePreview();
         showToast('Restablecido a Pedro Roa', '🔄');
+        triggerIncrementalSync();
       }
     });
 
@@ -2956,24 +4029,29 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
 
     $('btn-cat-add-new').addEventListener('click', () => {
       state.catalog.unshift({
+        id: crypto.randomUUID(),
         c: 'Servicios',
         n: '',
-        p: 0
+        p: 0,
+        updatedAt: new Date().toISOString()
       });
       saveCatalogToStorage(state.catalog);
       renderCatalogManager();
       renderCatalogSelect();
       const firstInput = document.querySelector('#catalog-manage-list input[data-field="n"]');
       if (firstInput) firstInput.focus();
+      triggerIncrementalSync();
     });
 
     $('btn-cat-restore').addEventListener('click', () => {
       if (confirm('¿Restaurar catálogo inicial de servicios y productos de Pedro Roa? Se borrarán las personalizaciones.')) {
         state.catalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+        state.catalog.forEach(ensureItemUuid);
         saveCatalogToStorage(state.catalog);
         renderCatalogManager();
         renderCatalogSelect();
         showToast('Catálogo inicial restaurado', '🔄');
+        triggerIncrementalSync();
       }
     });
 
@@ -2987,12 +4065,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       const item = state.catalog[idx];
       if (!item) return;
 
+      ensureItemUuid(item);
       if (field === 'c') item.c = target.value;
       if (field === 'n') item.n = target.value;
       if (field === 'p') item.p = Math.max(0, parseFloat(target.value) || 0);
+      item.updatedAt = new Date().toISOString();
 
       saveCatalogToStorage(state.catalog);
       renderCatalogSelect();
+      triggerIncrementalSync();
     };
 
     $('catalog-manage-list').addEventListener('input', handleCatalogFieldChange);
@@ -3004,11 +4085,16 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       if (!btn) return;
       const row = btn.closest('.catalog-item-row');
       const idx = parseInt(row.dataset.index);
+      const item = state.catalog[idx];
+      if (item && item.id) {
+        recordTombstone(item.id, 'catalogo');
+      }
       state.catalog.splice(idx, 1);
       saveCatalogToStorage(state.catalog);
       renderCatalogManager();
       renderCatalogSelect();
       showToast('Ítem eliminado del catálogo', '🗑️');
+      triggerIncrementalSync();
     });
 
     // History interaction (Abrir, Duplicar, Ver PDF, WhatsApp, Eliminar)
@@ -3047,10 +4133,15 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
       if (delBtn) {
         if (confirm('¿Eliminar esta cotización del historial?')) {
           const idx = parseInt(delBtn.dataset.index, 10);
+          const item = state.history[idx];
+          if (item && item.id) {
+            recordTombstone(item.id, 'cotizacion');
+          }
           state.history.splice(idx, 1);
           setStorage('pr_history', state.history);
           renderHistory();
           showToast('Cotización eliminada', '🗑️');
+          triggerIncrementalSync();
         }
       }
     });
@@ -3062,8 +4153,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
           return;
         }
       }
-      state.quoteNumber++;
+      state.quoteNumber = getCalculatedNextQuoteNum();
       setStorage('pr_quote_num', state.quoteNumber);
+      triggerIncrementalSync();
 
       state.currentQuote.items = [];
       $('q-client-name').value = '';
@@ -3248,6 +4340,9 @@ Que me acojo a la ley 1819 de 2016, mediante el cual para efectos tributarios es
     // Inicializar eventos de Cuentas de Cobro
     setupCobroEvents();
     updateMobileStickyBar();
+
+    // Inicializar eventos de Sincronización en la Nube
+    setupSyncEvents();
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {
