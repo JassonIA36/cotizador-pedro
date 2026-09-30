@@ -264,11 +264,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         } else if (!syncState.user) {
           txt.textContent = 'Modo local · Iniciar sesión para sincronizar';
         } else if (syncState.status === 'syncing') {
-          txt.textContent = 'Sincronizando con Supabase...';
+          txt.textContent = 'Sincronizando datos...';
         } else if (syncState.status === 'synced') {
           txt.textContent = `Sincronizado (${formatSyncTime(syncState.lastSyncTime)})`;
         } else if (syncState.status === 'pending') {
-          txt.textContent = 'Pendiente de sincronizar con Supabase';
+          txt.textContent = 'Pendiente de sincronizar';
         } else if (syncState.status === 'error') {
           txt.textContent = 'Error de sincronización · Modo local seguro';
         } else {
@@ -384,7 +384,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     }
 
     if (errStr.includes('paused') || errStr.includes('503') || errStr.includes('500') || errStr.includes('Server error')) {
-      msg = 'El proyecto de Supabase está temporalmente pausado o en mantenimiento. La app sigue en modo local.';
+      msg = 'El servidor de sincronización está temporalmente en mantenimiento. La app sigue en modo local.';
       setSyncStatus('error', msg);
       return;
     }
@@ -737,9 +737,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       const firstSyncKey = 'pr_first_sync_done_' + syncState.user.id;
       if (options.isInitial || !getStorage(firstSyncKey, false)) {
         setStorage(firstSyncKey, true);
-        showToast(`Sincronización completada: se subieron ${uploadedCount}, se bajaron ${downloadedCount}`, '☁️');
+        showToast(`Sincronización completada: se subieron ${uploadedCount}, se bajaron ${downloadedCount}`, '🔄');
       } else if (uploadedCount > 0 || downloadedCount > 0) {
-        showToast(`Sincronizado: ${uploadedCount} subidos, ${downloadedCount} descargados`, '☁️');
+        showToast(`Sincronizado: ${uploadedCount} subidos, ${downloadedCount} descargados`, '🔄');
       }
 
       renderHistory();
@@ -1131,7 +1131,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           } else if (!navigator.onLine || str.includes('Failed to fetch')) {
             errText = 'No hay conexión a internet. La aplicación continuará funcionando en modo local.';
           } else if (str.includes('paused') || str.includes('503')) {
-            errText = 'El proyecto de Supabase está temporalmente pausado o en mantenimiento.';
+            errText = 'El servidor de sincronización está temporalmente en mantenimiento.';
           } else {
             errText = `Error: ${str}`;
           }
@@ -1143,7 +1143,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         } finally {
           if (btnAuthSubmit) {
             btnAuthSubmit.disabled = false;
-            btnAuthSubmit.innerHTML = '<span id="auth-btn-icon">☁️</span> Iniciar Sesión';
+            btnAuthSubmit.innerHTML = '<span id="auth-btn-icon" style="margin-right: 6px;">🔐</span> Iniciar Sesión';
           }
         }
       });
@@ -1154,7 +1154,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         if (!syncState.user) {
           openAuthModal();
         } else {
-          showToast('Sincronizando con Supabase...', '🔄');
+          showToast('Sincronizando datos...', '🔄');
           performSync();
         }
       });

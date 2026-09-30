@@ -22,14 +22,14 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 
   <!-- Estilos Modernos -->
-  <link rel="stylesheet" href="css/app.css?v=2.6.2">
+  <link rel="stylesheet" href="css/app.css?v=2.6.3">
 </head>
 <body>
 
   <!-- TopBar Stitch Design -->
   <div class="topbar-status np">
     <div class="topbar-status-inner">
-      <div class="topbar-sync-status" id="topbar-sync-btn" role="button" tabindex="0" title="Ver estado de sincronización con Supabase (Toca para iniciar sesión o sincronizar)">
+      <div class="topbar-sync-status" id="topbar-sync-btn" role="button" tabindex="0" title="Estado de sincronización multidispositivo (Toca para sincronizar o iniciar sesión)">
         <span class="sync-dot" id="sync-dot"></span>
         <span class="sync-text" id="sync-text">Modo local · Iniciar sesión para sincronizar</span>
       </div>
@@ -1068,11 +1068,11 @@
           <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.25rem;">☁️</span>
-                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización en la Nube (Supabase)</strong>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #38bdf8;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización Multidispositivo</strong>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                Sincroniza tus datos entre el PC y el celular automáticamente.
+                Mantén tus datos y cuentas sincronizados entre tu PC y tu teléfono móvil.
               </div>
             </div>
             <span class="card-badge sync-status-badge">Modo local</span>
@@ -1253,11 +1253,11 @@
           <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.25rem;">☁️</span>
-                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización en la Nube (Supabase)</strong>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #38bdf8;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización Multidispositivo</strong>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                Sincroniza tus cotizaciones, catálogo y datos entre PC y celular.
+                Sincroniza tus cotizaciones, catálogo y datos entre tu PC y tu celular.
               </div>
             </div>
             <span class="card-badge sync-status-badge">Modo local</span>
@@ -1370,14 +1370,16 @@
     </div>
   </div>
 
-  <!-- Modal Inicio de Sesión Supabase -->
+  <!-- Modal Inicio de Sesión Profesional -->
   <div id="auth-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-content auth-modal-box" style="max-width: 440px;">
-      <div class="auth-modal-top" style="text-align: center; margin-bottom: 16px;">
-        <div style="font-size: 2.2rem; margin-bottom: 6px;">☁️</div>
-        <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.15rem;">Sincronización Pedro Roa PRO</h3>
-        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-          Inicia sesión con tu cuenta para sincronizar tus cotizaciones, cuentas de cobro y catálogo entre tu PC y tu celular.
+      <div class="auth-modal-top" style="text-align: center; margin-bottom: 18px;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.22)); border: 1px solid rgba(56, 189, 248, 0.35); margin-bottom: 12px; color: #38bdf8;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        </div>
+        <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.15rem; font-weight: 700;">Acceso a tu Cuenta Profesional</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+          Inicia sesión para sincronizar tus cotizaciones, cuentas de cobro y catálogo entre tu PC y tu celular.
         </p>
       </div>
 
@@ -1398,8 +1400,8 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 8px;">
-          <button type="submit" id="btn-auth-submit" class="btn-primary" style="min-height: 44px; justify-content: center; font-size: 0.9rem;">
-            <span id="auth-btn-icon">☁️</span> Iniciar Sesión
+          <button type="submit" id="btn-auth-submit" class="btn-primary" style="min-height: 44px; justify-content: center; font-size: 0.9rem; font-weight: 600;">
+            <span id="auth-btn-icon" style="margin-right: 6px;">🔐</span> Iniciar Sesión
           </button>
           <button type="button" id="btn-auth-close" class="btn-secondary" style="min-height: 40px; justify-content: center; font-size: 0.84rem;">
             Continuar en modo local (sin cuenta)
@@ -1407,8 +1409,8 @@
         </div>
       </form>
 
-      <p style="font-size: 0.74rem; color: var(--text-dim); text-align: center; margin-top: 14px; line-height: 1.3;">
-        🔒 Tus datos se guardan primero en tu dispositivo y se sincronizan de forma cifrada con Supabase. Funciona 100% sin internet.
+      <p style="font-size: 0.74rem; color: var(--text-dim); text-align: center; margin-top: 14px; line-height: 1.35;">
+        🔒 Tus datos se respaldan con cifrado de alta seguridad. La aplicación funciona al 100% incluso sin internet.
       </p>
     </div>
   </div>
@@ -1419,7 +1421,7 @@
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/app.js?v=2.6.2"></script>
+  <script src="js/app.js?v=2.6.3"></script>
 
 </body>
 </html>
