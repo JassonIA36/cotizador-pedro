@@ -671,6 +671,13 @@
                   Estos datos son fijos para todas tus cuentas de cobro. Se guardan automáticamente en tu dispositivo.
                 </p>
                 <div class="form-grid">
+                  <div class="input-group full-width" style="margin-bottom: 4px;">
+                    <label for="cc-consecutivo-mode">Consecutivo de cuentas de cobro</label>
+                    <select id="cc-consecutivo-mode" style="font-size: 0.85rem;">
+                      <option value="por_cliente">Por cliente (cada cliente tiene su propia serie 001, 002...)</option>
+                      <option value="unico">Único para todos (una sola serie global)</option>
+                    </select>
+                  </div>
                   <div class="input-group">
                     <label for="cc-emisor-name">Tu nombre completo</label>
                     <input id="cc-emisor-name" type="text" placeholder="Pedro Luis Roa Mora">
@@ -753,7 +760,7 @@
             <div class="form-grid">
               <div class="input-group">
                 <label for="cc-num">Número de cuenta (3 dígitos)</label>
-                <input id="cc-num" type="number" min="1" step="1" value="12" placeholder="012">
+                <input id="cc-num" type="text" inputmode="numeric" pattern="[0-9]*" value="001" placeholder="001">
               </div>
               <div class="input-group">
                 <label for="cc-doc-city">Ciudad</label>
@@ -1188,6 +1195,16 @@
         </div>
 
         <div class="form-grid">
+          <div class="input-group full-width" style="margin-bottom: 6px;">
+            <label for="cc-consecutivo-mode-tab">Consecutivo de cuentas de cobro</label>
+            <select id="cc-consecutivo-mode-tab" style="font-size: 0.85rem;">
+              <option value="por_cliente">Por cliente (cada cliente tiene su propia serie 001, 002...)</option>
+              <option value="unico">Único para todos (una sola serie global)</option>
+            </select>
+            <span style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">
+              "Por cliente" lleva series independientes (001, 002...) según el NIT o nombre del cliente.
+            </span>
+          </div>
           <div class="input-group">
             <label for="cc-emisor-name-tab">Tu nombre completo</label>
             <input id="cc-emisor-name-tab" type="text" placeholder="Pedro Luis Roa Mora">
@@ -1995,6 +2012,26 @@
       <div class="modal-actions">
         <button id="modal-close-btn">Cancelar</button>
         <button id="modal-confirm-btn" class="btn-primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Conflicto de Número de Cuenta de Cobro -->
+  <div id="cobro-conflict-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content" style="max-width: 480px;">
+      <div style="font-size: 2.2rem; margin-bottom: 8px; text-align: center;">⚠️</div>
+      <h3 id="cobro-conflict-title" class="modal-title" style="margin-bottom: 10px; text-align: center;">Número de cuenta ya existe</h3>
+      <div id="cobro-conflict-body" class="modal-body" style="font-size: 0.9rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;"></div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button type="button" id="btn-conflict-use-next" class="btn-primary" style="justify-content: center; min-height: 44px; font-weight: 600; width: 100%;">
+          Usar el siguiente número
+        </button>
+        <button type="button" id="btn-conflict-replace" class="btn-secondary" style="justify-content: center; min-height: 44px; width: 100%; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+          Reemplazar la existente
+        </button>
+        <button type="button" id="btn-conflict-cancel" class="btn-secondary" style="justify-content: center; min-height: 42px; width: 100%;">
+          Cancelar
+        </button>
       </div>
     </div>
   </div>

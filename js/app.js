@@ -522,6 +522,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         cobroEmisor: state.cobroEmisor,
         cobroLegalText: state.cobroLegalText,
         cobroDefaultNotes: state.cobroDefaultNotes,
+        cobroConsecutivoMode: state.cobroConsecutivoMode || 'por_cliente',
         cobroFirma: state.cobroFirma || '',
         logo: window.PEDRO_ROA_LOGO || '',
         informeConfig: state.informeConfig || {}
@@ -690,7 +691,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         if (idx < 0 && cobro.cobroNum) {
           const cNum = parseInt(cobro.cobroNum, 10);
           if (!isNaN(cNum)) {
-            idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === cNum);
+            idx = state.cobroHistory.findIndex(h => isSameClient(h, cobro) && parseInt(h.cobroNum, 10) === cNum);
           }
         }
         if (idx >= 0) {
@@ -855,6 +856,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           state.cobroDefaultNotes = datos.cobroDefaultNotes;
           setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
           if ($('cc-default-notes-tab')) $('cc-default-notes-tab').value = state.cobroDefaultNotes;
+        }
+        if (typeof datos.cobroConsecutivoMode === 'string') {
+          state.cobroConsecutivoMode = datos.cobroConsecutivoMode;
+          setStorage('pr_cobro_consecutivo_mode', state.cobroConsecutivoMode);
+          if ($('cc-consecutivo-mode-tab')) $('cc-consecutivo-mode-tab').value = state.cobroConsecutivoMode;
+          if ($('cc-consecutivo-mode')) $('cc-consecutivo-mode').value = state.cobroConsecutivoMode;
         }
         if (datos.informeConfig && typeof datos.informeConfig === 'object') {
           state.informeConfig = { ...state.informeConfig, ...datos.informeConfig };
@@ -1387,15 +1394,106 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     return Math.max(max, state.quoteNumber || 0) + 1;
   }
 
-  function getCalculatedNextCobroNum() {
+  // Identificación y normalización de cliente para series independientes de cuentas de cobro
+  function normalizeNitDigits(nit) {
+    return (nit != null ? String(nit) : '').replace(/\D/g, '').trim();
+  }
+
+  function normalizeClientName(name) {
+    return (name != null ? String(name) : '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  function isSameClient(clientA, clientB) {
+    if (!clientA || !clientB) return false;
+    const nitA = normalizeNitDigits(clientA.nit || clientA.clientNit);
+    const nitB = normalizeNitDigits(clientB.nit || clientB.clientNit);
+
+    // 1. Si ambos tienen NIT/C.C. (solo dígitos), se identifican por el NIT
+    if (nitA && nitB) {
+      return nitA === nitB;
+    }
+
+    // 2. Si no hay NIT en alguno, se identifican por el nombre normalizado (minúsculas, sin tildes, sin espacios extra)
+    const nameA = normalizeClientName(clientA.name || clientA.clientName);
+    const nameB = normalizeClientName(clientB.name || clientB.clientName);
+    if (nameA && nameB) {
+      return nameA === nameB;
+    }
+
+    return false;
+  }
+
+  // El siguiente número = el máximo número ya guardado de ESE cliente + 1, con tres dígitos.
+  // En modo único, calcula el máximo de todos los clientes. Los borrados (deleted=true) se ignoran.
+  function getCalculatedNextCobroNum(clientName, clientNit) {
+    if (state.cobroConsecutivoMode === 'unico') {
+      let max = 0;
+      if (Array.isArray(state.cobroHistory)) {
+        state.cobroHistory.forEach(h => {
+          if (h.deleted || (h.datos && h.datos.deleted)) return;
+          const n = parseInt(h.cobroNum || (h.datos && h.datos.cobroNum), 10);
+          if (!isNaN(n)) max = Math.max(max, n);
+        });
+      }
+      return max + 1;
+    }
+
+    // Modo por cliente (por defecto): cada cliente tiene su propia serie independiente
+    const cName = clientName !== undefined ? clientName : (state.cobroClientName || '');
+    const cNit = clientNit !== undefined ? clientNit : (state.cobroClientNit || '');
+    const target = { name: cName, nit: cNit };
+    const hasTarget = Boolean(normalizeNitDigits(cNit) || normalizeClientName(cName));
+
+    // Si aún no se ha escrito cliente o es nuevo, empieza en 1 (001)
+    if (!hasTarget) {
+      return 1;
+    }
+
     let max = 0;
     if (Array.isArray(state.cobroHistory)) {
       state.cobroHistory.forEach(h => {
-        const n = parseInt(h.cobroNum, 10);
-        if (!isNaN(n)) max = Math.max(max, n);
+        if (h.deleted || (h.datos && h.datos.deleted)) return;
+        const hClient = {
+          name: h.clientName || (h.datos && h.datos.clientName) || '',
+          nit: h.clientNit || (h.datos && h.datos.clientNit) || ''
+        };
+        if (isSameClient(target, hClient)) {
+          const n = parseInt(h.cobroNum || (h.datos && h.datos.cobroNum), 10);
+          if (!isNaN(n)) max = Math.max(max, n);
+        }
       });
     }
-    return Math.max(max, parseInt(state.cobroNum, 10) || 0) + 1;
+    return max + 1;
+  }
+
+  // Recalcular número automáticamente en el formulario al cambiar cliente, salvo que se haya escrito a mano
+  function autoRecalculateCobroNumIfAllowed() {
+    if (state.cobroNumManual || state.editingCobro) return;
+    const cName = $('cc-client-name') ? $('cc-client-name').value : state.cobroClientName;
+    const cNit = $('cc-client-nit') ? $('cc-client-nit').value : state.cobroClientNit;
+    const nextNum = getCalculatedNextCobroNum(cName, cNit);
+    state.cobroNum = nextNum;
+    setStorage('pr_cobro_num', nextNum);
+    if ($('cc-num')) {
+      $('cc-num').value = String(nextNum).padStart(3, '0');
+    }
+  }
+
+  // Cambiar configuración de consecutivo por cliente o único para todos
+  function setCobroConsecutivoMode(mode) {
+    state.cobroConsecutivoMode = (mode === 'unico') ? 'unico' : 'por_cliente';
+    setStorage('pr_cobro_consecutivo_mode', state.cobroConsecutivoMode);
+    setStorage('pr_config_updated_at', new Date().toISOString());
+    if ($('cc-consecutivo-mode-tab')) $('cc-consecutivo-mode-tab').value = state.cobroConsecutivoMode;
+    if ($('cc-consecutivo-mode')) $('cc-consecutivo-mode').value = state.cobroConsecutivoMode;
+    autoRecalculateCobroNumIfAllowed();
+    renderCobroPreview();
+    triggerIncrementalSync();
   }
 
   function checkQuoteNumberCollision(quoteNumber, currentId) {
@@ -1407,11 +1505,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   }
 
   function checkCobroNumberCollision(cobroNum, currentId) {
-    if (!Array.isArray(state.cobroHistory)) return;
-    const duplicates = state.cobroHistory.filter(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10) && h.id !== currentId);
-    if (duplicates.length > 0) {
-      showToast(`⚠️ Aviso: Ya existe una cuenta de cobro guardada con el número ${cobroNum}. Se recomienda verificar los consecutivos.`, '⚠️');
-    }
+    // Mantenido por retrocompatibilidad si se invoca desde alguna rutina externa
+    return;
   }
 
   function exportGlobalBackup() {
@@ -1973,11 +2068,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     informeIsDirty: false,
 
     // Cuentas de Cobro State
+    cobroConsecutivoMode: getStorage('pr_cobro_consecutivo_mode', 'por_cliente') || 'por_cliente',
+    cobroNumManual: false,
     cobroEmisor: getStorage('pr_cobro_emisor', DEFAULT_COBRO_EMISOR),
     cobroFirma: getStorage('pr_cobro_firma', ''),
     cobroLegalText: getStorage('pr_cobro_legal_text', DEFAULT_LEGAL_TEXT),
     cobroDefaultNotes: getStorage('pr_cobro_default_notes', DEFAULT_COBRO_NOTES),
-    cobroNum: getStorage('pr_cobro_num', 12),
+    cobroNum: getStorage('pr_cobro_num', 1),
     cobroDocCity: getStorage('pr_cobro_doc_city', 'Bogotá'),
     cobroDocDate: getStorage('pr_cobro_doc_date', new Date().toISOString().split('T')[0]),
     cobroIncludeLegal: getStorage('pr_cobro_include_legal', true),
@@ -2641,6 +2738,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           pendingCount++;
           pendingTotal += saldo;
           pendingItems.push({
+            id: item.id,
             num: item.cobroNumber || String(item.cobroNum || 1).padStart(3, '0'),
             rawNum: item.cobroNum,
             client: item.clientName || 'Cliente General',
@@ -2679,10 +2777,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       } else {
         const recentPending = pendingItems.slice(-5).reverse();
         cobroListEl.innerHTML = recentPending.map(item => `
-          <div class="entry-pending-row" data-cobro-num="${item.rawNum}" title="Toca para ver o editar esta cuenta">
+          <div class="entry-pending-row" data-cobro-id="${item.id || ''}" data-cobro-num="${item.rawNum}" title="Toca para ver o editar esta cuenta">
             <div class="entry-pending-row-left">
-              <span class="entry-pending-num">Cuenta N° ${escapeHtml(item.num)}</span>
-              <span class="entry-pending-client">${escapeHtml(item.client)}</span>
+              <span class="entry-pending-num">Cuenta N° ${escapeHtml(item.num)} – ${escapeHtml(item.client)}</span>
             </div>
             <div class="entry-pending-row-right">
               <span class="entry-pending-amount">${formatMoney(item.saldo)}</span>
@@ -3017,13 +3114,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
     state.editingCobro = null;
     state.cobroIsDirty = false;
+    state.cobroNumManual = false;
 
     saveCobroClient(state.cobroClientName, state.cobroClientNit);
-
-    // Aumentar consecutivo
-    state.cobroNum = (parseInt(state.cobroNum, 10) || 12) + 1;
-    setStorage('pr_cobro_num', state.cobroNum);
-    if ($('cc-num')) $('cc-num').value = state.cobroNum;
 
     // Limpiar cliente
     state.cobroClientName = '';
@@ -3032,6 +3125,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     setStorage('pr_cobro_client_nit', '');
     if ($('cc-client-name')) $('cc-client-name').value = '';
     if ($('cc-client-nit')) $('cc-client-nit').value = '';
+
+    // Calcular consecutivo para nuevo documento
+    const nextNum = getCalculatedNextCobroNum('', '');
+    state.cobroNum = nextNum;
+    setStorage('pr_cobro_num', state.cobroNum);
+    if ($('cc-num')) $('cc-num').value = String(nextNum).padStart(3, '0');
 
     // Fecha actual
     const todayIso = new Date().toISOString().split('T')[0];
@@ -3236,7 +3335,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   function getFullCobroData() {
     // Sincronizar primero directamente con los valores actuales en pantalla
     if ($('cc-num')) {
-      const n = parseInt($('cc-num').value, 10);
+      const n = parseInt(String($('cc-num').value).replace(/\D/g, ''), 10);
       if (!isNaN(n) && n > 0) {
         state.cobroNum = n;
         setStorage('pr_cobro_num', n);
@@ -3698,6 +3797,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   function initCobro() {
     if (!$('view-cuentas-cobro')) return;
 
+    if ($('cc-consecutivo-mode')) $('cc-consecutivo-mode').value = state.cobroConsecutivoMode || 'por_cliente';
     $('cc-emisor-name').value = state.cobroEmisor.name || 'Pedro Luis Roa Mora';
     $('cc-emisor-cc').value = state.cobroEmisor.cc || '1.015.409.172';
     $('cc-emisor-city').value = state.cobroEmisor.city || 'Bogotá';
@@ -3709,7 +3809,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     if ($('cc-default-notes')) $('cc-default-notes').value = state.cobroDefaultNotes || DEFAULT_COBRO_NOTES;
     if ($('cc-include-notes')) $('cc-include-notes').checked = state.cobroIncludeNotes !== false;
     if ($('cc-notes')) $('cc-notes').value = (typeof state.cobroNotes === 'string') ? state.cobroNotes : (state.cobroDefaultNotes || DEFAULT_COBRO_NOTES);
-    $('cc-num').value = state.cobroNum || 12;
+    $('cc-num').value = String(state.cobroNum || 1).padStart(3, '0');
     $('cc-doc-city').value = state.cobroDocCity || 'Bogotá';
     $('cc-doc-date').value = state.cobroDocDate || new Date().toISOString().split('T')[0];
     $('cc-client-name').value = state.cobroClientName || '';
@@ -3859,15 +3959,35 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       });
     }
 
+    // Consecutivo de cuentas de cobro (por cliente o único para todos)
+    const modeSelect = $('cc-consecutivo-mode');
+    if (modeSelect) {
+      modeSelect.addEventListener('change', () => {
+        setCobroConsecutivoMode(modeSelect.value);
+      });
+    }
+
     // Número de cuenta, ciudad y fecha
     const ccNumInput = $('cc-num');
     if (ccNumInput) {
       ccNumInput.addEventListener('input', () => {
-        const val = parseInt(ccNumInput.value, 10);
+        const rawVal = ccNumInput.value.trim();
+        if (rawVal === '') {
+          state.cobroNumManual = false;
+          return;
+        }
+        const val = parseInt(rawVal.replace(/\D/g, ''), 10);
         if (!isNaN(val) && val > 0) {
           state.cobroNum = val;
+          state.cobroNumManual = true;
           setStorage('pr_cobro_num', val);
           renderCobroPreview();
+        }
+      });
+
+      ccNumInput.addEventListener('blur', () => {
+        if (state.cobroNum) {
+          ccNumInput.value = String(state.cobroNum).padStart(3, '0');
         }
       });
     }
@@ -3907,6 +4027,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           state.cobroClientNit = found.nit;
           setStorage('pr_cobro_client_nit', found.nit);
         }
+        autoRecalculateCobroNumIfAllowed();
         renderCobroPreview();
       });
 
@@ -3917,6 +4038,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       clientNitInput.addEventListener('input', () => {
         state.cobroClientNit = clientNitInput.value;
         setStorage('pr_cobro_client_nit', state.cobroClientNit);
+        autoRecalculateCobroNumIfAllowed();
         renderCobroPreview();
       });
 
@@ -4170,6 +4292,98 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   // FUNCIONES DE HISTORIAL DE CUENTAS DE COBRO
   // ==========================================================================
 
+  // Helper para buscar cuenta de cobro en historial por id o número
+  function findCobroInHistory(idOrNum) {
+    if (!idOrNum || !Array.isArray(state.cobroHistory)) return null;
+    let item = state.cobroHistory.find(h => h.id && String(h.id) === String(idOrNum));
+    if (item) return item;
+    const n = parseInt(idOrNum, 10);
+    if (!isNaN(n)) {
+      return state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === n) || null;
+    }
+    return null;
+  }
+
+  // Modal para resolución de conflicto cuando ya existe una cuenta con ese número para ese cliente
+  function showCobroConflictModal(params) {
+    const { data, rawNum, nextNum, conflictIndex, showToastMsg } = params;
+    const overlay = $('cobro-conflict-modal-overlay');
+    if (!overlay) return;
+
+    const numStr = String(rawNum).padStart(3, '0');
+    const nextStr = String(nextNum).padStart(3, '0');
+    const clientDisplay = data.clientName || 'este cliente';
+
+    const bodyEl = $('cobro-conflict-body');
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <p>Ya existe una cuenta guardada con el <strong>N° ${numStr}</strong> para <strong>${escapeHtml(clientDisplay)}</strong>.</p>
+        <p style="margin-top: 8px; color: var(--text-muted); font-size: 0.84rem;">
+          No se ha modificado la cuenta existente. Elige qué deseas hacer con este documento:
+        </p>
+      `;
+    }
+
+    const btnUseNext = $('btn-conflict-use-next');
+    const btnReplace = $('btn-conflict-replace');
+    const btnCancel = $('btn-conflict-cancel');
+
+    if (btnUseNext) {
+      btnUseNext.innerHTML = `<span>✨</span> Usar el siguiente número (${nextStr})`;
+      btnUseNext.onclick = () => {
+        overlay.classList.remove('active');
+        state.cobroNum = nextNum;
+        state.cobroNumManual = false;
+        setStorage('pr_cobro_num', nextNum);
+        if ($('cc-num')) $('cc-num').value = nextStr;
+        renderCobroPreview();
+        saveCurrentCobroToHistory(showToastMsg);
+      };
+    }
+
+    if (btnReplace) {
+      btnReplace.onclick = () => {
+        if (!confirm(`¿Confirmas que deseas reemplazar la cuenta N° ${numStr} de ${clientDisplay} guardada anteriormente?\n\nEsta acción sobrescribirá sus datos.`)) {
+          return;
+        }
+        overlay.classList.remove('active');
+        const existingItem = state.cobroHistory[conflictIndex];
+        data.id = existingItem.id;
+        data.status = existingItem.status || 'pendiente';
+        state.cobroHistory[conflictIndex] = data;
+        finishSaveCobro(data, numStr, showToastMsg);
+      };
+    }
+
+    if (btnCancel) {
+      btnCancel.onclick = () => {
+        overlay.classList.remove('active');
+      };
+    }
+
+    overlay.classList.add('active');
+  }
+
+  function finishSaveCobro(data, numStr, showToastMsg) {
+    setStorage('pr_cobro_history', state.cobroHistory);
+    updateBadges();
+    renderCobroHistory();
+    state.editingCobro = {
+      id: data.id,
+      num: data.cobroNum,
+      number: numStr,
+      client: data.clientName,
+      clientNit: data.clientNit
+    };
+    state.cobroNumManual = true;
+    state.cobroIsDirty = false;
+    updateFormStatusBadges();
+    if (showToastMsg) {
+      showSaveNotice('cobro', numStr, data.clientName);
+    }
+    triggerIncrementalSync();
+  }
+
   // Guardar cuenta actual en el historial (o actualizar si ya existe ese número)
   function saveCurrentCobroToHistory(showToastMsg = true) {
     saveCobroClient(state.cobroClientName, state.cobroClientNit);
@@ -4184,33 +4398,50 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const data = getFullCobroData();
     const rawNum = parseInt(state.cobroNum, 10) || 1;
     data.cobroNum = rawNum;
+    const numStr = String(data.cobroNumber || data.cobroNum).padStart(3, '0');
+    data.cobroNumber = numStr;
     data.updatedAt = new Date().toISOString();
 
-    const existingIdx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
+    const currentEditingId = (state.editingCobro && state.editingCobro.id) ? state.editingCobro.id : null;
+
+    // Buscar colisión contra OTRA cuenta (excluyendo a sí misma si se está editando una cuenta abierta del historial)
+    const conflictIndex = state.cobroHistory.findIndex(h => {
+      if (currentEditingId && h.id === currentEditingId) return false;
+      if (h.deleted || (h.datos && h.datos.deleted)) return false;
+      if (parseInt(h.cobroNum, 10) !== rawNum) return false;
+      if (state.cobroConsecutivoMode === 'unico') return true;
+      return isSameClient(h, data);
+    });
+
+    if (conflictIndex >= 0) {
+      const nextNum = getCalculatedNextCobroNum(data.clientName, data.clientNit);
+      showCobroConflictModal({
+        data,
+        rawNum,
+        nextNum,
+        conflictIndex,
+        showToastMsg
+      });
+      return false;
+    }
+
+    // No hay conflicto contra otra cuenta: actualizar la actual o agregar nueva
+    let existingIdx = -1;
+    if (currentEditingId) {
+      existingIdx = state.cobroHistory.findIndex(h => h.id === currentEditingId);
+    }
+
     if (existingIdx >= 0) {
-      data.id = (state.cobroHistory[existingIdx] && isValidUUID(state.cobroHistory[existingIdx].id))
-        ? state.cobroHistory[existingIdx].id
-        : (isValidUUID(data.id) ? data.id : generateUUID());
+      data.id = currentEditingId;
       data.status = state.cobroHistory[existingIdx].status || 'pendiente';
       state.cobroHistory[existingIdx] = data;
     } else {
       data.id = isValidUUID(data.id) ? data.id : generateUUID();
       data.status = 'pendiente';
       state.cobroHistory.push(data);
-      checkCobroNumberCollision(data.cobroNum, data.id);
     }
 
-    setStorage('pr_cobro_history', state.cobroHistory);
-    updateBadges();
-    renderCobroHistory();
-    const numStr = String(data.cobroNumber || data.cobroNum).padStart(3, '0');
-    state.editingCobro = { num: data.cobroNum, number: numStr, client: data.clientName };
-    state.cobroIsDirty = false;
-    updateFormStatusBadges();
-    if (showToastMsg) {
-      showSaveNotice('cobro', numStr, data.clientName);
-    }
-    triggerIncrementalSync();
+    finishSaveCobro(data, numStr, showToastMsg);
     return true;
   }
 
@@ -4274,11 +4505,27 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       // Filtro de búsqueda
       if (searchVal) {
         const numStr = String(item.cobroNumber || item.cobroNum || '').toLowerCase();
+        const numPadded = String(item.cobroNum || '').padStart(3, '0').toLowerCase();
+        const numRaw = String(item.cobroNum || '');
         const client = String(item.clientName || '').toLowerCase();
+        const clientClean = normalizeClientName(item.clientName);
         const nit = String(item.clientNit || '').toLowerCase();
+        const nitDigits = normalizeNitDigits(item.clientNit);
         const city = String(item.city || '').toLowerCase();
+        const combined = `cuenta n° ${numPadded} ${client} ${numStr}`.toLowerCase();
+        const searchDigits = normalizeNitDigits(searchVal);
         const conceptosText = (item.conceptos || []).map(c => c.desc).join(' ').toLowerCase();
-        const matches = numStr.includes(searchVal) || client.includes(searchVal) || nit.includes(searchVal) || city.includes(searchVal) || conceptosText.includes(searchVal);
+
+        const matches = numStr.includes(searchVal) ||
+          numPadded.includes(searchVal) ||
+          numRaw === searchVal ||
+          combined.includes(searchVal) ||
+          client.includes(searchVal) ||
+          clientClean.includes(searchVal) ||
+          nit.includes(searchVal) ||
+          (searchDigits && nitDigits.includes(searchDigits)) ||
+          city.includes(searchVal) ||
+          conceptosText.includes(searchVal);
         if (!matches) return false;
       }
 
@@ -4326,8 +4573,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
       return renderUnifiedHistoryCardHtml({
         type: 'cobro',
-        id: item.cobroNum,
-        numberText: `Cuenta N° ${numStr}`,
+        id: item.id || item.cobroNum,
+        numberText: `Cuenta N° ${numStr} – ${item.clientName || 'Cliente General'}`,
         numberClass: 'text-emerald',
         status: isPaid ? 'pagada' : 'pendiente',
         statusText: isPaid ? '✅ Pagada' : '⏳ Pendiente',
@@ -4340,12 +4587,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         amountVal: formatMoney(saldo),
         amountClass: isPaid ? 'text-emerald' : 'text-primary',
         actions: [
-          { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
-          { accion: 'pdf', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { num: item.cobroNum }, title: 'Ver documento PDF' },
-          { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
-          { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
-          { accion: 'estado', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { num: item.cobroNum }, title: 'Cambiar estado de pago' },
-          { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { num: item.cobroNum }, title: 'Eliminar del historial' }
+          { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
+          { accion: 'pdf', label: 'Ver PDF', icon: '👁️', variant: 'secondary', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Ver documento PDF' },
+          { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
+          { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
+          { accion: 'estado', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Cambiar estado de pago' },
+          { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Eliminar del historial' }
         ]
       });
     }).join('');
@@ -4353,7 +4600,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Abrir cuenta de cobro para editar
   function openCobroForEditing(cobroNum) {
-    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const item = findCobroInHistory(cobroNum);
     if (!item) return;
 
     state.cobroNum = parseInt(item.cobroNum, 10) || 1;
@@ -4382,7 +4629,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     setStorage('pr_cobro_adelantos', state.cobroAdelantos);
 
     // Actualizar campos en el formulario
-    if ($('cc-num')) $('cc-num').value = state.cobroNum;
+    const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
+    if ($('cc-num')) $('cc-num').value = numStr;
     if ($('cc-doc-city')) $('cc-doc-city').value = state.cobroDocCity;
     if ($('cc-doc-date')) $('cc-doc-date').value = state.cobroDocDate;
     if ($('cc-client-name')) $('cc-client-name').value = state.cobroClientName;
@@ -4396,8 +4644,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderCobroAdelantos();
     renderCobroPreview();
 
-    const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
-    state.editingCobro = { num: item.cobroNum, number: numStr, client: item.clientName };
+    state.editingCobro = {
+      id: item.id,
+      num: item.cobroNum,
+      number: numStr,
+      client: item.clientName,
+      clientNit: item.clientNit
+    };
+    state.cobroNumManual = true; // Proteger el número al editar del historial
     state.cobroIsDirty = false;
 
     switchSubview('view-cuentas-cobro');
@@ -4407,13 +4661,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Duplicar cuenta de cobro con nuevo número
   function duplicateCobroFromHistory(cobroNum) {
-    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const item = findCobroInHistory(cobroNum);
     if (!item) return;
 
-    // Calcular el siguiente número consecutivo mayor disponible
-    const nextNum = getCalculatedNextCobroNum();
+    // Calcular el siguiente número consecutivo para este cliente específico
+    const nextNum = getCalculatedNextCobroNum(item.clientName, item.clientNit);
 
     state.cobroNum = nextNum;
+    state.cobroNumManual = false;
     state.cobroDocCity = item.city || 'Bogotá';
     state.cobroDocDate = new Date().toISOString().split('T')[0];
     state.cobroClientName = item.clientName || '';
@@ -4437,7 +4692,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     setStorage('pr_cobro_conceptos', state.cobroConceptos);
     setStorage('pr_cobro_adelantos', state.cobroAdelantos);
 
-    if ($('cc-num')) $('cc-num').value = state.cobroNum;
+    const nextStr = String(nextNum).padStart(3, '0');
+    if ($('cc-num')) $('cc-num').value = nextStr;
     if ($('cc-doc-city')) $('cc-doc-city').value = state.cobroDocCity;
     if ($('cc-doc-date')) $('cc-doc-date').value = state.cobroDocDate;
     if ($('cc-client-name')) $('cc-client-name').value = state.cobroClientName;
@@ -4456,12 +4712,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     switchSubview('view-cuentas-cobro');
     updateFormStatusBadges();
-    showToast(`Cuenta duplicada como N° ${String(nextNum).padStart(3, '0')}. Modifica lo que necesites y guárdala.`, '📑');
+    showToast(`Cuenta duplicada como N° ${nextStr}. Modifica lo que necesites y guárdala.`, '📑');
   }
 
   // Alternar estado Pendiente / Pagada
   function toggleCobroStatus(cobroNum) {
-    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const item = findCobroInHistory(cobroNum);
     if (!item) return;
 
     item.status = (item.status === 'pagada') ? 'pendiente' : 'pagada';
@@ -4474,12 +4730,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Eliminar cuenta del historial
   function deleteCobroFromHistory(cobroNum) {
-    const idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const idx = state.cobroHistory.findIndex(h => (h.id && String(h.id) === String(cobroNum)) || (parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10)));
     if (idx < 0) return;
     const item = state.cobroHistory[idx];
     const numDisplay = item.cobroNumber || item.cobroNum;
 
-    if (confirm(`¿Eliminar definitivamente la cuenta de cobro N° ${numDisplay} del historial?\n\nEsta acción no se puede deshacer.`)) {
+    if (confirm(`¿Eliminar definitivamente la cuenta de cobro N° ${numDisplay} (${item.clientName || 'Cliente'}) del historial?\n\nEsta acción no se puede deshacer.`)) {
       if (item && item.id) {
         recordTombstone(item.id, 'cuenta_cobro', item);
       }
@@ -4494,14 +4750,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Ver PDF desde el historial
   function previewCobroFromHistory(cobroNum) {
-    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const item = findCobroInHistory(cobroNum);
     if (!item) return;
     window.PedroRoaPdf.previewCobroPdf(item);
   }
 
   // Enviar PDF por WhatsApp desde el historial
   async function shareCobroFromHistory(cobroNum) {
-    const item = state.cobroHistory.find(h => parseInt(h.cobroNum, 10) === parseInt(cobroNum, 10));
+    const item = findCobroInHistory(cobroNum);
     if (!item) return;
     const result = await window.PedroRoaPdf.shareCobroPdfViaWhatsApp(item, (fileName) => {
       showModal(
@@ -4603,6 +4859,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Sincronizar datos de emisor con la pestaña "Mis Datos"
   function syncEmisorTabUI() {
+    if ($('cc-consecutivo-mode-tab')) $('cc-consecutivo-mode-tab').value = state.cobroConsecutivoMode || 'por_cliente';
+    if ($('cc-consecutivo-mode')) $('cc-consecutivo-mode').value = state.cobroConsecutivoMode || 'por_cliente';
     if ($('cc-emisor-name-tab')) $('cc-emisor-name-tab').value = state.cobroEmisor.name || 'Pedro Luis Roa Mora';
     if ($('cc-emisor-cc-tab')) $('cc-emisor-cc-tab').value = state.cobroEmisor.cc || '1.015.409.172';
     if ($('cc-emisor-city-tab')) $('cc-emisor-city-tab').value = state.cobroEmisor.city || 'Bogotá';
@@ -6618,9 +6876,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const cobroEntryList = $('cobro-entry-pending-list');
     if (cobroEntryList) {
       cobroEntryList.addEventListener('click', (e) => {
-        const row = e.target.closest('[data-cobro-num]');
-        if (row && row.dataset.cobroNum) {
-          openCobroForEditing(row.dataset.cobroNum);
+        const row = e.target.closest('[data-cobro-id], [data-cobro-num]');
+        if (row) {
+          const target = row.dataset.cobroId || row.dataset.cobroNum;
+          if (target) {
+            openCobroForEditing(target);
+          }
         }
       });
     }
@@ -6806,9 +7067,20 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       });
     }
 
+    const consecutivoModeTab = $('cc-consecutivo-mode-tab');
+    if (consecutivoModeTab) {
+      consecutivoModeTab.addEventListener('change', () => {
+        setCobroConsecutivoMode(consecutivoModeTab.value);
+      });
+    }
+
     const btnSaveEmisorTab = $('btn-save-emisor-tab');
     if (btnSaveEmisorTab) {
       btnSaveEmisorTab.addEventListener('click', () => {
+        if ($('cc-consecutivo-mode-tab')) {
+          state.cobroConsecutivoMode = $('cc-consecutivo-mode-tab').value;
+          setStorage('pr_cobro_consecutivo_mode', state.cobroConsecutivoMode);
+        }
         setStorage('pr_cobro_emisor', state.cobroEmisor);
         setStorage('pr_cobro_legal_text', state.cobroLegalText);
         setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
