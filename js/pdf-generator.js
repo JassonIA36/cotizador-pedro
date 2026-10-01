@@ -671,57 +671,79 @@
     const margin = 16;
     const contentWidth = pageWidth - (margin * 2);
 
-    let yPos = 22;
+    let yPos = 16;
 
     function checkPageBreak(neededHeight) {
       if (yPos + neededHeight > pageHeight - 20) {
         doc.addPage();
-        yPos = 24;
+        yPos = 26;
         return true;
       }
       return false;
     }
 
-    // 1. Logo (si está activado y existe)
-    if (data.includeLogo !== false && window.PEDRO_ROA_LOGO) {
+    // Fila 1: Logo a la izquierda (máx 60px / 16mm) y etiqueta a la derecha
+    // Si el logo está desactivado, no ocupa espacio.
+    const headerTag = (data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO').toUpperCase();
+    const hasLogo = (data.includeLogo !== false) && !!window.PEDRO_ROA_LOGO;
+
+    if (hasLogo) {
       try {
-        const logoSize = 18;
-        const logoX = (pageWidth - logoSize) / 2;
-        doc.addImage(window.PEDRO_ROA_LOGO, 'PNG', logoX, yPos, logoSize, logoSize);
-        yPos += logoSize + 4;
+        const logoSize = 16; // 16mm ≈ 60px
+        doc.addImage(window.PEDRO_ROA_LOGO, 'PNG', margin, yPos, logoSize, logoSize);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(14, 116, 144); // #0e7490
+        doc.text(headerTag, pageWidth - margin, yPos + 8.5, { align: 'right' });
+        
+        // Margen al siguiente bloque de al menos 16px (6mm ≈ 23px)
+        yPos += logoSize + 6;
       } catch (e) {
         console.warn('Could not add logo image to Informe:', e);
-        yPos += 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(14, 116, 144);
+        doc.text(headerTag, pageWidth - margin, yPos + 4, { align: 'right' });
+        yPos += 10;
       }
     } else {
-      yPos += 2;
+      // Logo desactivado: no ocupa espacio
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(14, 116, 144);
+      doc.text(headerTag, pageWidth - margin, yPos + 4, { align: 'right' });
+      yPos += 10; // Margen de separación hacia el título
     }
 
-    // 2. Título Principal
+    // Bloque 2: Título Principal y Subtítulo (debajo con margen superior >= 16px)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(17);
+    doc.setFontSize(16);
     doc.setTextColor(15, 23, 42); // #0f172a
     const titleText = data.title || 'INFORME TÉCNICO';
     doc.text(titleText, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 6;
+    yPos += 5.5;
 
     // Número de informe opcional en encabezado
-    if (data.showNumberInDoc && data.informeNumber) {
+    const numToDisplay = (data.showNumber && data.number) 
+      ? data.number 
+      : ((data.showNumberInDoc && data.informeNumber) ? `N° ${data.informeNumber}` : '');
+    if (numToDisplay) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`N° ${data.informeNumber}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 5;
+      doc.setTextColor(2, 132, 199); // #0284c7
+      doc.text(numToDisplay, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 4.5;
     }
 
-    // 3. Subtítulo
+    // Subtítulo
     if (data.subtitle) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(10.5);
       doc.setTextColor(30, 41, 59);
       const splitSub = doc.splitTextToSize(data.subtitle, contentWidth - 10);
       doc.text(splitSub, pageWidth / 2, yPos, { align: 'center' });
-      yPos += (splitSub.length * 5) + 3;
+      yPos += (splitSub.length * 4.8) + 4;
     } else {
       yPos += 3;
     }
@@ -994,16 +1016,20 @@
     rightY += 19;
     doc.text(`Fecha: ${elab.fecha || data.reportDateFormatted || 'Hoy'}`, rightColX, rightY);
 
-    // 7. Post-proceso: Dibujar encabezado y pie de página en TODAS las páginas
+    // 7. Post-proceso: Dibujar encabezado y pie de página en páginas correspondientes
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(14, 116, 144); // #0e7490
-      const headerTag = (data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO').toUpperCase();
-      doc.text(headerTag, pageWidth - margin, 13, { align: 'right' });
+      // El encabezado repetido solo se dibuja en páginas 2 en adelante
+      // (la página 1 ya incluye el encabezado unificado en la primera fila con el logo)
+      if (p > 1) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(14, 116, 144); // #0e7490
+        const headerTag = (data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO').toUpperCase();
+        doc.text(headerTag, pageWidth - margin, 12, { align: 'right' });
+      }
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);

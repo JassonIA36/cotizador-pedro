@@ -5248,6 +5248,37 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     };
   }
 
+  // Función unificada para generar el encabezado del Informe Técnico (Flujo normal sin absolute ni float)
+  function renderInformeHeaderHtml(data) {
+    if (!data) data = {};
+    const headerTag = escapeHtml(data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO');
+    const title = escapeHtml(data.title || 'INFORME TÉCNICO');
+    const subtitle = data.subtitle ? `<div class="doc-informe-subtitle">${escapeHtml(data.subtitle)}</div>` : '';
+    const numberText = data.showNumber ? escapeHtml(data.number || '') : '';
+    const numberBadge = numberText ? `<div class="doc-informe-num-badge">${numberText}</div>` : '';
+
+    // Fila 1: Logo a la izquierda (máx 60px, auto, contain, flex-shrink: 0) y tag a la derecha
+    // Si el logo está desactivado (includeLogo === false), no se renderiza y no ocupa espacio.
+    const logoHtml = (data.includeLogo !== false)
+      ? `<img src="assets/logo.png" alt="Logo" class="doc-informe-header-logo">`
+      : '';
+
+    return `
+      <div class="doc-informe-header">
+        <div class="doc-informe-header-row">
+          ${logoHtml}
+          <div class="doc-informe-header-tag doc-informe-top-tag">${headerTag}</div>
+        </div>
+        <div class="doc-informe-title-block">
+          <h1 class="doc-informe-title">${title}</h1>
+          ${numberBadge}
+          ${subtitle}
+        </div>
+      </div>
+    `;
+  }
+  window.renderInformeHeaderHtml = renderInformeHeaderHtml;
+
   // Generador unificado de HTML para la vista previa oficial y para impresión
   function renderInformeDocumentHtml(data) {
     if (!data) data = getInformeDataFromForm();
@@ -5333,14 +5364,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     return `
       <div class="doc-informe-page-wrapper">
-        <div class="doc-informe-top-tag">${escapeHtml(data.headerTag || 'SERVICIO TÉCNICO · INFORME DE DIAGNÓSTICO')}</div>
-        
-        <div class="doc-informe-header">
-          ${data.includeLogo ? '<div style="margin-bottom: 12px;"><img src="assets/logo.png" alt="Logo" class="doc-informe-logo" style="width: 54px; height: 54px; object-fit: contain;"></div>' : ''}
-          <h1 class="doc-informe-title">${escapeHtml(data.title || 'INFORME TÉCNICO')}</h1>
-          ${data.subtitle ? `<div class="doc-informe-subtitle">${escapeHtml(data.subtitle)}</div>` : ''}
-          ${data.showNumber ? `<div style="font-size: 0.82rem; color: #0284c7; font-weight: 600; margin-top: 4px;">${escapeHtml(data.number)}</div>` : ''}
-        </div>
+        ${renderInformeHeaderHtml(data)}
 
         <div class="doc-informe-ficha">
           <div class="doc-informe-ficha-row-top">
