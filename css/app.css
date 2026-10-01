@@ -2623,6 +2623,63 @@ button.btn-icon {
 .toast-msg.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary, #3b82f6);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-full, 9999px);
+  padding: 5px 13px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.toast-action-btn:hover {
+  background: var(--primary-hover, #2563eb);
+  transform: scale(1.03);
+}
+
+/* Estado del Documento Arriba del Formulario */
+.form-doc-status-wrap {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.form-doc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  transition: all 0.2s ease;
+}
+
+.form-doc-status-badge.status-new {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.form-doc-status-badge.status-editing {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.38);
 }
 
 /* ==========================================================================

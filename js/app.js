@@ -1964,6 +1964,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     history: getStorage('pr_history', []),
     deferredInstallPrompt: null,
 
+    // Estado de Edición de Documentos (Historial vs Nuevo)
+    editingQuote: null,
+    quoteIsDirty: false,
+    editingCobro: null,
+    cobroIsDirty: false,
+    editingInforme: null,
+    informeIsDirty: false,
+
     // Cuentas de Cobro State
     cobroEmisor: getStorage('pr_cobro_emisor', DEFAULT_COBRO_EMISOR),
     cobroFirma: getStorage('pr_cobro_firma', ''),
@@ -2388,9 +2396,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
     
+    state.editingQuote = { id: saved.id, number: saved.quoteNumber, client: saved.clientName };
+    state.quoteIsDirty = false;
+
     switchSubview('view-cotizador', 'cotizaciones');
     renderQuoteItems();
     renderLivePreview();
+    updateFormStatusBadges();
     showToast(`Cotización ${saved.quoteNumber} cargada`, '📋');
   }
 
@@ -2414,9 +2426,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
     
+    state.editingQuote = null;
+    state.quoteIsDirty = true;
+
     switchSubview('view-cotizador', 'cotizaciones');
     renderQuoteItems();
     renderLivePreview();
+    updateFormStatusBadges();
     showToast(`Cotización duplicada como ${getQuoteIdString()}`, '📑');
   }
 
@@ -2818,6 +2834,248 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     };
   }
 
+  // --- Form Status Badges & Notice Helpers ---
+  function updateFormStatusBadges() {
+    // 1. Cotizaciones
+    const cotBadge = $('cot-form-status-badge');
+    const cotCardBadge = $('preview-quote-badge');
+    if (state.editingQuote) {
+      const client = ($('q-client-name') ? $('q-client-name').value.trim() : '') || state.editingQuote.client || 'Cliente General';
+      const num = state.editingQuote.number || getQuoteIdString();
+      const txt = `Editando cotización N° ${num} – ${client}`;
+      if (cotBadge) {
+        cotBadge.textContent = txt;
+        cotBadge.className = 'form-doc-status-badge status-editing';
+      }
+      if (cotCardBadge) cotCardBadge.textContent = txt;
+    } else {
+      const txt = 'Documento nuevo';
+      if (cotBadge) {
+        cotBadge.textContent = txt;
+        cotBadge.className = 'form-doc-status-badge status-new';
+      }
+      if (cotCardBadge) cotCardBadge.textContent = txt;
+    }
+
+    // 2. Cuentas de Cobro
+    const cobroBadge = $('cobro-form-status-badge');
+    const cobroCardBadge = $('cc-badge-number');
+    if (state.editingCobro) {
+      const client = ($('cc-client-name') ? $('cc-client-name').value.trim() : '') || state.editingCobro.client || 'Cliente General';
+      const num = state.editingCobro.number || String(state.cobroNum || 1).padStart(3, '0');
+      const txt = `Editando cuenta N° ${num} – ${client}`;
+      if (cobroBadge) {
+        cobroBadge.textContent = txt;
+        cobroBadge.className = 'form-doc-status-badge status-editing';
+      }
+      if (cobroCardBadge) cobroCardBadge.textContent = txt;
+    } else {
+      const txt = 'Documento nuevo';
+      if (cobroBadge) {
+        cobroBadge.textContent = txt;
+        cobroBadge.className = 'form-doc-status-badge status-new';
+      }
+      if (cobroCardBadge) cobroCardBadge.textContent = txt;
+    }
+
+    // 3. Informes Técnicos
+    const infBadge = $('inf-form-status-badge');
+    if (state.editingInforme) {
+      const client = ($('inf-client-name') ? $('inf-client-name').value.trim() : '') || state.editingInforme.client || 'Cliente General';
+      const num = state.editingInforme.number || ($('inf-num') ? $('inf-num').value : 'INF-0001');
+      const txt = `Editando informe N° ${num} – ${client}`;
+      if (infBadge) {
+        infBadge.textContent = txt;
+        infBadge.className = 'form-doc-status-badge status-editing';
+      }
+    } else {
+      const txt = 'Documento nuevo';
+      if (infBadge) {
+        infBadge.textContent = txt;
+        infBadge.className = 'form-doc-status-badge status-new';
+      }
+    }
+  }
+
+  function hasUnsavedQuoteChanges() {
+    if (state.quoteIsDirty) return true;
+    if (!state.editingQuote) {
+      const hasItems = state.currentQuote && state.currentQuote.items && state.currentQuote.items.length > 0;
+      const client = $('q-client-name') ? $('q-client-name').value.trim() : '';
+      const equip = $('q-equipment') ? $('q-equipment').value.trim() : '';
+      return hasItems || client.length > 0 || equip.length > 0;
+    }
+    return false;
+  }
+
+  function hasUnsavedCobroChanges() {
+    if (state.cobroIsDirty) return true;
+    if (!state.editingCobro) {
+      const client = $('cc-client-name') ? $('cc-client-name').value.trim() : '';
+      const validConceptos = (state.cobroConceptos || []).filter(c => (c.desc && c.desc.trim()) || (parseFloat(c.amount) > 0));
+      const validAdelantos = (state.cobroAdelantos || []).filter(a => (a.desc && a.desc.trim()) || (parseFloat(a.amount) > 0));
+      return client.length > 0 || validConceptos.length > 0 || validAdelantos.length > 0;
+    }
+    return false;
+  }
+
+  function hasUnsavedInformeChanges() {
+    if (state.informeIsDirty) return true;
+    if (!state.editingInforme) {
+      const client = $('inf-client-name') ? $('inf-client-name').value.trim() : '';
+      const equip = $('inf-equipment') ? $('inf-equipment').value.trim() : '';
+      const falla = $('inf-falla') ? $('inf-falla').value.trim() : '';
+      const props = (state.currentInformePropuestas || []).filter(p => (p.desc && p.desc.trim()) || (parseFloat(p.valor) > 0));
+      return client.length > 0 || (equip.length > 0 && equip !== 'Impresora Epson EcoTank L565') || (falla.length > 0 && falla !== 'Impresión con sombras / dominante azul') || props.length > 0;
+    }
+    return false;
+  }
+
+  // Aviso al guardar con botón para empezar un nuevo documento
+  function showSaveNotice(type, number, clientName) {
+    const toast = $('toast');
+    if (!toast) return;
+
+    let msg = '';
+    let btnText = '';
+    let onNew = null;
+
+    if (type === 'cobro') {
+      msg = `Guardada como Cuenta N° ${number} – ${clientName || 'Cliente General'}`;
+      btnText = 'Nueva cuenta de cobro';
+      onNew = () => handleNewCobro(false);
+    } else if (type === 'cotizacion') {
+      msg = `Guardada como Cotización N° ${number} – ${clientName || 'Cliente General'}`;
+      btnText = 'Nueva cotización';
+      onNew = () => handleNewQuote(false);
+    } else if (type === 'informe') {
+      msg = `Guardado como Informe N° ${number} – ${clientName || 'Cliente General'}`;
+      btnText = 'Nuevo informe';
+      onNew = () => handleNewInforme(false);
+    }
+
+    toast.innerHTML = `
+      <span style="display:inline-flex; align-items:center; gap:6px;">
+        <span>💾</span>
+        <span>${escapeHtml(msg)}</span>
+      </span>
+      <button type="button" class="toast-action-btn" id="toast-save-new-btn">
+        <span>✨</span> ${escapeHtml(btnText)}
+      </button>
+    `;
+
+    toast.classList.add('show');
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 6500);
+
+    const btn = $('toast-save-new-btn');
+    if (btn) {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        toast.classList.remove('show');
+        if (typeof onNew === 'function') onNew();
+      };
+    }
+  }
+
+  function handleNewQuote(askConfirm = true) {
+    if (askConfirm && hasUnsavedQuoteChanges()) {
+      if (!confirm('Hay cambios sin guardar, ¿empezar uno nuevo?')) {
+        return;
+      }
+    }
+    state.editingQuote = null;
+    state.quoteIsDirty = false;
+    state.quoteNumber = getCalculatedNextQuoteNum();
+    setStorage('pr_quote_num', state.quoteNumber);
+    triggerIncrementalSync();
+
+    state.currentQuote.items = [];
+    if ($('q-client-name')) $('q-client-name').value = '';
+    if ($('q-client-prefix')) $('q-client-prefix').value = '57';
+    if ($('q-client-phone')) $('q-client-phone').value = '';
+    if ($('q-equipment')) $('q-equipment').value = '';
+    if ($('q-discount')) $('q-discount').value = 0;
+    if ($('q-delivery')) $('q-delivery').value = 0;
+    if ($('q-tax')) $('q-tax').value = 0;
+    if ($('q-notes')) $('q-notes').value = (state.business && state.business.terms) ? state.business.terms : '';
+
+    renderQuoteItems();
+    renderLivePreview();
+    updateFormStatusBadges();
+    showToast(`Nueva cotización ${getQuoteIdString()} lista`, '✨');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleNewCobro(askConfirm = true) {
+    if (askConfirm && hasUnsavedCobroChanges()) {
+      if (!confirm('Hay cambios sin guardar, ¿empezar uno nuevo?')) {
+        return;
+      }
+    }
+    state.editingCobro = null;
+    state.cobroIsDirty = false;
+
+    saveCobroClient(state.cobroClientName, state.cobroClientNit);
+
+    // Aumentar consecutivo
+    state.cobroNum = (parseInt(state.cobroNum, 10) || 12) + 1;
+    setStorage('pr_cobro_num', state.cobroNum);
+    if ($('cc-num')) $('cc-num').value = state.cobroNum;
+
+    // Limpiar cliente
+    state.cobroClientName = '';
+    state.cobroClientNit = '';
+    setStorage('pr_cobro_client_name', '');
+    setStorage('pr_cobro_client_nit', '');
+    if ($('cc-client-name')) $('cc-client-name').value = '';
+    if ($('cc-client-nit')) $('cc-client-nit').value = '';
+
+    // Fecha actual
+    const todayIso = new Date().toISOString().split('T')[0];
+    state.cobroDocDate = todayIso;
+    setStorage('pr_cobro_doc_date', todayIso);
+    if ($('cc-doc-date')) $('cc-doc-date').value = todayIso;
+
+    // Limpiar conceptos y adelantos
+    state.cobroConceptos = [{ desc: '', amount: 0 }];
+    setStorage('pr_cobro_conceptos', state.cobroConceptos);
+    renderCobroConceptos();
+
+    state.cobroAdelantos = [];
+    setStorage('pr_cobro_adelantos', state.cobroAdelantos);
+    renderCobroAdelantos();
+
+    // Al crear nueva cuenta, el campo vuelve a cargar el texto predeterminado actual y se activa la casilla
+    state.cobroNotes = state.cobroDefaultNotes || DEFAULT_COBRO_NOTES;
+    state.cobroIncludeNotes = true;
+    setStorage('pr_cobro_notes', state.cobroNotes);
+    setStorage('pr_cobro_include_notes', true);
+    if ($('cc-notes')) $('cc-notes').value = state.cobroNotes;
+    if ($('cc-include-notes')) $('cc-include-notes').checked = true;
+
+    renderCobroPreview();
+    updateFormStatusBadges();
+    showToast(`Nueva cuenta de cobro N° ${String(state.cobroNum).padStart(3, '0')} iniciada`, '✨');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleNewInforme(askConfirm = true) {
+    if (askConfirm && hasUnsavedInformeChanges()) {
+      if (!confirm('Hay cambios sin guardar, ¿empezar uno nuevo?')) {
+        return;
+      }
+    }
+    state.editingInforme = null;
+    state.informeIsDirty = false;
+
+    resetInformeForm();
+    updateFormStatusBadges();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   // --- Save / History Helpers ---
   function saveCurrentToHistory(auto = false) {
     if (state.currentQuote.items.length === 0) return;
@@ -2836,7 +3094,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
     setStorage('pr_history', state.history);
     renderHistory();
-    if (!auto) showToast('Cotización guardada en el historial', '💾');
+    state.editingQuote = { id: data.id, number: data.quoteNumber, client: data.clientName };
+    state.quoteIsDirty = false;
+    updateFormStatusBadges();
+    if (!auto) {
+      showSaveNotice('cotizacion', data.quoteNumber, data.clientName);
+    }
     triggerIncrementalSync();
   }
 
@@ -3866,46 +4129,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const btnNew = $('btn-cc-new');
     if (btnNew) {
       btnNew.addEventListener('click', () => {
-        saveCobroClient(state.cobroClientName, state.cobroClientNit);
-
-        // Aumentar consecutivo
-        state.cobroNum = (parseInt(state.cobroNum, 10) || 12) + 1;
-        setStorage('pr_cobro_num', state.cobroNum);
-        if ($('cc-num')) $('cc-num').value = state.cobroNum;
-
-        // Limpiar cliente
-        state.cobroClientName = '';
-        state.cobroClientNit = '';
-        setStorage('pr_cobro_client_name', '');
-        setStorage('pr_cobro_client_nit', '');
-        if ($('cc-client-name')) $('cc-client-name').value = '';
-        if ($('cc-client-nit')) $('cc-client-nit').value = '';
-
-        // Fecha actual
-        const todayIso = new Date().toISOString().split('T')[0];
-        state.cobroDocDate = todayIso;
-        setStorage('pr_cobro_doc_date', todayIso);
-        if ($('cc-doc-date')) $('cc-doc-date').value = todayIso;
-
-        // Limpiar conceptos y adelantos
-        state.cobroConceptos = [{ desc: '', amount: 0 }];
-        setStorage('pr_cobro_conceptos', state.cobroConceptos);
-        renderCobroConceptos();
-
-        state.cobroAdelantos = [];
-        setStorage('pr_cobro_adelantos', state.cobroAdelantos);
-        renderCobroAdelantos();
-
-        // Al crear nueva cuenta, el campo vuelve a cargar el texto predeterminado actual y se activa la casilla
-        state.cobroNotes = state.cobroDefaultNotes || DEFAULT_COBRO_NOTES;
-        state.cobroIncludeNotes = true;
-        setStorage('pr_cobro_notes', state.cobroNotes);
-        setStorage('pr_cobro_include_notes', true);
-        if ($('cc-notes')) $('cc-notes').value = state.cobroNotes;
-        if ($('cc-include-notes')) $('cc-include-notes').checked = true;
-
-        renderCobroPreview();
-        showToast(`Nueva cuenta de cobro N° ${String(state.cobroNum).padStart(3, '0')} iniciada`, '✨');
+        handleNewCobro(true);
       });
     }
   }
@@ -3979,8 +4203,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     setStorage('pr_cobro_history', state.cobroHistory);
     updateBadges();
     renderCobroHistory();
+    const numStr = String(data.cobroNumber || data.cobroNum).padStart(3, '0');
+    state.editingCobro = { num: data.cobroNum, number: numStr, client: data.clientName };
+    state.cobroIsDirty = false;
+    updateFormStatusBadges();
     if (showToastMsg) {
-      showToast(`Cuenta de cobro N° ${data.cobroNumber} guardada en el historial`, '💾');
+      showSaveNotice('cobro', numStr, data.clientName);
     }
     triggerIncrementalSync();
     return true;
@@ -4168,8 +4396,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderCobroAdelantos();
     renderCobroPreview();
 
+    const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
+    state.editingCobro = { num: item.cobroNum, number: numStr, client: item.clientName };
+    state.cobroIsDirty = false;
+
     switchSubview('view-cuentas-cobro');
-    showToast(`Cuenta de cobro N° ${String(state.cobroNum).padStart(3, '0')} cargada para edición`, '✏️');
+    updateFormStatusBadges();
+    showToast(`Cuenta de cobro N° ${numStr} cargada para edición`, '✏️');
   }
 
   // Duplicar cuenta de cobro con nuevo número
@@ -4218,7 +4451,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderCobroAdelantos();
     renderCobroPreview();
 
+    state.editingCobro = null;
+    state.cobroIsDirty = true;
+
     switchSubview('view-cuentas-cobro');
+    updateFormStatusBadges();
     showToast(`Cuenta duplicada como N° ${String(nextNum).padStart(3, '0')}. Modifica lo que necesites y guárdala.`, '📑');
   }
 
@@ -5023,10 +5260,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     setStorage('pr_informe_history', state.informeHistory);
     updateBadges();
-    renderInformeHistory();
+    state.editingInforme = { id: data.id, number: data.number, client: data.clientName };
+    state.informeIsDirty = false;
+    updateFormStatusBadges();
 
     if (showToastMsg) {
-      showToast(`Informe técnico ${data.number} guardado con éxito`, '💾');
+      showSaveNotice('informe', data.number, data.clientName);
     }
     triggerIncrementalSync();
     return true;
@@ -5034,6 +5273,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // Restablecer formulario para un nuevo informe
   function resetInformeForm() {
+    state.editingInforme = null;
+    state.informeIsDirty = false;
     state.currentInformeId = generateUUID();
     state.currentInformeStatus = 'Borrador';
     
@@ -5083,6 +5324,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderInformePropuestasUI();
     renderInformeCustomSectionsUI();
     renderInformePreview();
+    updateFormStatusBadges();
 
     showToast(`Nuevo informe ${nextNumber} preparado`, '✨');
   }
@@ -5141,7 +5383,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderInformeCustomSectionsUI();
     renderInformePreview();
 
+    state.editingInforme = { id: item.id, number: item.number, client: item.clientName };
+    state.informeIsDirty = false;
+
     switchSubview('view-informe-tecnico');
+    updateFormStatusBadges();
     showToast(`Informe ${item.number} cargado para edición`, '📖');
   }
 
@@ -5151,6 +5397,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     if (!item) return;
 
     loadInformeFromHistory(idOrNum);
+    state.editingInforme = null;
+    state.informeIsDirty = true;
     state.currentInformeId = generateUUID();
     state.currentInformeStatus = 'Borrador';
 
@@ -5163,6 +5411,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     if ($('inf-elab-date')) $('inf-elab-date').value = formatSpanishDate(todayIso);
 
     renderInformePreview();
+    updateFormStatusBadges();
     showToast(`Copia creada con consecutivo ${newNum}. Puedes modificarla y guardarla.`, '📋');
   }
 
@@ -5231,8 +5480,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderCobroAdelantos();
     renderCobroPreview();
 
+    state.editingCobro = null;
+    state.cobroIsDirty = true;
+
     enterSection('cuentas-cobro', 'view-cuentas-cobro');
-    showToast('Datos del informe cargados en Nueva Cuenta de Cobro. Revisa y guarda cuando estés listo.', '💼');
+    updateFormStatusBadges();
+    showToast('Datos del informe cargados en Cuenta de cobro actual. Revisa y guarda cuando estés listo.', '💼');
   }
 
   function createCotizacionFromInforme(id) {
@@ -5269,8 +5522,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     renderQuoteItems();
     renderLivePreview();
 
+    state.editingQuote = null;
+    state.quoteIsDirty = true;
+
     enterSection('cotizaciones', 'view-cotizador');
-    showToast('Datos del informe cargados en Nueva Cotización. Revisa y guarda cuando estés listo.', '📋');
+    updateFormStatusBadges();
+    showToast('Datos del informe cargados en Cotización actual. Revisa y guarda cuando estés listo.', '📋');
   }
 
   // Renderizar lista del Historial de Informes Técnicos
@@ -5849,7 +6106,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     const btnNew = $('btn-inf-new');
     if (btnNew) {
-      btnNew.addEventListener('click', resetInformeForm);
+      btnNew.addEventListener('click', () => handleNewInforme(true));
     }
 
     const btnPreviewPdf = $('btn-inf-preview-pdf');
@@ -6092,14 +6349,14 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   };
 
   const SUBVIEW_NAMES_MAP = {
-    'view-cotizador': 'Nueva Cotización',
+    'view-cotizador': 'Cotización actual',
     'view-historial': 'Historial de Cotizaciones',
     'view-catalogo': 'Catálogo de Precios',
     'view-config': 'Mi Negocio',
-    'view-cuentas-cobro': 'Nueva Cuenta',
+    'view-cuentas-cobro': 'Cuenta de cobro actual',
     'view-cobro-historial': 'Historial de Cuentas',
     'view-cobro-emisor': 'Mis Datos de Emisor',
-    'view-informe-tecnico': 'Nuevo informe',
+    'view-informe-tecnico': 'Informe actual',
     'view-informe-historial': 'Historial de informes',
     'view-informe-plantillas': 'Plantillas',
     'view-informe-datos': 'Mis datos'
@@ -6297,6 +6554,31 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       });
     });
 
+    // Detección de cambios y actualización dinámica de etiquetas de estado
+    const cotContainer = $('view-cotizador');
+    if (cotContainer) {
+      cotContainer.addEventListener('input', () => {
+        state.quoteIsDirty = true;
+        updateFormStatusBadges();
+      });
+    }
+
+    const cobroContainer = $('view-cuentas-cobro');
+    if (cobroContainer) {
+      cobroContainer.addEventListener('input', () => {
+        state.cobroIsDirty = true;
+        updateFormStatusBadges();
+      });
+    }
+
+    const infContainer = $('view-informe-tecnico');
+    if (infContainer) {
+      infContainer.addEventListener('input', () => {
+        state.informeIsDirty = true;
+        updateFormStatusBadges();
+      });
+    }
+
     // Botones de las tarjetas resumen de entrada para ir al historial completo
     const btnCobroEntryHist = $('btn-cobro-entry-view-history');
     if (btnCobroEntryHist) {
@@ -6316,7 +6598,6 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const btnHistNewInf = $('btn-hist-create-new-inf');
     if (btnHistNewInf) {
       btnHistNewInf.addEventListener('click', () => {
-        resetInformeForm();
         switchSubview('view-informe-tecnico');
       });
     }
@@ -6324,7 +6605,6 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const btnPlantillasNewInf = $('btn-plantillas-new-inf');
     if (btnPlantillasNewInf) {
       btnPlantillasNewInf.addEventListener('click', () => {
-        resetInformeForm();
         switchSubview('view-informe-tecnico');
       });
     }
@@ -6871,29 +7151,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     // New Quote Button
     $('btn-new-quote').addEventListener('click', () => {
-      if (state.currentQuote.items.length > 0) {
-        if (!confirm('¿Crear una nueva cotización? Se incrementará el consecutivo y se limpiará el formulario actual.')) {
-          return;
-        }
-      }
-      state.quoteNumber = getCalculatedNextQuoteNum();
-      setStorage('pr_quote_num', state.quoteNumber);
-      triggerIncrementalSync();
-
-      state.currentQuote.items = [];
-      $('q-client-name').value = '';
-      if ($('q-client-prefix')) $('q-client-prefix').value = '57';
-      $('q-client-phone').value = '';
-      $('q-equipment').value = '';
-      $('q-discount').value = 0;
-      $('q-delivery').value = 0;
-      $('q-tax').value = 0;
-      $('q-notes').value = state.business.terms;
-
-      renderQuoteItems();
-      renderLivePreview();
-      showToast(`Nueva cotización ${getQuoteIdString()} lista`, '✨');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      handleNewQuote(true);
     });
 
     // ==========================================
@@ -7090,6 +7348,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   function boot() {
     initForm();
     setupEvents();
+    updateFormStatusBadges();
   }
 
   if (document.readyState === 'loading') {

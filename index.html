@@ -99,7 +99,7 @@
         <!-- Submenú Cotizaciones -->
         <div id="submenu-cotizaciones" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cotizaciones" style="display: none;">
           <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
-            <span>✨</span> Nueva Cotización
+            <span>📝</span> Cotización actual
           </button>
           <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">
             <span>📜</span> Historial <span class="badge-count" id="badge-quotes-count">0</span>
@@ -115,7 +115,7 @@
         <!-- Submenú Cuentas de Cobro -->
         <div id="submenu-cuentas-cobro" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cuentas de Cobro" style="display: none;">
           <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">
-            <span>✨</span> Nueva Cuenta
+            <span>📝</span> Cuenta de cobro actual
           </button>
           <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">
             <span>📜</span> Historial <span class="badge-count" id="badge-cobros-count">0</span>
@@ -128,7 +128,7 @@
         <!-- Submenú Informes Técnicos -->
         <div id="submenu-informes" class="submenu-nav-group" role="tablist" aria-label="Opciones de Informes Técnicos" style="display: none;">
           <button type="button" class="subnav-btn tab-btn active" data-subview="view-informe-tecnico" data-view="view-informe-tecnico" role="tab" aria-selected="true">
-            <span>✨</span> Nuevo informe
+            <span>📝</span> Informe actual
           </button>
           <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-historial" data-view="view-informe-historial" role="tab" aria-selected="false">
             <span>📜</span> Historial <span class="badge-count" id="badge-informes-count">0</span>
@@ -183,7 +183,7 @@
             <p class="hub-card-desc">Crea cotizaciones para tus clientes, revisa el historial, actualiza precios y personaliza tu negocio con presupuestos profesionales.</p>
             
             <div class="hub-card-pills">
-              <span class="hub-pill">✨ Nueva cotización</span>
+              <span class="hub-pill">📝 Cotización actual</span>
               <span class="hub-pill">📜 Historial</span>
               <span class="hub-pill">📦 Catálogo</span>
               <span class="hub-pill">⚙️ Mi Negocio</span>
@@ -218,7 +218,7 @@
             <p class="hub-card-desc">Emite cuentas de cobro con formato legal y firma, controla saldos pendientes, genera PDFs listos y envía directamente por WhatsApp.</p>
             
             <div class="hub-card-pills">
-              <span class="hub-pill">✨ Nueva cuenta</span>
+              <span class="hub-pill">📝 Cuenta de cobro actual</span>
               <span class="hub-pill">📜 Historial con pagos</span>
               <span class="hub-pill">👤 Mis Datos</span>
             </div>
@@ -252,7 +252,7 @@
             <p class="hub-card-desc">Elabora diagnósticos técnicos para computadores, impresoras y hardware con pruebas realizadas, propuesta económica de reparación y formato oficial en PDF.</p>
             
             <div class="hub-card-pills">
-              <span class="hub-pill">✨ Nuevo informe</span>
+              <span class="hub-pill">📝 Informe actual</span>
               <span class="hub-pill">📜 Historial</span>
               <span class="hub-pill">📑 Plantillas</span>
               <span class="hub-pill">👤 Mis Datos</span>
@@ -343,13 +343,18 @@
             </div>
           </div>
 
+          <!-- Estado del Documento Actual -->
+          <div class="form-doc-status-wrap">
+            <span class="form-doc-status-badge status-new" id="cot-form-status-badge">Documento nuevo</span>
+          </div>
+
           <!-- Datos del Cliente -->
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
                 <span>👤</span> Datos del Cliente
               </div>
-              <span class="card-badge" id="preview-quote-badge">Cotización Activa</span>
+              <span class="card-badge" id="preview-quote-badge">Documento nuevo</span>
             </div>
             <div class="form-grid">
               <div class="input-group">
@@ -483,7 +488,7 @@
                 <span>🖨️</span> Imprimir
               </button>
               <button id="btn-new-quote" class="btn-danger">
-                <span>✨</span> Nueva Cotización
+                <span>✨</span> Nueva cotización
               </button>
             </div>
           </div>
@@ -731,13 +736,18 @@
             </div>
           </div>
 
+          <!-- Estado del Documento Actual -->
+          <div class="form-doc-status-wrap">
+            <span class="form-doc-status-badge status-new" id="cobro-form-status-badge">Documento nuevo</span>
+          </div>
+
           <!-- Datos de la Cuenta Actual -->
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
                 <span>📄</span> Datos de la Cuenta
               </div>
-              <span class="card-badge" id="cc-badge-number">Cuenta 012</span>
+              <span class="card-badge" id="cc-badge-number">Documento nuevo</span>
             </div>
             
             <div class="form-grid">
@@ -885,7 +895,7 @@
                 <span>🖨️</span> Imprimir
               </button>
               <button id="btn-cc-new" type="button" class="btn-danger">
-                <span>✨</span> Nueva Cuenta de Cobro
+                <span>✨</span> Nueva cuenta de cobro
               </button>
             </div>
           </div>
@@ -1037,7 +1047,7 @@
             <span>📜</span> Historial de Cuentas de Cobro
           </div>
           <button type="button" class="btn-primary" id="btn-hist-create-new-cobro" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-            <span>✨</span> Nueva Cuenta
+            <span>📝</span> Cuenta de cobro actual
           </button>
         </div>
         
@@ -1461,6 +1471,11 @@
             </div>
           </div>
 
+          <!-- Estado del Documento Actual -->
+          <div class="form-doc-status-wrap">
+            <span class="form-doc-status-badge status-new" id="inf-form-status-badge">Documento nuevo</span>
+          </div>
+
           <!-- 1. Encabezado del Informe -->
           <div class="card np">
             <div class="card-header">
@@ -1748,7 +1763,7 @@
                 <span>🖨️</span> Imprimir / PDF
               </button>
               <button id="btn-inf-new" type="button" class="btn-danger">
-                <span>✨</span> Nuevo Informe
+                <span>✨</span> Nuevo informe
               </button>
             </div>
           </div>
@@ -1798,7 +1813,7 @@
               🛠️ Reparar sincronización
             </button>
             <button type="button" class="btn-primary" id="btn-hist-create-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-              <span>✨</span> Nuevo Informe
+              <span>📝</span> Informe actual
             </button>
           </div>
         </div>
@@ -1884,7 +1899,7 @@
             <span>📑</span> Plantillas de Informes Técnicos
           </div>
           <button type="button" class="btn-primary" id="btn-plantillas-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-            <span>✨</span> Nuevo Informe
+            <span>📝</span> Informe actual
           </button>
         </div>
         <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
@@ -1907,7 +1922,7 @@
             <span>👤</span> Mis Datos · Informes Técnicos
           </div>
           <button type="button" class="btn-secondary" id="btn-back-to-inf-form" style="padding: 6px 12px; font-size: 0.8rem; min-height: 38px;">
-            ← Ir a Crear Informe
+            ← Ir a Informe actual
           </button>
         </div>
         
