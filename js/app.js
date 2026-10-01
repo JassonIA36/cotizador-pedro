@@ -2814,7 +2814,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         cobroListEl.innerHTML = recentPending.map(item => `
           <div class="entry-pending-row" data-cobro-id="${item.id || ''}" data-cobro-num="${item.rawNum}" title="Toca para ver o editar esta cuenta">
             <div class="entry-pending-row-left">
-              <span class="entry-pending-num">Cuenta N° ${escapeHtml(item.num)} – ${escapeHtml(item.client)}</span>
+              <span class="entry-pending-num">Cuenta N° ${escapeHtml(item.num)}</span>
+              <span class="entry-pending-client">${escapeHtml(item.client)}</span>
             </div>
             <div class="entry-pending-row-right">
               <span class="entry-pending-amount">${formatMoney(item.saldo)}</span>
@@ -2918,11 +2919,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           return `
             <div class="entry-pending-row entry-inf-row" data-inf-id="${escapeHtml(item.id || '')}" data-inf-num="${escapeHtml(item.number || '')}" title="Toca para abrir y editar este informe">
               <div class="entry-pending-row-left">
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                  <span class="entry-pending-num" style="color: #38bdf8;">${escapeHtml(item.number || 'INF')}</span>
+                <div class="entry-pending-badge-group">
+                  <span class="entry-pending-num" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); background: rgba(56, 189, 248, 0.15);">${escapeHtml(item.number || 'INF')}</span>
                   <span class="card-badge ${badgeClass}" style="font-size: 0.68rem; padding: 1px 6px;">${escapeHtml(st)}</span>
                 </div>
-                <span class="entry-pending-client" style="font-size: 0.82rem;">${escapeHtml(item.clientName || 'Cliente General')} · ${escapeHtml(item.equipment || '')}</span>
+                <span class="entry-pending-client">${escapeHtml(item.clientName || 'Cliente General')}${item.equipment ? ' · ' + escapeHtml(item.equipment) : ''}</span>
               </div>
               <div class="entry-pending-row-right">
                 <span class="entry-pending-amount" style="color: #38bdf8; font-size: 0.84rem;">${formatMoneyCop(propTotal)}</span>
@@ -4671,7 +4672,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       return renderUnifiedHistoryCardHtml({
         type: 'cobro',
         id: item.id || item.cobroNum,
-        numberText: `Cuenta N° ${numStr} – ${item.clientName || 'Cliente General'}`,
+        numberText: `Cuenta N° ${numStr}`,
         numberClass: 'text-emerald',
         status: isPaid ? 'pagada' : 'pendiente',
         statusText: isPaid ? '✅ Pagada' : '⏳ Pendiente',
