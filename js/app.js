@@ -187,10 +187,23 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     return getStorage('pr_deleted_records', {});
   }
 
-  function recordTombstone(id, tipo) {
+  function recordTombstone(id, tipo, datos = null) {
     if (!id) return;
     const tombs = getTombstones();
-    tombs[id] = { id, tipo, deleted: true, updated_at: new Date().toISOString() };
+    const prev = tombs[id] || {};
+    let resolvedDatos = {};
+    if (datos && typeof datos === 'object' && Object.keys(datos).length > 0) {
+      resolvedDatos = { ...datos };
+    } else if (prev.datos && typeof prev.datos === 'object' && Object.keys(prev.datos).length > 0) {
+      resolvedDatos = { ...prev.datos };
+    }
+    tombs[id] = {
+      id,
+      tipo,
+      datos: resolvedDatos,
+      deleted: true,
+      updated_at: new Date().toISOString()
+    };
     setStorage('pr_deleted_records', tombs);
     markSyncPending();
   }
@@ -201,9 +214,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       let changed = false;
       Object.keys(tombs).forEach(id => {
         const cloudRec = cloudMap.get(id);
-        if (cloudRec && cloudRec.deleted === true) {
-          delete tombs[id];
-          changed = true;
+        if (cloudRec && (cloudRec.deleted === true || cloudRec.deleted === 'true')) {
+          if (!tombs[id].synced) {
+            tombs[id].synced = true;
+            changed = true;
+          }
         }
       });
       if (changed) {
@@ -530,15 +545,15 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       updated_at: consecutivoUpdatedAt
     });
 
-    // 7. Tombstones (eliminados localmente)
+    // 7. Tombstones (eliminados localmente con conservación de datos)
     const tombs = getTombstones();
     Object.values(tombs).forEach(tomb => {
       records.push({
         id: tomb.id,
         tipo: tomb.tipo,
-        datos: {},
+        datos: (tomb.datos && typeof tomb.datos === 'object') ? tomb.datos : {},
         deleted: true,
-        updated_at: tomb.updated_at
+        updated_at: tomb.updated_at || new Date().toISOString()
       });
     });
 
@@ -547,38 +562,22 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function applyCloudRecordToLocal(cloudRec) {
     try {
+      if (!cloudRec || typeof cloudRec !== 'object') return { success: false, reason: 'Registro nulo' };
       const { id, tipo, datos, deleted, updated_at } = cloudRec;
+      if (!id || !isValidUUID(id)) return { success: false, reason: 'ID UUID inválido' };
 
-      if (deleted) {
-        recordTombstone(id, tipo);
-        if (tipo === 'cotizacion') {
-          const idx = state.history.findIndex(h => h.id === id);
-          if (idx >= 0) {
-            state.history.splice(idx, 1);
-            setStorage('pr_history', state.history);
-          }
-        } else if (tipo === 'cuenta_cobro') {
-          const idx = state.cobroHistory.findIndex(h => h.id === id);
-          if (idx >= 0) {
-            state.cobroHistory.splice(idx, 1);
-            setStorage('pr_cobro_history', state.cobroHistory);
-          }
-        } else if (tipo === 'catalogo') {
-          const idx = state.catalog.findIndex(c => c.id === id);
-          if (idx >= 0) {
-            state.catalog.splice(idx, 1);
-            saveCatalogToStorage(state.catalog);
-          }
-        } else if (tipo === 'cliente') {
-          const idx = state.cobroClients.findIndex(c => c.id === id);
-          if (idx >= 0) {
-            state.cobroClients.splice(idx, 1);
-            setStorage('pr_cobro_clients', state.cobroClients);
-          }
-        } else if (tipo === 'informe_tecnico') {
+      const isDeleted = Boolean(deleted) || deleted === 'true';
+
+      if (isDeleted) {
+        // ROBUSTEZ: Si viene deleted=true, aplicar usando solo el id.
+        // No leer campos de "datos" y no fallar si está vacío o es nulo.
+        let existingLocalData = (datos && typeof datos === 'object' && Object.keys(datos).length > 0) ? { ...datos } : null;
+
+        if (tipo === 'informe_tecnico') {
           if (Array.isArray(state.informeHistory)) {
             const idx = state.informeHistory.findIndex(inf => inf.id === id);
             if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.informeHistory[idx] };
               state.informeHistory.splice(idx, 1);
               setStorage('pr_informe_history', state.informeHistory);
             }
@@ -587,73 +586,254 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           if (Array.isArray(state.informePlantillas)) {
             const idx = state.informePlantillas.findIndex(p => p.id === id);
             if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.informePlantillas[idx] };
               state.informePlantillas.splice(idx, 1);
               setStorage('pr_informe_plantillas', state.informePlantillas);
             }
           }
+        } else if (tipo === 'cotizacion') {
+          if (Array.isArray(state.history)) {
+            const idx = state.history.findIndex(h => h.id === id);
+            if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.history[idx] };
+              state.history.splice(idx, 1);
+              setStorage('pr_history', state.history);
+            }
+          }
+        } else if (tipo === 'cuenta_cobro') {
+          if (Array.isArray(state.cobroHistory)) {
+            const idx = state.cobroHistory.findIndex(h => h.id === id);
+            if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.cobroHistory[idx] };
+              state.cobroHistory.splice(idx, 1);
+              setStorage('pr_cobro_history', state.cobroHistory);
+            }
+          }
+        } else if (tipo === 'catalogo') {
+          if (Array.isArray(state.catalog)) {
+            const idx = state.catalog.findIndex(c => c.id === id);
+            if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.catalog[idx] };
+              state.catalog.splice(idx, 1);
+              saveCatalogToStorage(state.catalog);
+            }
+          }
+        } else if (tipo === 'cliente') {
+          if (Array.isArray(state.cobroClients)) {
+            const idx = state.cobroClients.findIndex(c => c.id === id);
+            if (idx >= 0) {
+              if (!existingLocalData) existingLocalData = { ...state.cobroClients[idx] };
+              state.cobroClients.splice(idx, 1);
+              setStorage('pr_cobro_clients', state.cobroClients);
+            }
+          }
         }
-        return;
+
+        recordTombstone(id, tipo, existingLocalData);
+        return { success: true, action: 'deleted' };
       }
 
       // Registro activo
-      if (tipo === 'cotizacion' && datos) {
-        const quote = { ...datos, id, updatedAt: updated_at };
-        const idx = state.history.findIndex(h => h.id === id || h.quoteNumber === quote.quoteNumber);
+      // Si datos viene vacío, nulo o no es objeto, no lanzar error: ignorar con aviso
+      if (!datos || typeof datos !== 'object' || Object.keys(datos).length === 0) {
+        console.warn(`[Sync] Registro activo ${tipo} (${id}) omitido por datos vacíos o nulos.`);
+        return { success: true, action: 'ignored_empty_data' };
+      }
+
+      if (tipo === 'cotizacion') {
+        const quote = {
+          quoteNumber: datos.quoteNumber || 'COT-0000',
+          date: datos.date || new Date().toISOString().split('T')[0],
+          status: datos.status || 'Borrador',
+          clientName: datos.clientName || 'Cliente General',
+          clientNit: datos.clientNit || '',
+          items: Array.isArray(datos.items) ? datos.items : [],
+          total: typeof datos.total === 'number' ? datos.total : 0,
+          subtotal: typeof datos.subtotal === 'number' ? datos.subtotal : 0,
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.history.findIndex(h => h.id === id);
+        if (idx < 0 && quote.quoteNumber && quote.quoteNumber !== 'COT-0000') {
+          idx = state.history.findIndex(h => h.quoteNumber === quote.quoteNumber);
+        }
         if (idx >= 0) {
           state.history[idx] = quote;
         } else {
           state.history.push(quote);
         }
         setStorage('pr_history', state.history);
-      } else if (tipo === 'cuenta_cobro' && datos) {
-        const cobro = { ...datos, id, updatedAt: updated_at };
-        const idx = state.cobroHistory.findIndex(h => h.id === id || parseInt(h.cobroNum, 10) === parseInt(cobro.cobroNum, 10));
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'cuenta_cobro') {
+        const cobro = {
+          cobroNum: datos.cobroNum || 1,
+          cobroNumber: datos.cobroNumber || ('CC-' + String(datos.cobroNum || 1).padStart(4, '0')),
+          date: datos.date || new Date().toISOString().split('T')[0],
+          status: datos.status || 'pendiente',
+          clientName: datos.clientName || 'Cliente General',
+          clientNit: datos.clientNit || '',
+          conceptos: Array.isArray(datos.conceptos) ? datos.conceptos : [],
+          adelantos: Array.isArray(datos.adelantos) ? datos.adelantos : [],
+          total: typeof datos.total === 'number' ? datos.total : 0,
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.cobroHistory.findIndex(h => h.id === id);
+        if (idx < 0 && cobro.cobroNum) {
+          const cNum = parseInt(cobro.cobroNum, 10);
+          if (!isNaN(cNum)) {
+            idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === cNum);
+          }
+        }
         if (idx >= 0) {
           state.cobroHistory[idx] = cobro;
         } else {
           state.cobroHistory.push(cobro);
         }
         setStorage('pr_cobro_history', state.cobroHistory);
-      } else if (tipo === 'informe_tecnico' && datos) {
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'informe_tecnico') {
         if (!Array.isArray(state.informeHistory)) state.informeHistory = [];
-        const inf = { ...datos, id, updatedAt: updated_at };
-        const idx = state.informeHistory.findIndex(h => h.id === id || h.informeNumber === inf.informeNumber);
+        const inf = {
+          number: datos.number || datos.informeNumber || 'INF-0000',
+          date: datos.date || new Date().toISOString().split('T')[0],
+          status: datos.status || 'Borrador',
+          clientName: datos.clientName || 'Cliente General',
+          clientNit: datos.clientNit || '',
+          equipment: datos.equipment || '',
+          serial: datos.serial || '',
+          serviceType: datos.serviceType || 'Mantenimiento Correctivo',
+          falla: datos.falla || '',
+          motivo: datos.motivo || '',
+          verificaciones: Array.isArray(datos.verificaciones) ? datos.verificaciones : [],
+          diagnostico: datos.diagnostico || '',
+          propuestaTexto: datos.propuestaTexto || '',
+          propuestaItems: Array.isArray(datos.propuestaItems) ? datos.propuestaItems : [],
+          propuestaTotal: typeof datos.propuestaTotal === 'number' ? datos.propuestaTotal : 0,
+          observaciones: datos.observaciones || '',
+          conclusion: datos.conclusion || '',
+          customSections: Array.isArray(datos.customSections) ? datos.customSections : [],
+          elaboroName: datos.elaboroName || '',
+          elaboroCargo: datos.elaboroCargo || '',
+          elaboroCorreo: datos.elaboroCorreo || '',
+          elaboroCelular: datos.elaboroCelular || '',
+          elaboroDate: datos.elaboroDate || '',
+          includeLogo: datos.includeLogo !== false,
+          includeFirma: datos.includeFirma !== false,
+          showNumber: datos.showNumber !== false,
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.informeHistory.findIndex(h => h.id === id);
+        if (idx < 0 && inf.number && inf.number !== 'INF-0000') {
+          idx = state.informeHistory.findIndex(h => h.number === inf.number);
+        }
         if (idx >= 0) {
           state.informeHistory[idx] = inf;
         } else {
           state.informeHistory.push(inf);
         }
         setStorage('pr_informe_history', state.informeHistory);
-      } else if (tipo === 'plantilla_informe' && datos) {
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'plantilla_informe') {
         if (!Array.isArray(state.informePlantillas)) state.informePlantillas = [];
-        const plant = { ...datos, id, updatedAt: updated_at };
-        const idx = state.informePlantillas.findIndex(p => p.id === id || p.name === plant.name);
+        const plant = {
+          name: datos.name || 'Plantilla',
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.informePlantillas.findIndex(p => p.id === id);
+        if (idx < 0 && plant.name) {
+          idx = state.informePlantillas.findIndex(p => p.name === plant.name);
+        }
         if (idx >= 0) {
           state.informePlantillas[idx] = plant;
         } else {
           state.informePlantillas.push(plant);
         }
         setStorage('pr_informe_plantillas', state.informePlantillas);
-      } else if (tipo === 'catalogo' && datos) {
-        const item = { ...datos, id, updatedAt: updated_at };
-        const idx = state.catalog.findIndex(c => c.id === id || (c.n === item.n && c.c === item.c));
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'catalogo') {
+        const item = {
+          c: datos.c || 'General',
+          n: datos.n || 'Producto',
+          p: typeof datos.p === 'number' ? datos.p : 0,
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.catalog.findIndex(c => c.id === id);
+        if (idx < 0 && item.n) {
+          idx = state.catalog.findIndex(c => c.n && item.n && c.n.toLowerCase() === item.n.toLowerCase() && c.c === item.c);
+        }
         if (idx >= 0) {
           state.catalog[idx] = item;
         } else {
           state.catalog.push(item);
         }
         saveCatalogToStorage(state.catalog);
-      } else if (tipo === 'cliente' && datos) {
-        const client = { ...datos, id, updatedAt: updated_at };
-        const idx = state.cobroClients.findIndex(c => c.id === id || (c.name && c.name.toLowerCase() === (client.name || '').toLowerCase()));
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'cliente') {
+        const client = {
+          name: datos.name || '',
+          nit: datos.nit || '',
+          ...datos,
+          id,
+          updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
+        };
+        let idx = state.cobroClients.findIndex(c => c.id === id);
+        if (idx < 0 && client.name) {
+          idx = state.cobroClients.findIndex(c => c.name && c.name.toLowerCase() === (client.name || '').toLowerCase());
+        }
         if (idx >= 0) {
           state.cobroClients[idx] = client;
         } else {
           state.cobroClients.push(client);
         }
         setStorage('pr_cobro_clients', state.cobroClients);
-      } else if (tipo === 'config' && datos) {
-        if (datos.business) {
+        const tombs = getTombstones();
+        if (tombs[id]) {
+          delete tombs[id];
+          setStorage('pr_deleted_records', tombs);
+        }
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'config') {
+        if (datos.business && typeof datos.business === 'object') {
           state.business = { ...state.business, ...datos.business };
           setStorage('pr_business', state.business);
           if ($('b-name')) $('b-name').value = state.business.name;
@@ -661,22 +841,22 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           if ($('b-address')) $('b-address').value = state.business.address || '';
           if ($('b-terms')) $('b-terms').value = state.business.terms || '';
         }
-        if (datos.cobroEmisor) {
+        if (datos.cobroEmisor && typeof datos.cobroEmisor === 'object') {
           state.cobroEmisor = { ...state.cobroEmisor, ...datos.cobroEmisor };
           setStorage('pr_cobro_emisor', state.cobroEmisor);
           syncEmisorTabUI();
         }
-        if (datos.cobroLegalText) {
+        if (typeof datos.cobroLegalText === 'string') {
           state.cobroLegalText = datos.cobroLegalText;
           setStorage('pr_cobro_legal_text', state.cobroLegalText);
           if ($('cc-legal-text-tab')) $('cc-legal-text-tab').value = state.cobroLegalText;
         }
-        if (datos.cobroDefaultNotes) {
+        if (typeof datos.cobroDefaultNotes === 'string') {
           state.cobroDefaultNotes = datos.cobroDefaultNotes;
           setStorage('pr_cobro_default_notes', state.cobroDefaultNotes);
           if ($('cc-default-notes-tab')) $('cc-default-notes-tab').value = state.cobroDefaultNotes;
         }
-        if (datos.informeConfig) {
+        if (datos.informeConfig && typeof datos.informeConfig === 'object') {
           state.informeConfig = { ...state.informeConfig, ...datos.informeConfig };
           setStorage('pr_informe_config', state.informeConfig);
           if (typeof syncInformeDatosUI === 'function') syncInformeDatosUI();
@@ -686,8 +866,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           setStorage('pr_cobro_firma', state.cobroFirma);
           renderCobroFirmaUI();
         }
-        setStorage('pr_config_updated_at', updated_at);
-      } else if (tipo === 'consecutivo' && datos) {
+        setStorage('pr_config_updated_at', updated_at || new Date().toISOString());
+        return { success: true, action: 'applied' };
+
+      } else if (tipo === 'consecutivo') {
         if (typeof datos.quoteNumber === 'number' && datos.quoteNumber > state.quoteNumber) {
           state.quoteNumber = datos.quoteNumber;
           setStorage('pr_quote_num', state.quoteNumber);
@@ -702,11 +884,51 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           setStorage('pr_informe_num', state.informeNum);
           if ($('inf-num')) $('inf-num').value = getInformeNumberString(state.informeNum);
         }
-        setStorage('pr_consecutivo_updated_at', updated_at);
+        setStorage('pr_consecutivo_updated_at', updated_at || new Date().toISOString());
+        return { success: true, action: 'applied' };
       }
+
+      return { success: true, action: 'unknown_type' };
     } catch (e) {
       console.warn('Error aplicando registro de nube a local:', e);
+      return { success: false, reason: e.message || String(e) };
     }
+  }
+
+  // Descarga paginada de filas desde Supabase
+  async function fetchSupabaseRowsWithPagination(filterTypes = null) {
+    if (!syncState.client) return [];
+    const pageSize = 500;
+    let from = 0;
+    let allRows = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = syncState.client
+        .from('registros')
+        .select('id, tipo, datos, deleted, updated_at')
+        .order('updated_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (filterTypes && Array.isArray(filterTypes) && filterTypes.length > 0) {
+        query = query.in('tipo', filterTypes);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allRows.push(...data);
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+    }
+    return allRows;
   }
 
   // Sincronización completa con Supabase
@@ -725,16 +947,16 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     setSyncStatus('syncing', 'Sincronizando...');
     updateSyncUI();
 
-    try {
-      // 1. Descargar registros del usuario en Supabase
-      const { data: cloudRows, error: fetchError } = await syncState.client
-        .from('registros')
-        .select('id, tipo, datos, deleted, updated_at');
+    const errors = [];
 
-      if (fetchError) throw fetchError;
+    try {
+      // 1. Descargar registros del usuario en Supabase con paginación
+      const cloudRows = await fetchSupabaseRowsWithPagination();
 
       const cloudMap = new Map();
-      (cloudRows || []).forEach(row => cloudMap.set(row.id, row));
+      (cloudRows || []).forEach(row => {
+        if (row && row.id) cloudMap.set(row.id, row);
+      });
 
       const cloudConfig = (cloudRows || []).find(r => r.tipo === 'config');
       if (cloudConfig) {
@@ -748,7 +970,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       // Preparar registros locales actuales
       const localRecords = getAllLocalRecords();
       const localMap = new Map();
-      localRecords.forEach(rec => localMap.set(rec.id, rec));
+      localRecords.forEach(rec => {
+        if (rec && rec.id) localMap.set(rec.id, rec);
+      });
 
       const toUpload = [];
       let uploadedCount = 0;
@@ -756,58 +980,78 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
       // 2. Comparar Local con Nube (subir nuevos o locales más recientes)
       for (const [id, localRec] of localMap.entries()) {
-        const cloudRec = cloudMap.get(id);
-        if (!cloudRec) {
-          toUpload.push({
-            id: localRec.id,
-            tipo: localRec.tipo,
-            datos: localRec.datos,
-            deleted: localRec.deleted || false,
-            updated_at: localRec.updated_at
-          });
-          uploadedCount++;
-        } else {
-          const localTime = new Date(localRec.updated_at).getTime();
-          const cloudTime = new Date(cloudRec.updated_at).getTime();
-
-          if (localTime > cloudTime) {
-            toUpload.push({
-              id: localRec.id,
-              tipo: localRec.tipo,
-              datos: localRec.datos,
-              deleted: localRec.deleted || false,
-              updated_at: localRec.updated_at
-            });
+        try {
+          const cloudRec = cloudMap.get(id);
+          if (!cloudRec) {
+            toUpload.push(localRec);
             uploadedCount++;
+          } else {
+            const localTime = new Date(localRec.updated_at || 0).getTime();
+            const cloudTime = new Date(cloudRec.updated_at || 0).getTime();
+
+            if (localTime > cloudTime) {
+              toUpload.push(localRec);
+              uploadedCount++;
+            }
           }
+        } catch (errLocal) {
+          console.error(`[Sync] Error comparando local ID ${id}:`, errLocal);
+          errors.push({ id, tipo: localRec.tipo, reason: errLocal.message || String(errLocal) });
         }
       }
 
       // 3. Comparar Nube con Local (descargar registros de la nube)
       for (const [id, cloudRec] of cloudMap.entries()) {
-        const localRec = localMap.get(id);
-        if (!localRec) {
-          applyCloudRecordToLocal(cloudRec);
-          downloadedCount++;
-        } else {
-          const localTime = new Date(localRec.updated_at).getTime();
-          const cloudTime = new Date(cloudRec.updated_at).getTime();
+        try {
+          const localRec = localMap.get(id);
+          if (!localRec) {
+            const res = applyCloudRecordToLocal(cloudRec);
+            if (res && res.success === false) {
+              errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
+            } else {
+              downloadedCount++;
+            }
+          } else {
+            const localTime = new Date(localRec.updated_at || 0).getTime();
+            const cloudTime = new Date(cloudRec.updated_at || 0).getTime();
 
-          if (cloudTime > localTime) {
-            applyCloudRecordToLocal(cloudRec);
-            downloadedCount++;
+            if (cloudTime > localTime) {
+              const res = applyCloudRecordToLocal(cloudRec);
+              if (res && res.success === false) {
+                errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
+              } else {
+                downloadedCount++;
+              }
+            }
           }
+        } catch (errCloud) {
+          console.error(`[Sync] Error procesando nube ID ${id}:`, errCloud);
+          errors.push({ id, tipo: cloudRec.tipo, reason: errCloud.message || String(errCloud) });
         }
       }
 
-      // 4. Subir a Supabase en lotes de hasta 50 filas
+      // 4. Subir a Supabase en lotes de hasta 50 filas con reintento unitario si falla un lote
       if (toUpload.length > 0) {
         for (let i = 0; i < toUpload.length; i += 50) {
           const chunk = toUpload.slice(i, i + 50);
-          const { error: upsertErr } = await syncState.client
-            .from('registros')
-            .upsert(chunk, { onConflict: 'id' });
-          if (upsertErr) throw upsertErr;
+          try {
+            const { error: upsertErr } = await syncState.client
+              .from('registros')
+              .upsert(chunk, { onConflict: 'id' });
+            if (upsertErr) throw upsertErr;
+          } catch (chunkErr) {
+            for (const singleRow of chunk) {
+              try {
+                const { error: singleErr } = await syncState.client
+                  .from('registros')
+                  .upsert([singleRow], { onConflict: 'id' });
+                if (singleErr) throw singleErr;
+              } catch (singleErr) {
+                console.error(`[Sync] Error subiendo fila ${singleRow.id}:`, singleErr);
+                errors.push({ id: singleRow.id, tipo: singleRow.tipo, reason: singleErr.message || String(singleErr) });
+              }
+            }
+          }
         }
       }
 
@@ -816,10 +1060,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       const nowIso = new Date().toISOString();
       syncState.lastSyncTime = nowIso;
       setStorage('pr_sync_last_time', nowIso);
-      syncState.pendingChanges = false;
-      setStorage('pr_sync_pending', false);
 
-      setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+      if (errors.length === 0) {
+        syncState.pendingChanges = false;
+        setStorage('pr_sync_pending', false);
+        setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+      } else {
+        setSyncStatus('error', `Sincronización con ${errors.length} advertencia(s)`);
+      }
 
       const firstSyncKey = 'pr_first_sync_done_' + syncState.user.id;
       if (options.isInitial || !getStorage(firstSyncKey, false)) {
@@ -831,6 +1079,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
       renderHistory();
       renderCobroHistory();
+      renderInformeHistory();
+      renderInformePlantillasList();
       renderCatalogSelect();
       renderCatalogManager();
       updateBadges();
@@ -842,6 +1092,277 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       syncState.isSyncing = false;
       updateSyncUI();
     }
+  }
+
+  // Fusión y reparación profunda de informes técnicos y plantillas por ID
+  async function repairInformesSync() {
+    if (syncState.isSyncing) {
+      showToast('Ya hay una sincronización en curso. Espera un momento...', '⏳');
+      return;
+    }
+    if (!navigator.onLine) {
+      showToast('No hay conexión a internet para reparar la sincronización.', '⚠️');
+      setSyncStatus('offline', 'Sin conexión a internet. Modo local activo.');
+      renderRepairDiagnosticUI({
+        errorHeader: 'Sin conexión a internet',
+        errorMsg: 'Conéctate a internet para fusionar los informes con la nube.'
+      });
+      return;
+    }
+    if (!syncState.client || !syncState.user) {
+      openAuthModal();
+      showToast('Inicia sesión para sincronizar los informes con la nube.', '🔑');
+      return;
+    }
+
+    syncState.isSyncing = true;
+    setSyncStatus('syncing', 'Reparando sincronización de informes...');
+    updateSyncUI();
+    showToast('Iniciando fusión completa de informes...', '🔄');
+
+    const diagnosticBoxEls = document.querySelectorAll('.sync-repair-diagnostic-box');
+    diagnosticBoxEls.forEach(box => {
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="sync-btn-icon spinning">🔄</span>
+          <span>Descargando y fusionando informes y plantillas de la nube con paginación...</span>
+        </div>
+      `;
+    });
+
+    const errors = [];
+    let uploadedCount = 0;
+    let downloadedCount = 0;
+    let identicalCount = 0;
+    let cloudActiveCount = 0;
+
+    try {
+      // 1. Descarga completa con paginación de informes y plantillas
+      const cloudRows = await fetchSupabaseRowsWithPagination(['informe_tecnico', 'plantilla_informe']);
+
+      const cloudMap = new Map();
+      (cloudRows || []).forEach(row => {
+        if (row && row.id) cloudMap.set(row.id, row);
+      });
+
+      cloudActiveCount = (cloudRows || []).filter(r => r.tipo === 'informe_tecnico' && !r.deleted).length;
+
+      // 2. Registros locales actuales
+      if (Array.isArray(state.informeHistory)) state.informeHistory.forEach(ensureItemUuid);
+      if (Array.isArray(state.informePlantillas)) state.informePlantillas.forEach(ensureItemUuid);
+
+      const localMap = new Map();
+
+      (state.informeHistory || []).forEach(inf => {
+        localMap.set(inf.id, {
+          id: inf.id,
+          tipo: 'informe_tecnico',
+          datos: { ...inf },
+          deleted: false,
+          updated_at: inf.updatedAt || new Date().toISOString()
+        });
+      });
+
+      (state.informePlantillas || []).forEach(plant => {
+        localMap.set(plant.id, {
+          id: plant.id,
+          tipo: 'plantilla_informe',
+          datos: { ...plant },
+          deleted: false,
+          updated_at: plant.updatedAt || new Date().toISOString()
+        });
+      });
+
+      const tombs = getTombstones();
+      Object.values(tombs).forEach(tomb => {
+        if (tomb && (tomb.tipo === 'informe_tecnico' || tomb.tipo === 'plantilla_informe')) {
+          if (!localMap.has(tomb.id)) {
+            localMap.set(tomb.id, {
+              id: tomb.id,
+              tipo: tomb.tipo,
+              datos: tomb.datos || {},
+              deleted: true,
+              updated_at: tomb.updated_at || new Date().toISOString()
+            });
+          }
+        }
+      });
+
+      const allIds = new Set([...cloudMap.keys(), ...localMap.keys()]);
+      const toUpload = [];
+
+      // 3. Fusión exacta por ID con try/catch individual por fila
+      for (const id of allIds) {
+        try {
+          const localRec = localMap.get(id);
+          const cloudRec = cloudMap.get(id);
+
+          if (cloudRec && !localRec) {
+            // Solo en nube: agregar a local
+            const res = applyCloudRecordToLocal(cloudRec);
+            if (res && res.success === false) {
+              errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
+            } else {
+              downloadedCount++;
+            }
+          } else if (localRec && !cloudRec) {
+            // Solo en local: subir a la nube (nunca eliminar local por no estar en la nube)
+            toUpload.push(localRec);
+            uploadedCount++;
+          } else if (cloudRec && localRec) {
+            // En ambos: comparar updated_at como fechas
+            const cloudTime = new Date(cloudRec.updated_at || 0).getTime();
+            const localTime = new Date(localRec.updated_at || 0).getTime();
+            const sameDeleted = Boolean(cloudRec.deleted) === Boolean(localRec.deleted);
+
+            if (cloudTime === localTime && sameDeleted) {
+              identicalCount++;
+            } else if (cloudTime > localTime) {
+              // Gana la nube
+              const res = applyCloudRecordToLocal(cloudRec);
+              if (res && res.success === false) {
+                errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
+              } else {
+                downloadedCount++;
+              }
+            } else {
+              // Gana el dispositivo local
+              toUpload.push(localRec);
+              uploadedCount++;
+            }
+          }
+        } catch (rowErr) {
+          console.error(`[Reparar Sync] Error en fila ID ${id}:`, rowErr);
+          errors.push({
+            id: id,
+            tipo: (localMap.get(id)?.tipo || cloudMap.get(id)?.tipo || 'informe_tecnico'),
+            reason: rowErr.message || String(rowErr)
+          });
+        }
+      }
+
+      // 4. Subir a Supabase en lotes con fallback unitario
+      if (toUpload.length > 0) {
+        for (let i = 0; i < toUpload.length; i += 50) {
+          const chunk = toUpload.slice(i, i + 50);
+          try {
+            const { error: upsertErr } = await syncState.client
+              .from('registros')
+              .upsert(chunk, { onConflict: 'id' });
+            if (upsertErr) throw upsertErr;
+          } catch (chunkErr) {
+            for (const singleRow of chunk) {
+              try {
+                const { error: singleErr } = await syncState.client
+                  .from('registros')
+                  .upsert([singleRow], { onConflict: 'id' });
+                if (singleErr) throw singleErr;
+              } catch (singleErr) {
+                console.error(`[Reparar Sync] Error subiendo fila ${singleRow.id}:`, singleErr);
+                errors.push({
+                  id: singleRow.id,
+                  tipo: singleRow.tipo,
+                  reason: singleErr.message || String(singleErr)
+                });
+              }
+            }
+          }
+        }
+      }
+
+      cleanLocalTombstones(cloudMap);
+
+      // Redibujar historial y contadores
+      renderInformeHistory();
+      renderInformePlantillasList();
+      updateBadges();
+
+      const finalLocalActive = (state.informeHistory || []).length;
+      const nowIso = new Date().toISOString();
+      syncState.lastSyncTime = nowIso;
+      setStorage('pr_sync_last_time', nowIso);
+
+      if (errors.length === 0) {
+        syncState.pendingChanges = false;
+        setStorage('pr_sync_pending', false);
+        setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+        showToast(`Fusión exitosa: ${finalLocalActive} informes activos`, '✅');
+      } else {
+        setSyncStatus('error', `Sincronización con ${errors.length} error(es)`);
+        showToast(`Fusión terminada con ${errors.length} advertencia(s)`, '⚠️');
+      }
+
+      // Renderizar diagnóstico visible
+      renderRepairDiagnosticUI({
+        localActive: finalLocalActive,
+        cloudActive: cloudActiveCount,
+        uploaded: uploadedCount,
+        downloaded: downloadedCount,
+        identical: identicalCount,
+        errors: errors
+      });
+
+    } catch (err) {
+      console.error('[Reparar Sync] Error global:', err);
+      handleSyncError(err);
+      renderRepairDiagnosticUI({
+        errorHeader: 'Error durante la reparación',
+        errorMsg: err.message || String(err)
+      });
+    } finally {
+      syncState.isSyncing = false;
+      updateSyncUI();
+    }
+  }
+
+  function renderRepairDiagnosticUI(diag) {
+    const diagnosticBoxEls = document.querySelectorAll('.sync-repair-diagnostic-box');
+    if (!diagnosticBoxEls || diagnosticBoxEls.length === 0) return;
+
+    diagnosticBoxEls.forEach(box => {
+      box.style.display = 'block';
+
+      if (diag.errorHeader) {
+        box.innerHTML = `
+          <div style="color: #ef4444; font-weight: 600; margin-bottom: 4px;">⚠️ ${escapeHtml(diag.errorHeader)}</div>
+          <div style="color: var(--text-muted); font-size: 0.8rem;">${escapeHtml(diag.errorMsg)}</div>
+        `;
+        return;
+      }
+
+      const hasErrors = diag.errors && diag.errors.length > 0;
+      const errReasonText = hasErrors 
+        ? diag.errors.map(e => `[${e.id.substring(0, 8)}...]: ${escapeHtml(e.reason)}`).join(', ')
+        : '0';
+
+      const diagnosticText = `En este dispositivo: ${diag.localActive} · En la nube: ${diag.cloudActive} (activos) · Subidos: ${diag.uploaded} · Bajados: ${diag.downloaded} · Ya iguales: ${diag.identical} · Con error: ${hasErrors ? `${diag.errors.length} (${errReasonText})` : '0'}`;
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span>${hasErrors ? '⚠️' : '✅'}</span>
+            <strong style="color: ${hasErrors ? '#f59e0b' : '#38bdf8'}; font-size:0.86rem;">Resultado de la Reparación de Informes</strong>
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-dim);">${formatSyncTime(new Date())}</span>
+        </div>
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; padding: 10px 12px; font-family: monospace; font-size:0.82rem; color: var(--text-main); line-height: 1.5; word-break: break-word;">
+          ${escapeHtml(diagnosticText)}
+        </div>
+        ${hasErrors ? `
+          <div style="margin-top:8px; padding:8px 10px; background:rgba(239, 68, 68, 0.1); border-left:3px solid #ef4444; border-radius:2px;">
+            <div style="font-weight:600; font-size:0.78rem; color:#ef4444; margin-bottom:4px;">Motivos de los errores:</div>
+            <ul style="margin:0; padding-left:18px; font-size:0.76rem; color:var(--text-main);">
+              ${diag.errors.map(e => `<li><strong>${escapeHtml(e.tipo)}</strong> (<code>${escapeHtml(e.id)}</code>): ${escapeHtml(e.reason)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : `
+          <div style="margin-top:6px; font-size:0.78rem; color:#10b981;">
+            Ambos dispositivos y la nube están ahora sincronizados con la misma cantidad de informes activos.
+          </div>
+        `}
+      `;
+    });
   }
 
   function triggerIncrementalSync(delay = 1200) {
@@ -1146,6 +1667,25 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         setSyncStatus('offline', 'Sin conexión · Modo local activo');
       });
 
+      // Sincronización continua: al volver a ser visible la pestaña o app
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && navigator.onLine && syncState.user && !syncState.isSyncing) {
+          performSync();
+        }
+      });
+      window.addEventListener('focus', () => {
+        if (navigator.onLine && syncState.user && !syncState.isSyncing) {
+          performSync();
+        }
+      });
+
+      // Sincronización continua: cada 60 segundos
+      setInterval(() => {
+        if (navigator.onLine && syncState.user && !syncState.isSyncing) {
+          performSync();
+        }
+      }, 60000);
+
       updateSyncUI();
 
     } catch (e) {
@@ -1277,6 +1817,16 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         } else {
           showToast('Sincronizando datos...', '🔄');
           performSync();
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-repair-informes-sync').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!syncState.user) {
+          openAuthModal();
+        } else {
+          repairInformesSync();
         }
       });
     });
@@ -3694,7 +4244,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     if (confirm(`¿Eliminar definitivamente la cuenta de cobro N° ${numDisplay} del historial?\n\nEsta acción no se puede deshacer.`)) {
       if (item && item.id) {
-        recordTombstone(item.id, 'cuenta_cobro');
+        recordTombstone(item.id, 'cuenta_cobro', item);
       }
       state.cobroHistory.splice(idx, 1);
       setStorage('pr_cobro_history', state.cobroHistory);
@@ -4645,7 +5195,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const item = state.informeHistory[idx];
     if (confirm(`¿Estás seguro de eliminar el informe ${item.number || ''} de ${item.clientName || 'Cliente General'}?`)) {
       if (item.id) {
-        recordTombstone(item.id, 'informe_tecnico');
+        recordTombstone(item.id, 'informe_tecnico', item);
       }
       state.informeHistory.splice(idx, 1);
       setStorage('pr_informe_history', state.informeHistory);
@@ -4998,7 +5548,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     if (idx < 0) return;
     const tpl = state.informePlantillas[idx];
     if (confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) {
-      recordTombstone(tpl.id, 'plantilla_informe');
+      recordTombstone(tpl.id, 'plantilla_informe', tpl);
       state.informePlantillas.splice(idx, 1);
       setStorage('pr_informe_plantillas', state.informePlantillas);
       renderInformePlantillasList();
@@ -6251,7 +6801,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const idx = parseInt(row.dataset.index);
       const item = state.catalog[idx];
       if (item && item.id) {
-        recordTombstone(item.id, 'catalogo');
+        recordTombstone(item.id, 'catalogo', item);
       }
       state.catalog.splice(idx, 1);
       saveCatalogToStorage(state.catalog);
@@ -6302,7 +6852,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           if (confirm('¿Eliminar esta cotización del historial?')) {
             const item = state.history[idx] || state.history.find(h => String(h.id) === String(id));
             if (item && item.id) {
-              recordTombstone(item.id, 'cotizacion');
+              recordTombstone(item.id, 'cotizacion', item);
             }
             const realIdx = state.history.indexOf(item);
             if (realIdx >= 0) {

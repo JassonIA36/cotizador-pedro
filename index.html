@@ -1160,6 +1160,9 @@
             <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
               <span class="sync-btn-icon">🔄</span> Sincronizar ahora
             </button>
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
+              🛠️ Reparar sincronización de informes
+            </button>
             <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
               🔑 Iniciar sesión
             </button>
@@ -1171,6 +1174,7 @@
             </button>
             <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
           </div>
+          <div class="sync-repair-diagnostic-box" style="display: none; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; background: var(--bg-input); border: 1px solid var(--border); line-height: 1.5;"></div>
         </div>
 
         <div class="form-grid">
@@ -1345,6 +1349,9 @@
             <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
               <span class="sync-btn-icon">🔄</span> Sincronizar ahora
             </button>
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
+              🛠️ Reparar sincronización de informes
+            </button>
             <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
               🔑 Iniciar sesión
             </button>
@@ -1356,6 +1363,7 @@
             </button>
             <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
           </div>
+          <div class="sync-repair-diagnostic-box" style="display: none; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; background: var(--bg-input); border: 1px solid var(--border); line-height: 1.5;"></div>
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-md); border: 1px solid var(--border);">
@@ -1785,10 +1793,16 @@
           <div class="card-title">
             <span>📜</span> Historial de Informes Técnicos
           </div>
-          <button type="button" class="btn-primary" id="btn-hist-create-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-            <span>✨</span> Nuevo Informe
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="padding: 7px 12px; font-size: 0.82rem; min-height: 40px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara sincronización de informes técnicos fusionando por ID con la nube">
+              🛠️ Reparar sincronización
+            </button>
+            <button type="button" class="btn-primary" id="btn-hist-create-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
+              <span>✨</span> Nuevo Informe
+            </button>
+          </div>
         </div>
+        <div class="sync-repair-diagnostic-box" style="display: none; margin-bottom: 14px; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; background: var(--bg-input); border: 1px solid var(--border); line-height: 1.5;"></div>
         
         <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
           Revisa informes anteriores, consulta estados, exporta a PDF, comparte por WhatsApp o genera cotizaciones y cuentas de cobro automáticamente.
