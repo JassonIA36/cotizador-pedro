@@ -10,6 +10,76 @@
     return '$' + Math.round(amount || 0).toLocaleString('es-CO');
   }
 
+  // Conversión de números a letras en español según estándar legal colombiano
+  function numeroALetras(num) {
+    if (typeof window !== 'undefined' && typeof window.numeroALetras === 'function' && window.numeroALetras !== numeroALetras) {
+      return window.numeroALetras(num);
+    }
+    num = Math.round(Number(num) || 0);
+    const formattedNumber = num.toLocaleString('es-CO');
+    if (num === 0) return 'Cero pesos m/cte. ($0.oo)';
+    if (num < 0) return 'Menos ' + numeroALetras(-num);
+
+    const UNIDADES = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+    const DECENAS_10 = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+    const VEINTES = ['veinte', 'veintiún', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+    const DECENAS = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+    const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+    function seccionMenorMil(n) {
+      if (n === 0) return '';
+      if (n === 100) return 'cien';
+      const c = Math.floor(n / 100);
+      const d = Math.floor((n % 100) / 10);
+      const u = n % 10;
+      let res = '';
+      if (c > 0) res += CENTENAS[c] + ' ';
+      if (d === 1) {
+        res += DECENAS_10[u];
+      } else if (d === 2) {
+        res += VEINTES[u];
+      } else if (d > 2) {
+        res += DECENAS[d];
+        if (u > 0) res += ' y ' + UNIDADES[u];
+      } else if (u > 0) {
+        res += UNIDADES[u];
+      }
+      return res.trim();
+    }
+
+    function resolver(n) {
+      const millones = Math.floor(n / 1000000);
+      const restoMillones = n % 1000000;
+      const miles = Math.floor(restoMillones / 1000);
+      const unidades = restoMillones % 1000;
+
+      const partes = [];
+      if (millones > 0) {
+        if (millones === 1) partes.push('un millón');
+        else partes.push(seccionMenorMil(millones) + ' millones');
+      }
+      if (miles > 0) {
+        if (miles === 1) partes.push('mil');
+        else partes.push(seccionMenorMil(miles) + ' mil');
+      }
+      if (unidades > 0) {
+        partes.push(seccionMenorMil(unidades));
+      }
+      return partes.join(' ');
+    }
+
+    const letras = resolver(num);
+    const esDePesos = (num >= 1000000 && (num % 1000000 === 0));
+    const sufijo = num === 1 ? 'peso m/cte.' : (esDePesos ? 'de pesos m/cte.' : 'pesos m/cte.');
+
+    const resultado = `${letras} ${sufijo} ($${formattedNumber}.oo)`;
+    return resultado.charAt(0).toUpperCase() + resultado.slice(1);
+  }
+
+  if (typeof window !== 'undefined' && !window.numeroALetras) {
+    window.numeroALetras = numeroALetras;
+  }
+
   function createPdfDocument(data) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
@@ -372,16 +442,38 @@
     doc.text(`C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`, pageWidth / 2, yPos, { align: 'center' });
     yPos += 8;
 
+    // Totales calculados de forma segura para garantizar que aplique a cuentas nuevas e históricas
+    let totalConceptos = 0;
+    if (data.totals && typeof data.totals.totalConceptos === 'number') {
+      totalConceptos = data.totals.totalConceptos;
+    } else if (Array.isArray(data.conceptos)) {
+      totalConceptos = data.conceptos.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+    } else if (typeof data.total === 'number') {
+      totalConceptos = data.total;
+    }
+
+    const adelantos = (data.adelantos || []).filter(a => (a.desc && a.desc.trim()) || (parseFloat(a.amount) > 0));
+    let totalAdelantos = 0;
+    if (data.totals && typeof data.totals.totalAdelantos === 'number') {
+      totalAdelantos = data.totals.totalAdelantos;
+    } else if (Array.isArray(adelantos)) {
+      totalAdelantos = adelantos.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+    }
+
+    const saldo = (data.totals && typeof data.totals.saldo === 'number')
+      ? data.totals.saldo
+      : Math.max(0, totalConceptos - totalAdelantos);
+
     // 6. "LA SUMA DE:" centrado, en negrita
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.text('LA SUMA DE:', pageWidth / 2, yPos, { align: 'center' });
     yPos += 6;
 
-    // 7. El saldo en letras y número, en negrita y centrado
+    // 7. El TOTAL de conceptos en letras y número, en negrita y centrado (sin descontar adelantos)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    const amountText = data.saldoLetras || 'Cero pesos m/cte. ($0.oo)';
+    const amountText = (data.totalLetras) || numeroALetras(totalConceptos);
     const splitAmount = doc.splitTextToSize(amountText, contentWidth - 10);
     doc.text(splitAmount, pageWidth / 2, yPos, { align: 'center' });
     yPos += (splitAmount.length * 5) + 5;
@@ -402,12 +494,11 @@
       yPos += (splitLines.length * 4.8);
     });
 
-    // 9. Resumen de adelantos si los hay
-    const adelantos = data.adelantos || [];
+    // 9. Resumen de adelantos si los hay (Total, Adelantos y Saldo a cobrar)
     if (adelantos.length > 0) {
       yPos += 2;
       const boxWidth = 92;
-      const boxHeight = 20;
+      const boxHeight = 25;
       const boxX = margin + 4;
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(203, 213, 225);
@@ -417,10 +508,10 @@
       doc.setFontSize(8.5);
       doc.setTextColor(75, 85, 99);
       doc.text('Total de conceptos:', boxX + 4, yPos + 5.5);
-      doc.text(formatMoney(data.totals ? data.totals.totalConceptos : 0), boxX + boxWidth - 4, yPos + 5.5, { align: 'right' });
+      doc.text(formatMoney(totalConceptos), boxX + boxWidth - 4, yPos + 5.5, { align: 'right' });
 
       doc.text('Menos adelantos / anticipos:', boxX + 4, yPos + 10.5);
-      doc.text('-' + formatMoney(data.totals ? data.totals.totalAdelantos : 0), boxX + boxWidth - 4, yPos + 10.5, { align: 'right' });
+      doc.text('-' + formatMoney(totalAdelantos), boxX + boxWidth - 4, yPos + 10.5, { align: 'right' });
 
       doc.setDrawColor(203, 213, 225);
       doc.line(boxX + 4, yPos + 13, boxX + boxWidth - 4, yPos + 13);
@@ -428,7 +519,15 @@
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('Saldo a cobrar:', boxX + 4, yPos + 17.5);
-      doc.text(formatMoney(data.totals ? data.totals.saldo : 0), boxX + boxWidth - 4, yPos + 17.5, { align: 'right' });
+      doc.text(formatMoney(saldo), boxX + boxWidth - 4, yPos + 17.5, { align: 'right' });
+
+      // Línea breve al final del resumen con el saldo a cobrar en letras
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.2);
+      doc.setTextColor(100, 116, 139);
+      const saldoLetrasShort = numeroALetras(saldo);
+      const splitSaldoLetras = doc.splitTextToSize(saldoLetrasShort, boxWidth - 8);
+      doc.text(splitSaldoLetras[0] || saldoLetrasShort, boxX + boxWidth - 4, yPos + 22, { align: 'right' });
 
       yPos += boxHeight + 3;
     } else {
@@ -1045,7 +1144,6 @@
   function generateInformePdfFile(data) {
     const doc = createInformePdfDocument(data);
     const sanitizedNumber = (data.informeNumber || 'INF-0001').replace(/[^a-zA-Z0-9_-]/g, '');
-    const clientSlug = (data.clientName || 'Cliente').replace(/\s+/g, '_').substring(0, 15);
     const fileName = `InformeTecnico_${sanitizedNumber}_${clientSlug}.pdf`;
 
     const blob = doc.output('blob');
@@ -1117,7 +1215,8 @@
     shareInformePdfViaWhatsApp,
     previewPdfBlob,
     formatMoney,
-    formatMoneyCop
+    formatMoneyCop,
+    numeroALetras
   };
 
 })(window);

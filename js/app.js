@@ -2572,6 +2572,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <div class="uhc-amount-box">
             <span class="uhc-amount-label">${escapeHtml(cfg.amountLabel || 'TOTAL')}</span>
             <span class="uhc-amount-val ${cfg.amountClass || ''}">${escapeHtml(cfg.amountVal)}</span>
+            ${cfg.amountSubHtml ? cfg.amountSubHtml : ''}
           </div>
         </div>
 
@@ -2673,9 +2674,26 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     let pendingCobrosTotal = 0;
     if (Array.isArray(state.cobroHistory)) {
       state.cobroHistory.forEach(item => {
+        let totalConceptos = 0;
+        if (item.totals && typeof item.totals.totalConceptos === 'number') {
+          totalConceptos = item.totals.totalConceptos;
+        } else if (Array.isArray(item.conceptos)) {
+          totalConceptos = item.conceptos.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+        } else if (typeof item.total === 'number') {
+          totalConceptos = item.total;
+        }
+
+        let totalAdelantos = 0;
+        if (item.totals && typeof item.totals.totalAdelantos === 'number') {
+          totalAdelantos = item.totals.totalAdelantos;
+        } else if (Array.isArray(item.adelantos)) {
+          totalAdelantos = item.adelantos.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+        }
+
         const saldo = (item.totals && typeof item.totals.saldo === 'number')
           ? item.totals.saldo
-          : (parseFloat(item.saldo) || 0);
+          : ((typeof item.saldo === 'number') ? item.saldo : Math.max(0, totalConceptos - totalAdelantos));
+
         if (item.status !== 'pagada' && saldo > 0) {
           pendingCobrosCount++;
           pendingCobrosTotal += saldo;
@@ -2725,9 +2743,26 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const pendingItems = [];
 
     cobroHist.forEach(item => {
+      let totalConceptos = 0;
+      if (item.totals && typeof item.totals.totalConceptos === 'number') {
+        totalConceptos = item.totals.totalConceptos;
+      } else if (Array.isArray(item.conceptos)) {
+        totalConceptos = item.conceptos.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+      } else if (typeof item.total === 'number') {
+        totalConceptos = item.total;
+      }
+
+      let totalAdelantos = 0;
+      if (item.totals && typeof item.totals.totalAdelantos === 'number') {
+        totalAdelantos = item.totals.totalAdelantos;
+      } else if (Array.isArray(item.adelantos)) {
+        totalAdelantos = item.adelantos.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+      }
+
       const saldo = (item.totals && typeof item.totals.saldo === 'number')
         ? item.totals.saldo
-        : (parseFloat(item.saldo) || 0);
+        : ((typeof item.saldo === 'number') ? item.saldo : Math.max(0, totalConceptos - totalAdelantos));
+
       const isPaid = item.status === 'pagada';
 
       if (isPaid) {
@@ -3411,6 +3446,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       conceptos: validConceptos.length > 0 ? validConceptos : [{ desc: 'Concepto pendiente por especificar', amount: 0 }],
       adelantos: validAdelantos,
       totals,
+      totalLetras: numeroALetras(totals.totalConceptos),
       saldoLetras: numeroALetras(totals.saldo),
       includeLegal: state.cobroIncludeLegal !== false,
       legalText: state.cobroLegalText || DEFAULT_LEGAL_TEXT,
@@ -3616,9 +3652,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       $('cc-doc-preview-emisor-cc').textContent = `C.C. ${emisor.cc || '1.015.409.172'} de ${emisor.city || 'Bogotá'}`;
     }
 
-    // 7. El saldo en letras y número, en negrita y centrado
+    // 7. El TOTAL de conceptos en letras y número, en negrita y centrado (sin descontar adelantos)
     if ($('cc-doc-preview-amount-box')) {
-      $('cc-doc-preview-amount-box').innerHTML = `<strong>${numeroALetras(totals.saldo)}</strong>`;
+      $('cc-doc-preview-amount-box').innerHTML = `<strong>${numeroALetras(totals.totalConceptos)}</strong>`;
     }
 
     // 8. "Por concepto de:" y cada concepto como viñeta
@@ -3641,8 +3677,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         if ($('cc-doc-resumen-total')) $('cc-doc-resumen-total').textContent = formatMoney(totals.totalConceptos);
         if ($('cc-doc-resumen-adelantos')) $('cc-doc-resumen-adelantos').textContent = '-' + formatMoney(totals.totalAdelantos);
         if ($('cc-doc-resumen-saldo')) $('cc-doc-resumen-saldo').innerHTML = `<strong>${formatMoney(totals.saldo)}</strong>`;
+        if ($('cc-doc-resumen-saldo-letras')) $('cc-doc-resumen-saldo-letras').textContent = numeroALetras(totals.saldo);
       } else {
         $('cc-doc-preview-resumen-box').style.display = 'none';
+        if ($('cc-doc-resumen-saldo-letras')) $('cc-doc-resumen-saldo-letras').textContent = '';
       }
     }
 
@@ -3725,10 +3763,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         }
       });
       text += `*Total adelantos:* -${formatMoney(totals.totalAdelantos)}\n`;
+      text += `\n💰 *SALDO A COBRAR: ${formatMoney(totals.saldo)}*\n`;
+      text += `_${numeroALetras(totals.saldo)}_\n\n`;
+    } else {
+      text += `\n💰 *TOTAL A COBRAR: ${formatMoney(totals.totalConceptos)}*\n`;
+      text += `_${numeroALetras(totals.totalConceptos)}_\n\n`;
     }
-
-    text += `\n💰 *SALDO A COBRAR: ${formatMoney(totals.saldo)}*\n`;
-    text += `_${numeroALetras(totals.saldo)}_\n\n`;
 
     const notesMsg = (typeof data.notes === 'string') ? data.notes.trim() : '';
     if (data.includeNotes !== false && notesMsg) {
@@ -3756,7 +3796,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const amountLabel = $('sticky-total');
       const btnSticky = $('sticky-btn-pdf');
       if (countLabel) countLabel.textContent = `Cuenta ${String(state.cobroNum || 1).padStart(3, '0')}`;
-      if (amountLabel) amountLabel.textContent = formatMoney(totals.saldo);
+      if (amountLabel) {
+        if (totals.totalAdelantos > 0) {
+          amountLabel.innerHTML = `<span>Total: ${formatMoney(totals.totalConceptos)}</span><span style="font-size: 0.72rem; font-weight: 600; color: #a7f3d0; display: block; line-height: 1.15;">Saldo: ${formatMoney(totals.saldo)}</span>`;
+        } else {
+          amountLabel.textContent = `Total: ${formatMoney(totals.totalConceptos)}`;
+        }
+      }
       if (btnSticky) {
         btnSticky.innerHTML = '<span>👁️</span> Ver PDF';
       }
@@ -4456,7 +4502,26 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     let paidAmount = 0;
 
     state.cobroHistory.forEach(item => {
-      const saldo = (item.totals && typeof item.totals.saldo === 'number') ? item.totals.saldo : 0;
+      let totalConceptos = 0;
+      if (item.totals && typeof item.totals.totalConceptos === 'number') {
+        totalConceptos = item.totals.totalConceptos;
+      } else if (Array.isArray(item.conceptos)) {
+        totalConceptos = item.conceptos.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+      } else if (typeof item.total === 'number') {
+        totalConceptos = item.total;
+      }
+
+      let totalAdelantos = 0;
+      if (item.totals && typeof item.totals.totalAdelantos === 'number') {
+        totalAdelantos = item.totals.totalAdelantos;
+      } else if (Array.isArray(item.adelantos)) {
+        totalAdelantos = item.adelantos.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+      }
+
+      const saldo = (item.totals && typeof item.totals.saldo === 'number')
+        ? item.totals.saldo
+        : ((typeof item.saldo === 'number') ? item.saldo : Math.max(0, totalConceptos - totalAdelantos));
+
       if (item.status === 'pagada') {
         paidAmount += saldo;
       } else {
@@ -4566,10 +4631,42 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     list.innerHTML = filtered.map(item => {
       const isPaid = item.status === 'pagada';
       const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
-      const saldo = (item.totals && typeof item.totals.saldo === 'number') ? item.totals.saldo : 0;
+
+      let totalConceptos = 0;
+      if (item.totals && typeof item.totals.totalConceptos === 'number') {
+        totalConceptos = item.totals.totalConceptos;
+      } else if (Array.isArray(item.conceptos)) {
+        totalConceptos = item.conceptos.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+      } else if (typeof item.total === 'number') {
+        totalConceptos = item.total;
+      }
+
+      let totalAdelantos = 0;
+      if (item.totals && typeof item.totals.totalAdelantos === 'number') {
+        totalAdelantos = item.totals.totalAdelantos;
+      } else if (Array.isArray(item.adelantos)) {
+        totalAdelantos = item.adelantos.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+      }
+
+      const saldo = (item.totals && typeof item.totals.saldo === 'number')
+        ? item.totals.saldo
+        : Math.max(0, totalConceptos - totalAdelantos);
+
+      const hasAdelantos = totalAdelantos > 0 || (Array.isArray(item.adelantos) && item.adelantos.some(a => (a.desc && a.desc.trim()) || (parseFloat(a.amount) > 0)));
+
       const conceptosCount = (item.conceptos && item.conceptos.length) ? item.conceptos.length : 1;
       const firstConcepto = (item.conceptos && item.conceptos[0] && item.conceptos[0].desc) ? item.conceptos[0].desc : '';
-      const detailHtml = `<div><strong>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</strong>${item.city ? ' · 📍 ' + escapeHtml(item.city) : ''}</div>${firstConcepto ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">• ' + escapeHtml(firstConcepto) + '</div>' : ''}`;
+      let detailHtml = `<div><strong>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</strong>${item.city ? ' · 📍 ' + escapeHtml(item.city) : ''}</div>`;
+      if (hasAdelantos) {
+        detailHtml += `<div style="margin-top:2px; font-size:0.78rem; color:var(--cyan);">Adelanto: -${formatMoney(totalAdelantos)} · Saldo: ${formatMoney(saldo)}</div>`;
+      }
+      if (firstConcepto) {
+        detailHtml += `<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">• ${escapeHtml(firstConcepto)}</div>`;
+      }
+
+      const amountSubHtml = hasAdelantos
+        ? `<span style="font-size:0.74rem; font-weight:600; color:${isPaid ? '#34d399' : '#38bdf8'}; margin-top:2px; display:block; text-align:right;">Saldo: ${formatMoney(saldo)}</span>`
+        : '';
 
       return renderUnifiedHistoryCardHtml({
         type: 'cobro',
@@ -4583,8 +4680,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         clientName: item.clientName || 'Cliente General',
         clientNit: item.clientNit ? 'NIT/C.C.: ' + item.clientNit : '',
         detailHtml: detailHtml,
-        amountLabel: 'SALDO',
-        amountVal: formatMoney(saldo),
+        amountLabel: 'TOTAL',
+        amountVal: formatMoney(totalConceptos),
+        amountSubHtml: amountSubHtml,
         amountClass: isPaid ? 'text-emerald' : 'text-primary',
         actions: [
           { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Abrir y editar en el formulario' },
