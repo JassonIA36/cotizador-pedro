@@ -289,7 +289,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     } catch (e) { /* el registro nunca debe romper la sincronización */ }
   }
 
-  const APP_VERSION = '2.9.0';
+  const APP_VERSION = '2.9.1';
 
   function diagnosticsText() {
     const l = Array.isArray(syncState.log) ? syncState.log[0] : null;
@@ -1046,6 +1046,24 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     return allRows;
   }
 
+  const IDS_DUPLICADOS_KEY = 'pr_ids_duplicados';
+
+  // ¿Ya tengo localmente este elemento (mismo nombre) bajo otro id? Solo catálogo, clientes y plantillas, que se emparejan por nombre.
+  function existeCopiaLocal(rec) {
+    const d = rec.datos || {};
+    const norm = v => String(v == null ? '' : v).trim().toLowerCase();
+    if (rec.tipo === 'catalogo') {
+      return (state.catalog || []).some(c => c.id !== rec.id && norm(c.n) === norm(d.n) && norm(c.c) === norm(d.c));
+    }
+    if (rec.tipo === 'cliente') {
+      return (state.cobroClients || []).some(c => c.id !== rec.id && norm(c.name) === norm(d.name));
+    }
+    if (rec.tipo === 'plantilla_informe') {
+      return (state.informePlantillas || []).some(p => p.id !== rec.id && norm(p.name) === norm(d.name));
+    }
+    return false;
+  }
+
   // Baja los documentos completos solo de los ids pedidos, en trozos de 50
   async function fetchSupabaseRowsByIds(ids) {
     const rows = [];
@@ -1141,8 +1159,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       // 3. Comparar Nube con Local: decidir qué hay que bajar y traer solo esos documentos completos
       const toApply = [];
       const idsToFetch = [];
+      const idsIgnorados = new Set(getStorage(IDS_DUPLICADOS_KEY, []));
+      const ignoradosAntes = idsIgnorados.size;
       for (const [id, cloudRec] of cloudMap.entries()) {
         const localRec = localMap.get(id);
+        if (!localRec && idsIgnorados.has(id)) continue; // copia repetida ya identificada: no se vuelve a bajar
         const isNewer = !localRec ||
           new Date(cloudRec.updated_at || 0).getTime() > new Date(localRec.updated_at || 0).getTime();
         if (!isNewer) continue;
@@ -1157,6 +1178,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       }
       for (const cloudRec of toApply) {
         try {
+          // Catálogo, clientes y plantillas se repetían en la nube (cada equipo subía su propia copia con otro id).
+          // Si ya tengo ese mismo elemento, no se baja otra copia: se recuerda el id para no volver a pedirlo.
+          if (!localMap.has(cloudRec.id) && !(cloudRec.deleted === true || cloudRec.deleted === 'true') && existeCopiaLocal(cloudRec)) {
+            idsIgnorados.add(cloudRec.id);
+            continue;
+          }
           const res = applyCloudRecordToLocal(cloudRec);
           if (res && res.success === false) {
             errors.push({ id: cloudRec.id, tipo: cloudRec.tipo, reason: res.reason });
@@ -1168,6 +1195,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           errors.push({ id: cloudRec.id, tipo: cloudRec.tipo, reason: errCloud.message || String(errCloud) });
         }
       }
+
+      if (idsIgnorados.size !== ignoradosAntes) setStorage(IDS_DUPLICADOS_KEY, [...idsIgnorados].slice(-4000));
 
       // 4. Subir a Supabase en lotes de hasta 50 filas con reintento unitario si falla un lote
       if (toUpload.length > 0) {

@@ -93,3 +93,24 @@ test("el panel de diagnóstico muestra el estado de la sincronización y del alm
   await expect(panel).toContainText("Versión");
   await expect(d.page.locator("#btn-copiar-diagnostico")).toBeVisible();
 });
+
+test("copias repetidas del catálogo en la nube no se bajan una y otra vez ni avisan «llegaron documentos»", async ({ browser, request }) => {
+  const copias = Array.from({ length: 6 }, (_, i) => ({
+    id: uuid(500 + i), tipo: "catalogo", deleted: false, updated_at: `2026-10-0${i + 1}T10:00:00.000Z`,
+    datos: { c: "Mantenimiento", n: "Mantenimiento preventivo PC escritorio", p: 50000 },
+  }));
+  await request.post("http://127.0.0.1:8099/__db", { data: copias });
+
+  const d = await dispositivo(browser, {});
+  await sincronizar(d.page, request);
+  await sincronizar(d.page, request);
+  const antes = await estadisticas(request);
+  await sincronizar(d.page, request);
+  const despues = await estadisticas(request);
+
+  expect(despues.filasConDatos - antes.filasConDatos, "no debe volver a pedir las copias repetidas").toBe(0);
+  await expect(d.page.locator("#toast")).not.toContainText(/llegaron|llegó/i);
+  // El catálogo local no se llenó de copias
+  const filas = await d.page.evaluate(() => JSON.parse(localStorage.getItem("pr_catalog") || localStorage.getItem("pr_catalogo") || "[]").length);
+  expect(filas).toBeLessThan(40);
+});

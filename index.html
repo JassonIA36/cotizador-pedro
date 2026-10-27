@@ -23,8 +23,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 
   <!-- Estilos Modernos -->
-  <link rel="stylesheet" href="css/app.css?v=2.9.0">
-  <link rel="stylesheet" href="css/documento.css?v=2.9.0">
+  <link rel="stylesheet" href="css/app.css?v=2.9.1">
+  <link rel="stylesheet" href="css/documento.css?v=2.9.1">
   <script>
     // Tema claro por defecto; se aplica antes de pintar para que no parpadee
     try { if (localStorage.getItem('pr_theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) { /* sin almacenamiento */ }
@@ -1981,16 +1981,16 @@
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/iconos.js?v=2.9.0"></script>
+  <script src="js/iconos.js?v=2.9.1"></script>
   <script src="assets/motion-mini.js"></script>
-  <script src="js/movimiento.js?v=2.9.0"></script>
-  <script src="js/almacen.js?v=2.9.0"></script>
+  <script src="js/movimiento.js?v=2.9.1"></script>
+  <script src="js/almacen.js?v=2.9.1"></script>
   <script>
     // La app arranca cuando el almacén interno terminó de restaurar los datos que el navegador no haya podido guardar.
     (function () {
       function cargarApp() {
         var s = document.createElement('script');
-        s.src = 'js/app.js?v=2.9.0';
+        s.src = 'js/app.js?v=2.9.1';
         document.body.appendChild(s);
       }
       if (window.PRAlmacen) window.PRAlmacen.hidratar().then(cargarApp, cargarApp);
