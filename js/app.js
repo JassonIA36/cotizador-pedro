@@ -1092,6 +1092,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       renderCatalogSelect();
       renderCatalogManager();
       updateBadges();
+      announceRepeatedNumbers();
 
     } catch (err) {
       console.error('Error durante la sincronización:', err);
@@ -1566,7 +1567,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           if (Array.isArray(parsed.history)) {
             parsed.history.forEach(qh => {
               ensureItemUuid(qh);
-              const idx = state.history.findIndex(h => h.id === qh.id || h.quoteNumber === qh.quoteNumber);
+              const idx = state.history.findIndex(h => h.id === qh.id || isSameQuoteDocument(h, qh));
               if (idx >= 0) state.history[idx] = { ...state.history[idx], ...qh };
               else { state.history.push(qh); added++; }
             });
@@ -1575,7 +1576,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           if (Array.isArray(parsed.cobroHistory)) {
             parsed.cobroHistory.forEach(ch => {
               ensureItemUuid(ch);
-              const idx = state.cobroHistory.findIndex(h => h.id === ch.id || parseInt(h.cobroNum, 10) === parseInt(ch.cobroNum, 10));
+              const idx = state.cobroHistory.findIndex(h => h.id === ch.id || isSameCobroDocument(h, ch));
               if (idx >= 0) state.cobroHistory[idx] = { ...state.cobroHistory[idx], ...ch };
               else { state.cobroHistory.push(ch); added++; }
             });
@@ -1585,7 +1586,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
             if (!Array.isArray(state.informeHistory)) state.informeHistory = [];
             parsed.informeHistory.forEach(ih => {
               ensureItemUuid(ih);
-              const idx = state.informeHistory.findIndex(h => h.id === ih.id || h.informeNumber === ih.informeNumber);
+              const idx = state.informeHistory.findIndex(h => h.id === ih.id || isSameInformeDocument(h, ih));
               if (idx >= 0) state.informeHistory[idx] = { ...state.informeHistory[idx], ...ih };
               else { state.informeHistory.push(ih); added++; }
             });
@@ -2182,6 +2183,77 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     return Number(item.total) || 0;
   }
 
+  // Ids de las cotizaciones cuyo número lo comparte otra (pasa cuando dos dispositivos usaron el mismo número).
+  function getRepeatedQuoteIds() {
+    const counts = new Map();
+    (state.history || []).forEach(h => counts.set(h.quoteNumber, (counts.get(h.quoteNumber) || 0) + 1));
+    return new Set((state.history || []).filter(h => counts.get(h.quoteNumber) > 1).map(h => h.id));
+  }
+
+  function getRepeatedCobroIds() {
+    const list = (state.cobroHistory || []).filter(h => !h.deleted);
+    return new Set(list.filter(h => list.some(o => o !== h
+      && parseInt(o.cobroNum, 10) === parseInt(h.cobroNum, 10)
+      && (state.cobroConsecutivoMode === 'unico' || isSameClient(o, h)))).map(h => h.id));
+  }
+
+  // Avisa una sola vez por sesión (y por conjunto de números) que hay números repetidos.
+  const announcedRepeats = new Set();
+  function announceRepeatedNumbers() {
+    try {
+      const quoteIds = getRepeatedQuoteIds();
+      const cobroIds = getRepeatedCobroIds();
+      if (quoteIds.size === 0 && cobroIds.size === 0) return;
+      const signature = [...quoteIds, ...cobroIds].sort().join(',');
+      if (announcedRepeats.has(signature)) return;
+      announcedRepeats.add(signature);
+      const parts = [];
+      if (quoteIds.size) parts.push(quoteIds.size + ' cotizaciones');
+      if (cobroIds.size) parts.push(cobroIds.size + ' cuentas de cobro');
+      showToast('Hay ' + parts.join(' y ') + ' con un número repetido (se crearon en dos dispositivos). Están marcadas en el historial para que les cambies el número.', '⚠️');
+    } catch (e) {
+      console.warn('No se pudo revisar los números repetidos:', e);
+    }
+  }
+
+  function renumberQuoteFromHistory(idx) {
+    const item = state.history[idx];
+    if (!item) return;
+    const newNumber = 'COT-' + String(getCalculatedNextQuoteNum()).padStart(4, '0');
+    if (!confirm('Hay más de una cotización con el N° ' + item.quoteNumber + '.\n\n¿Cambiarle el número a la de ' + (item.clientName || 'Cliente General') + ' y dejarla como ' + newNumber + '?\n\nSi ya se la enviaste a tu cliente con el número anterior, avísale.')) return;
+    const oldNumber = item.quoteNumber;
+    item.quoteNumber = newNumber;
+    item.updatedAt = new Date().toISOString();
+    if (state.editingQuote && state.editingQuote.id === item.id) state.editingQuote.number = newNumber;
+    setStorage('pr_history', state.history);
+    renderHistory();
+    triggerIncrementalSync();
+    showToast('Cotización renumerada: ' + oldNumber + ' → ' + newNumber, '🔢');
+  }
+
+  function renumberCobroFromHistory(id) {
+    const item = (state.cobroHistory || []).find(h => String(h.id) === String(id));
+    if (!item) return;
+    const next = getCalculatedNextCobroNum(item.clientName, item.clientNit);
+    const oldStr = String(item.cobroNumber || item.cobroNum).padStart(3, '0');
+    const newStr = String(next).padStart(3, '0');
+    if (!confirm('Hay más de una cuenta de cobro con el N° ' + oldStr + ' para este cliente.\n\n¿Cambiarle el número a la de ' + (item.clientName || 'Cliente General') + ' y dejarla como N° ' + newStr + '?\n\nSi ya se la enviaste con el número anterior, avísale.')) return;
+    item.cobroNum = next;
+    item.cobroNumber = newStr;
+    item.updatedAt = new Date().toISOString();
+    if (state.editingCobro && state.editingCobro.id === item.id) {
+      state.editingCobro.num = next;
+      state.editingCobro.number = newStr;
+      state.cobroNum = next;
+      setStorage('pr_cobro_num', next);
+      if ($('cc-num')) $('cc-num').value = newStr;
+    }
+    setStorage('pr_cobro_history', state.cobroHistory);
+    renderCobroHistory();
+    triggerIncrementalSync();
+    showToast('Cuenta de cobro renumerada: ' + oldStr + ' → ' + newStr, '🔢');
+  }
+
   function isSameQuoteDocument(a, b) {
     return !!a && !!b
       && a.quoteNumber === b.quoteNumber
@@ -2666,12 +2738,15 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       return;
     }
 
+    const repeatedQuoteIds = getRepeatedQuoteIds();
     list.innerHTML = state.history.slice().reverse().map((item, revIdx) => {
       const originalIdx = state.history.length - 1 - revIdx;
+      const isRepeated = repeatedQuoteIds.has(item.id);
       const st = item.status || 'Borrador';
       const badgeClass = st === 'Enviada' ? 'badge-enviada' : (st === 'Aprobada' ? 'badge-aprobada' : (st === 'Rechazada' ? 'badge-rechazada' : 'badge-borrador'));
       const itemsCount = (item.items && item.items.length) || 0;
-      const detailHtml = `<div><strong>${itemsCount} ${itemsCount === 1 ? 'ítem cotizado' : 'ítems cotizados'}</strong>${item.equipment ? ' · 💻 ' + escapeHtml(item.equipment) : ''}</div>${item.notes ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim);">' + escapeHtml(item.notes.substring(0, 100)) + '</div>' : ''}`;
+      const repeatedHtml = isRepeated ? '<div class="dup-alert">⚠️ Otra cotización tiene este mismo número. Usa «Renumerar» en una de las dos.</div>' : '';
+      const detailHtml = repeatedHtml + `<div><strong>${itemsCount} ${itemsCount === 1 ? 'ítem cotizado' : 'ítems cotizados'}</strong>${item.equipment ? ' · 💻 ' + escapeHtml(item.equipment) : ''}</div>${item.notes ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim);">' + escapeHtml(item.notes.substring(0, 100)) + '</div>' : ''}`;
 
       return renderUnifiedHistoryCardHtml({
         type: 'cotizacion',
@@ -2694,6 +2769,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { index: originalIdx } },
           { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { index: originalIdx } },
           { accion: 'estado', label: `Estado: ${st}`, icon: '🔄', variant: 'status', data: { index: originalIdx } },
+          ...(isRepeated ? [{ accion: 'renumerar', label: 'Renumerar', icon: '🔢', variant: 'status', data: { index: originalIdx }, title: 'Darle un número libre a esta cotización' }] : []),
           { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { index: originalIdx } }
         ]
       });
@@ -4692,7 +4768,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       return (parseInt(b.cobroNum, 10) || 0) - (parseInt(a.cobroNum, 10) || 0);
     });
 
+    const repeatedCobroIds = getRepeatedCobroIds();
     list.innerHTML = filtered.map(item => {
+      const isRepeated = repeatedCobroIds.has(item.id);
       const isPaid = item.status === 'pagada';
       const numStr = String(item.cobroNumber || item.cobroNum || 1).padStart(3, '0');
 
@@ -4720,7 +4798,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
       const conceptosCount = (item.conceptos && item.conceptos.length) ? item.conceptos.length : 1;
       const firstConcepto = (item.conceptos && item.conceptos[0] && item.conceptos[0].desc) ? item.conceptos[0].desc : '';
-      let detailHtml = `<div><strong>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</strong>${item.city ? ' · 📍 ' + escapeHtml(item.city) : ''}</div>`;
+      let detailHtml = (isRepeated ? '<div class="dup-alert">⚠️ Otra cuenta de este cliente tiene este mismo número. Usa «Renumerar» en una de las dos.</div>' : '') + `<div><strong>${conceptosCount} ${conceptosCount === 1 ? 'concepto' : 'conceptos'}</strong>${item.city ? ' · 📍 ' + escapeHtml(item.city) : ''}</div>`;
       if (hasAdelantos) {
         detailHtml += `<div style="margin-top:2px; font-size:0.78rem; color:var(--cyan);">Adelanto: -${formatMoney(totalAdelantos)} · Saldo: ${formatMoney(saldo)}</div>`;
       }
@@ -4754,6 +4832,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           { accion: 'whatsapp', label: 'WhatsApp', icon: '📲', variant: 'whatsapp', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Enviar PDF por WhatsApp' },
           { accion: 'duplicar', label: 'Duplicar', icon: '📑', variant: 'secondary', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Crear copia con nuevo número consecutivo' },
           { accion: 'estado', label: isPaid ? 'Marcar Pendiente' : 'Marcar Pagada', icon: isPaid ? '⏳' : '✅', variant: 'status', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Cambiar estado de pago' },
+          ...(isRepeated ? [{ accion: 'renumerar', label: 'Renumerar', icon: '🔢', variant: 'status', data: { id: item.id, num: item.cobroNum }, title: 'Darle un número libre a esta cuenta' }] : []),
           { accion: 'eliminar', label: 'Eliminar', icon: '🗑️', variant: 'danger', data: { id: item.id || item.cobroNum, num: item.cobroNum }, title: 'Eliminar del historial' }
         ]
       });
@@ -4986,7 +5065,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           return;
         }
 
-        if (!confirm(`Se encontraron ${incoming.length} cuentas de cobro en el archivo.\n\n¿Deseas agregarlas al historial? Las cuentas con el mismo número se actualizarán.`)) {
+        if (!confirm(`Se encontraron ${incoming.length} cuentas de cobro en el archivo.\n\n¿Deseas agregarlas al historial? Las que ya tengas guardadas (el mismo documento) se actualizarán; el resto se agregan sin tocar las demás.`)) {
           return;
         }
 
@@ -4996,7 +5075,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         incoming.forEach(inItem => {
           ensureItemUuid(inItem);
           const rawNum = parseInt(inItem.cobroNum, 10) || 1;
-          const idx = state.cobroHistory.findIndex(h => parseInt(h.cobroNum, 10) === rawNum);
+          const idx = state.cobroHistory.findIndex(h => h.id === inItem.id || isSameCobroDocument(h, inItem));
           if (idx >= 0) {
             state.cobroHistory[idx] = { ...state.cobroHistory[idx], ...inItem };
             updatedCount++;
@@ -7134,6 +7213,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           shareCobroFromHistory(id);
         } else if (accion === 'duplicar' || accion === 'duplicate-cobro') {
           duplicateCobroFromHistory(id);
+        } else if (accion === 'renumerar') {
+          renumberCobroFromHistory(id);
         } else if (accion === 'estado' || accion === 'toggle-status') {
           toggleCobroStatus(id);
         } else if (accion === 'eliminar' || accion === 'delete-cobro') {
@@ -7592,6 +7673,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
         if (accion === 'estado' || accion === 'toggle-status') {
           toggleQuoteStatus(idx);
+          return;
+        }
+
+        if (accion === 'renumerar') {
+          renumberQuoteFromHistory(idx);
           return;
         }
 

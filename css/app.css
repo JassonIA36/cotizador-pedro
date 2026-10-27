@@ -5311,3 +5311,15 @@ html, body {
     margin-top: 16px;
   }
 }
+
+/* Aviso de número repetido en las tarjetas del historial */
+.dup-alert {
+  margin-bottom: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
