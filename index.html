@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 
   <!-- Estilos Modernos -->
-  <link rel="stylesheet" href="css/app.css?v=2.7.1">
+  <link rel="stylesheet" href="css/app.css?v=2.8.0">
 </head>
 <body>
 
@@ -2088,7 +2088,19 @@
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/app.js?v=2.7.1"></script>
+  <script src="js/almacen.js?v=2.8.0"></script>
+  <script>
+    // La app arranca cuando el almacén interno terminó de restaurar los datos que el navegador no haya podido guardar.
+    (function () {
+      function cargarApp() {
+        var s = document.createElement('script');
+        s.src = 'js/app.js?v=2.8.0';
+        document.body.appendChild(s);
+      }
+      if (window.PRAlmacen) window.PRAlmacen.hidratar().then(cargarApp, cargarApp);
+      else cargarApp();
+    })();
+  </script>
 
 </body>
 </html>

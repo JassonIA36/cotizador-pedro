@@ -5323,3 +5323,17 @@ html, body {
   font-weight: 600;
   line-height: 1.35;
 }
+
+/* Aviso cuando el teléfono no deja guardar los datos */
+.aviso-almacen {
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  padding: 10px 14px;
+  background: #92400e;
+  color: #fffbeb;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}

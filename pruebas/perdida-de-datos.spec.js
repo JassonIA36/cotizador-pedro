@@ -89,8 +89,7 @@ test("volver a guardar una cotización aprobada no le quita el estado", async ({
   expect(tarjetas[0]).toContain("Carlos Gómez");
 });
 
-// PENDIENTE (siguiente versión): guardado a prueba de almacenamiento lleno. Se deja marcada para no olvidarla.
-test.fixme("con el almacenamiento lleno la cotización NO se pierde y la app avisa", async ({ browser }) => {
+test("con el almacenamiento lleno la cotización NO se pierde y la app avisa", async ({ browser }) => {
   const { page } = await dispositivo(browser, {});
   await page.evaluate(() => {
     const rellenar = (k, tam) => { let i = 0; try { for (;;) { localStorage.setItem(k + i, "x".repeat(tam)); i++; } } catch (e) { /* lleno */ } };
@@ -102,6 +101,10 @@ test.fixme("con el almacenamiento lleno la cotización NO se pierde y la app avi
   await page.locator("#btn-add-catalog").click();
   await page.locator("#q-client-name").fill("Cliente con almacenamiento lleno");
   await page.locator("#btn-save-quote").click();
+
+  // La app avisa que el teléfono no deja guardar
+  await expect(page.locator("#pr-aviso-almacen")).toBeVisible();
+  await page.waitForTimeout(600);
 
   // Recargar = cerrar y volver a abrir la app. La cotización debe seguir ahí.
   await page.reload();

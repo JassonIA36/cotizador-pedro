@@ -9,6 +9,15 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 (function () {
   'use strict';
 
+  // Almacén a prueba de fallos (js/almacen.js). Si por algún motivo no cargó, se usa localStorage directo como antes.
+  const PRAlmacen = window.PRAlmacen || {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sin almacén de respaldo */ } },
+    remove: (k) => { try { localStorage.removeItem(k); } catch (e) { /* nada que quitar */ } },
+    estado: { fallo: false },
+    alFallo: () => {}
+  };
+
   // --- Initial Default Catalog ---
   const DEFAULT_CATALOG = [
     { c: "Mantenimiento", n: "Mantenimiento preventivo PC escritorio", p: 50000 },
@@ -38,7 +47,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   // Helper storage functions con try/catch para evitar errores si el almacenamiento está bloqueado
   function loadCatalogFromStorage() {
     try {
-      const stored = localStorage.getItem(CATALOG_STORAGE_KEY);
+      const stored = PRAlmacen.get(CATALOG_STORAGE_KEY);
       if (stored !== null && stored !== undefined) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -55,7 +64,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function saveCatalogToStorage(catalog) {
     try {
-      localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+      PRAlmacen.set(CATALOG_STORAGE_KEY, JSON.stringify(catalog));
     } catch (e) {
       console.warn('No se pudo guardar el catálogo en localStorage:', e);
     }
@@ -66,7 +75,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function getPreviewCollapsed() {
     try {
-      const val = localStorage.getItem(PREVIEW_COLLAPSE_KEY);
+      const val = PRAlmacen.get(PREVIEW_COLLAPSE_KEY);
       // Por defecto empieza desplegada (retorna false si no hay nada guardado)
       return val === 'true';
     } catch (e) {
@@ -77,7 +86,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function setPreviewCollapsed(collapsed) {
     try {
-      localStorage.setItem(PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
+      PRAlmacen.set(PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
     } catch (e) {
       console.warn('No se pudo guardar el estado de la vista previa:', e);
     }
@@ -120,7 +129,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function getStorage(key, fallback) {
     try {
-      const val = localStorage.getItem(key);
+      const val = PRAlmacen.get(key);
       return val ? JSON.parse(val) : fallback;
     } catch (e) {
       return fallback;
@@ -129,7 +138,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
   function setStorage(key, val) {
     try {
-      localStorage.setItem(key, JSON.stringify(val));
+      PRAlmacen.set(key, JSON.stringify(val));
     } catch (e) {}
   }
 
@@ -5140,7 +5149,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   function getInformePreviewCollapsed() {
     try {
-      const val = localStorage.getItem(INFORME_PREVIEW_COLLAPSE_KEY);
+      const val = PRAlmacen.get(INFORME_PREVIEW_COLLAPSE_KEY);
       return val === 'true';
     } catch (e) {
       return false;
@@ -5149,7 +5158,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   function setInformePreviewCollapsed(collapsed) {
     try {
-      localStorage.setItem(INFORME_PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
+      PRAlmacen.set(INFORME_PREVIEW_COLLAPSE_KEY, collapsed ? 'true' : 'false');
     } catch (e) {}
   }
 
@@ -7385,7 +7394,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     // Theme toggle
     const themeToggle = $('theme-toggle');
-    const currentTheme = localStorage.getItem('pr_theme') || 'dark';
+    const currentTheme = PRAlmacen.get('pr_theme') || 'dark';
     if (currentTheme === 'light') {
       document.documentElement.setAttribute('data-theme', 'light');
       themeToggle.textContent = '🌙';
@@ -7398,11 +7407,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
       if (isLight) {
         document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('pr_theme', 'dark');
+        PRAlmacen.set('pr_theme', 'dark');
         themeToggle.textContent = '☀️';
       } else {
         document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('pr_theme', 'light');
+        PRAlmacen.set('pr_theme', 'light');
         themeToggle.textContent = '🌙';
       }
     });
