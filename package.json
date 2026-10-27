@@ -1,0 +1,11 @@
+{
+  "name": "cotizador-pedro-roa",
+  "private": true,
+  "description": "Cotizador de Pedro Roa (PWA). Este package.json solo sirve para las pruebas automáticas; la app no usa Node.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}

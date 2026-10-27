@@ -655,9 +655,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           id,
           updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
         };
+        // Se identifica SOLO por id. Dos cotizaciones con el mismo número pero distinto id son documentos
+        // distintos (creados en dos dispositivos): se conservan las dos. Solo se considera la misma si es
+        // idéntica en todo lo que la identifica (copias antiguas sin id compartido).
         let idx = state.history.findIndex(h => h.id === id);
-        if (idx < 0 && quote.quoteNumber && quote.quoteNumber !== 'COT-0000') {
-          idx = state.history.findIndex(h => h.quoteNumber === quote.quoteNumber);
+        if (idx < 0) {
+          idx = state.history.findIndex(h => isSameQuoteDocument(h, quote));
         }
         if (idx >= 0) {
           state.history[idx] = quote;
@@ -687,12 +690,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           id,
           updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
         };
+        // Igual que en cotizaciones: por id; el mismo número y cliente con otro id son cuentas distintas.
         let idx = state.cobroHistory.findIndex(h => h.id === id);
-        if (idx < 0 && cobro.cobroNum) {
-          const cNum = parseInt(cobro.cobroNum, 10);
-          if (!isNaN(cNum)) {
-            idx = state.cobroHistory.findIndex(h => isSameClient(h, cobro) && parseInt(h.cobroNum, 10) === cNum);
-          }
+        if (idx < 0) {
+          idx = state.cobroHistory.findIndex(h => isSameCobroDocument(h, cobro));
         }
         if (idx >= 0) {
           state.cobroHistory[idx] = cobro;
@@ -741,8 +742,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           updatedAt: updated_at || datos.updatedAt || new Date().toISOString()
         };
         let idx = state.informeHistory.findIndex(h => h.id === id);
-        if (idx < 0 && inf.number && inf.number !== 'INF-0000') {
-          idx = state.informeHistory.findIndex(h => h.number === inf.number);
+        if (idx < 0) {
+          idx = state.informeHistory.findIndex(h => isSameInformeDocument(h, inf));
         }
         if (idx >= 0) {
           state.informeHistory[idx] = inf;
@@ -2133,7 +2134,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   }
 
   function escapeHtml(str) {
-    return String(str || '').replace(/[&<>"]/g, c => ({
+    // «??» y no «||»: el número 0 (índice de la primera tarjeta del historial) no debe volverse texto vacío.
+    return String(str ?? '').replace(/[&<>"]/g, c => ({
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
@@ -2157,8 +2159,50 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     };
   }
 
+  // Número que lleva el documento en pantalla: el de la cotización que se abrió desde el historial o,
+  // si es una nueva, el consecutivo en curso. Así corregir una cotización antigua no la guarda con
+  // el número de la más reciente (lo que antes pisaba a esa otra cotización).
   function getQuoteIdString() {
+    if (state.editingQuote && state.editingQuote.number) return state.editingQuote.number;
     return 'COT-' + String(state.quoteNumber).padStart(4, '0');
+  }
+
+  // ¿Hay ya OTRA cotización guardada con ese número? (`exceptId`: la que se está editando)
+  function isQuoteNumberTaken(quoteNumber, exceptId) {
+    return Array.isArray(state.history) && state.history.some(h => h.quoteNumber === quoteNumber && h.id !== exceptId);
+  }
+
+  // ¿Son el mismo documento aunque tengan ids distintos? Solo si coincide TODO lo que lo identifica.
+  // Si coincide únicamente el número, son documentos distintos: dos dispositivos pudieron usar el mismo
+  // número, y fusionarlos hacía que una de las dos versiones «desapareciera» y cambiara en cada sincronización.
+  function cobroTotalOf(item) {
+    if (!item) return 0;
+    if (item.totals && typeof item.totals.totalConceptos === 'number') return item.totals.totalConceptos;
+    if (Array.isArray(item.conceptos)) return item.conceptos.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+    return Number(item.total) || 0;
+  }
+
+  function isSameQuoteDocument(a, b) {
+    return !!a && !!b
+      && a.quoteNumber === b.quoteNumber
+      && normalizeClientName(a.clientName) === normalizeClientName(b.clientName)
+      && Number(a.total) === Number(b.total)
+      && String(a.issueDate || '') === String(b.issueDate || '');
+  }
+
+  function isSameCobroDocument(a, b) {
+    return !!a && !!b
+      && parseInt(a.cobroNum, 10) === parseInt(b.cobroNum, 10)
+      && isSameClient(a, b)
+      && cobroTotalOf(a) === cobroTotalOf(b)
+      && String(a.dateIso || a.date || '') === String(b.dateIso || b.date || '');
+  }
+
+  function isSameInformeDocument(a, b) {
+    return !!a && !!b && !!a.number && a.number === b.number
+      && normalizeClientName(a.clientName) === normalizeClientName(b.clientName)
+      && String(a.equipment || '') === String(b.equipment || '')
+      && String(a.date || '') === String(b.date || '');
   }
 
   // --- Calculations ---
@@ -3214,25 +3258,44 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   // --- Save / History Helpers ---
   function saveCurrentToHistory(auto = false) {
     if (state.currentQuote.items.length === 0) return;
-    const data = getFullQuoteData();
+
+    // Se actualiza SOLO la cotización que se está editando (por su id). Nunca se reemplaza otra por tener el mismo número.
+    const editingId = state.editingQuote && state.editingQuote.id ? state.editingQuote.id : null;
+    const existingIdx = editingId ? state.history.findIndex(h => h.id === editingId) : -1;
+    const existing = existingIdx >= 0 ? state.history[existingIdx] : null;
+
+    // Una cotización NUEVA no puede quedar con el número de otra (por ejemplo, creada en otro dispositivo):
+    // se toma el siguiente número libre y se avisa.
+    let renumbered = null;
+    if (!existing) {
+      state.editingQuote = null;
+      const wanted = getQuoteIdString();
+      if (isQuoteNumberTaken(wanted, null)) {
+        state.quoteNumber = getCalculatedNextQuoteNum();
+        setStorage('pr_quote_num', state.quoteNumber);
+        renumbered = { from: wanted, to: getQuoteIdString() };
+      }
+    }
+
+    let data = getFullQuoteData();
     data.updatedAt = new Date().toISOString();
-    
-    // Check if exists
-    const existingIdx = state.history.findIndex(h => h.quoteNumber === data.quoteNumber);
-    if (existingIdx >= 0) {
-      data.id = state.history[existingIdx].id || generateUUID();
+    if (existing) {
+      // Se conserva lo que el formulario no edita (estado, fecha de creación, etc.).
+      data = { ...existing, ...data, id: existing.id, quoteNumber: existing.quoteNumber, status: existing.status || 'Borrador' };
       state.history[existingIdx] = data;
     } else {
-      data.id = data.id || generateUUID();
+      data.id = isValidUUID(editingId) ? editingId : generateUUID();
       state.history.push(data);
-      checkQuoteNumberCollision(data.quoteNumber, data.id);
     }
     setStorage('pr_history', state.history);
     renderHistory();
     state.editingQuote = { id: data.id, number: data.quoteNumber, client: data.clientName };
     state.quoteIsDirty = false;
     updateFormStatusBadges();
-    if (!auto) {
+    if (renumbered) {
+      renderLivePreview();
+      showToast(`El N° ${renumbered.from} ya lo tenía otra cotización. Esta quedó como ${renumbered.to}.`, '🔢');
+    } else if (!auto) {
       showSaveNotice('cotizacion', data.quoteNumber, data.clientName);
     }
     triggerIncrementalSync();
@@ -5621,9 +5684,18 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const data = getInformeDataFromForm();
     saveCobroClient(data.clientName, data.clientNit);
 
-    const existingIdx = (state.informeHistory || []).findIndex(
-      h => h.id === data.id || (h.number && h.number === data.number)
-    );
+    // Se actualiza por id. Si OTRO informe ya tiene ese número, se pregunta antes de reemplazarlo
+    // (antes se reemplazaba en silencio y un informe desaparecía).
+    let existingIdx = (state.informeHistory || []).findIndex(h => h.id === data.id);
+    if (existingIdx < 0) {
+      const sameNumberIdx = (state.informeHistory || []).findIndex(h => h.number && h.number === data.number);
+      if (sameNumberIdx >= 0) {
+        const other = state.informeHistory[sameNumberIdx];
+        const replace = confirm(`Ya existe el informe ${data.number}${other.clientName ? ' de ' + other.clientName : ''}.\n\nAceptar: reemplazarlo con este.\nCancelar: no guardar, para que cambies el número.`);
+        if (!replace) return false;
+        existingIdx = sameNumberIdx;
+      }
+    }
 
     if (existingIdx >= 0) {
       data.id = state.informeHistory[existingIdx].id || data.id;
@@ -6505,7 +6577,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       btnDownloadPdf.addEventListener('click', () => {
         const data = getInformeDataFromForm();
         saveCobroClient(data.clientName, data.clientNit);
-        saveCurrentInforme(false);
+        if (saveCurrentInforme(false) === false) return; // cancelado: no se genera el documento
         showToast('Descargando archivo PDF...', '📥');
         window.PedroRoaPdf.downloadInformePdf(data);
       });
@@ -6516,7 +6588,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       btnPrint.addEventListener('click', () => {
         const data = getInformeDataFromForm();
         saveCobroClient(data.clientName, data.clientNit);
-        saveCurrentInforme(false);
+        if (saveCurrentInforme(false) === false) return; // cancelado: no se genera el documento
         renderInformePreview(data);
         window.print();
       });
@@ -6527,7 +6599,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       btnWhatsAppPdf.addEventListener('click', async () => {
         const data = getInformeDataFromForm();
         saveCobroClient(data.clientName, data.clientNit);
-        saveCurrentInforme(false);
+        if (saveCurrentInforme(false) === false) return; // cancelado: no se genera el documento
         const result = await window.PedroRoaPdf.shareInformePdfViaWhatsApp(data);
         if (result && result.success && result.method === 'native-share') {
           showToast('Compartiendo PDF de informe directamente en WhatsApp...', '🚀');
@@ -6540,7 +6612,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       btnWhatsAppText.addEventListener('click', () => {
         const data = getInformeDataFromForm();
         saveCobroClient(data.clientName, data.clientNit);
-        saveCurrentInforme(false);
+        if (saveCurrentInforme(false) === false) return; // cancelado: no se genera el documento
         const text = generateInformePlainText(data);
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
