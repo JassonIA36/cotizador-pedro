@@ -226,7 +226,7 @@ img { max-width: 100%; }
 .btn-header-auth { font-size: 0.85rem; color: var(--text-muted); }
 @media (max-width: 520px) { .header-auth-label { display: none; } }
 
-.topbar-status { border-top: 1px solid var(--border); background: var(--bg-main); padding: 1px 0; }
+.topbar-status { border-top: 1px solid var(--border); background: var(--bg-main); padding: 4px 0; }
 .topbar-status-inner { max-width: var(--app-max-width); margin: 0 auto; padding: 0 16px; }
 .topbar-sync-status {
   display: flex;
