@@ -78,6 +78,13 @@ async function cuentasEnPantalla(page) {
   return page.locator("#cc-history-list .unified-history-card").evaluateAll((els) => els.map((e) => e.innerText.replace(/\s+/g, " ")));
 }
 
+/** Hace clic en un botón de acción del historial, abriendo antes «Más opciones» si el botón está ahí dentro. */
+async function accion(page, selector, n = 0) {
+  const boton = page.locator(selector).nth(n);
+  await boton.evaluate((el) => { const d = el.closest("details"); if (d) d.open = true; });
+  await boton.click();
+}
+
 const ID_A = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
 const ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
@@ -117,6 +124,7 @@ function cuentaDeCobro({ id, numero = 2, cliente = "Inversiones Delgado SAS", co
 }
 
 module.exports = {
+  accion,
   BASE, ID_A, ID_B, reiniciarNube, nube, estadisticas, comportamiento, dispositivo, cerrarDispositivos, sincronizar,
   cotizacionesEnPantalla, cuentasEnPantalla, cotizacion, cuentaDeCobro,
 };

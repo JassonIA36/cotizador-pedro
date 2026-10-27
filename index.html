@@ -2,15 +2,16 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Pedro Roa · Cotizador Profesional Móvil</title>
   
   <!-- Meta tags SEO y PWA -->
   <meta name="description" content="Cotizador profesional móvil para Pedro Roa. Genera cotizaciones al instante y compártelas directamente en PDF por WhatsApp.">
-  <meta name="theme-color" content="#0c0e14">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f3f4">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1114">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Cotizador Roa">
   <meta name="format-detection" content="telephone=no">
 
@@ -22,126 +23,90 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 
   <!-- Estilos Modernos -->
-  <link rel="stylesheet" href="css/app.css?v=2.8.1">
+  <link rel="stylesheet" href="css/app.css?v=2.9.0">
+  <link rel="stylesheet" href="css/documento.css?v=2.9.0">
+  <script>
+    // Tema claro por defecto; se aplica antes de pintar para que no parpadee
+    try { if (localStorage.getItem('pr_theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) { /* sin almacenamiento */ }
+  </script>
 </head>
 <body>
-
-  <!-- TopBar Stitch Design -->
-  <div class="topbar-status np">
-    <div class="topbar-status-inner">
-      <div class="topbar-sync-status" id="topbar-sync-btn" role="button" tabindex="0" title="Estado de sincronización multidispositivo (Toca para sincronizar o iniciar sesión)">
-        <span class="sync-dot" id="sync-dot"></span>
-        <span class="sync-text" id="sync-text">Modo local · Iniciar sesión para sincronizar</span>
-      </div>
-      <div class="topbar-contact-info">
-        <a href="tel:+573024555428" class="topbar-link">📞 +57 302 4555428</a>
-        <a href="mailto:pedroroae@gmail.com" class="topbar-link topbar-email">✉️ pedroroae@gmail.com</a>
-        <span class="topbar-badge-active">
-          <span class="pulse-emerald"></span> Atención Activa & Remota
-        </span>
-      </div>
-    </div>
-  </div>
 
   <!-- Encabezado de la App -->
   <header class="app-header np">
     <div class="header-inner">
       <div class="brand-wrapper">
-        <img src="assets/logo.png" alt="Logo Pedro Roa" class="brand-logo" width="44" height="44">
+        <img src="assets/logo.png" alt="Logo Pedro Roa" class="brand-logo" width="40" height="40">
         <div class="brand-info">
-          <h1><span class="brand-name-gradient">Pedro Roa</span> <span class="card-badge brand-badge-pro">PRO</span></h1>
-          <div class="brand-subtitle">Servicio Técnico Especializado</div>
+          <h1 class="brand-name">Pedro Roa</h1>
+          <div class="brand-subtitle">Servicio técnico</div>
         </div>
       </div>
       <div class="header-actions">
+        <button id="btn-install-app" class="btn-primary btn-install" style="display: none;" type="button">Instalar app</button>
         <button id="btn-header-auth" class="btn-header-auth btn-trigger-auth" type="button" style="display: none;" title="Cerrar sesión">
-          🚪 <span class="header-auth-label">Cerrar sesión</span>
+          <svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg> <span class="header-auth-label">Cerrar sesión</span>
         </button>
-        <button id="btn-install-app" class="btn-primary btn-install-glow" style="display: none; padding: 7px 14px; font-size: 0.8rem;">
-          📲 Instalar App
-        </button>
-        <button id="theme-toggle" class="btn-icon header-theme-btn" title="Cambiar tema día/noche" aria-label="Cambiar tema">
-          ☀️
-        </button>
+        <button id="theme-toggle" class="btn-icon header-theme-btn" type="button" title="Cambiar entre tema claro y oscuro" aria-label="Cambiar tema"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg></button>
       </div>
     </div>
+    <div class="topbar-status">
+      <div class="topbar-status-inner">
+        <div class="topbar-sync-status" id="topbar-sync-btn" role="button" tabindex="0" title="Estado de sincronización (toca para sincronizar o iniciar sesión)">
+          <span class="sync-dot" id="sync-dot" aria-hidden="true"></span>
+          <span class="sync-text" id="sync-text">Modo local · Iniciar sesión para sincronizar</span>
+        </div>
+      </div>
+    </div>
+    <div class="cmyk-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
   </header>
+
+  <!-- Navegación principal por módulos (barra inferior en el celular) -->
+  <nav id="main-nav" class="main-nav np" aria-label="Módulos">
+    <button type="button" class="main-nav-btn active" data-nav="inicio"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span>Inicio</span></button>
+    <button type="button" class="main-nav-btn" data-nav="cotizaciones"><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg><span>Cotizar</span></button>
+    <button type="button" class="main-nav-btn" data-nav="cuentas-cobro"><svg class="ic" aria-hidden="true"><use href="#i-receipt"/></svg><span>Cobros</span></button>
+    <button type="button" class="main-nav-btn" data-nav="informes"><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg><span>Informes</span></button>
+  </nav>
 
   <!-- Banner de Instalación PWA (Móvil) -->
   <aside id="install-banner" class="install-banner" role="alert">
     <div class="install-text">
-      <span>📲 Instalar Cotizador:</span> Agrega esta app a tu pantalla de inicio para usarla sin conexión.
+      <span>Instala el Cotizador</span> en tu pantalla de inicio para usarlo sin conexión.
     </div>
     <div class="install-btns">
-      <button id="btn-install-banner" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">Instalar</button>
-      <button id="btn-dismiss-banner" class="btn-icon" style="height: 30px; width: 30px; font-size: 0.75rem;" title="Cerrar">✕</button>
+      <button id="btn-install-banner" class="btn-primary" type="button">Instalar</button>
+      <button id="btn-dismiss-banner" class="btn-icon" type="button" title="Cerrar" aria-label="Cerrar"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
   </aside>
 
   <!-- Navegación de Sección (visible solo cuando se está dentro de Cotizaciones o Cuentas de Cobro) -->
-  <nav id="section-nav-wrapper" class="app-nav-wrapper np" aria-label="Navegación de sección" style="display: none;">
+  <nav id="section-nav-wrapper" class="app-nav-wrapper np" aria-label="Secciones del módulo" style="display: none;">
     <div class="nav-inner-container">
-      
-      <!-- Barra superior: Botón claro para volver al Menú Principal + Indicador de Sección Activa -->
-      <div class="section-top-bar">
-        <button type="button" id="btn-back-to-main-menu" class="btn-back-main" title="Volver al menú principal">
-          <span class="back-arrow">←</span>
-          <span class="back-text-full">Menú Principal</span>
-          <span class="back-text-short">Menú</span>
-        </button>
-        <div class="section-badge-wrap">
-          <span id="section-active-badge" class="section-active-badge">📋 Cotizaciones</span>
-        </div>
-      </div>
-
-      <!-- Contenedor con degradado de desplazamiento y scroll-snap -->
       <div class="submenu-scroll-container">
-        <!-- Submenú Cotizaciones -->
+        <!-- Cotizaciones -->
         <div id="submenu-cotizaciones" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cotizaciones" style="display: none;">
-          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">
-            <span>📝</span> Cotización actual
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">
-            <span>📜</span> Historial <span class="badge-count" id="badge-quotes-count">0</span>
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-catalogo" data-view="view-catalogo" role="tab" aria-selected="false">
-            <span>📦</span> Catálogo de Precios
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-config" data-view="view-config" role="tab" aria-selected="false">
-            <span>⚙️</span> Mi Negocio
-          </button>
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cotizador" data-view="view-cotizador" role="tab" aria-selected="true">Cotización</button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-historial" data-view="view-historial" role="tab" aria-selected="false">Historial <span class="badge-count" id="badge-quotes-count">0</span></button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-catalogo" data-view="view-catalogo" role="tab" aria-selected="false">Catálogo</button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-config" data-view="view-config" role="tab" aria-selected="false">Mi negocio</button>
         </div>
 
-        <!-- Submenú Cuentas de Cobro -->
+        <!-- Cuentas de cobro -->
         <div id="submenu-cuentas-cobro" class="submenu-nav-group" role="tablist" aria-label="Opciones de Cuentas de Cobro" style="display: none;">
-          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">
-            <span>📝</span> Cuenta de cobro actual
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">
-            <span>📜</span> Historial <span class="badge-count" id="badge-cobros-count">0</span>
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-emisor" data-view="view-cobro-emisor" role="tab" aria-selected="false">
-            <span>👤</span> Mis Datos
-          </button>
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-cuentas-cobro" data-view="view-cuentas-cobro" role="tab" aria-selected="true">Cuenta de cobro</button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-historial" data-view="view-cobro-historial" role="tab" aria-selected="false">Historial <span class="badge-count" id="badge-cobros-count">0</span></button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-cobro-emisor" data-view="view-cobro-emisor" role="tab" aria-selected="false">Mis datos</button>
         </div>
 
-        <!-- Submenú Informes Técnicos -->
+        <!-- Informes técnicos -->
         <div id="submenu-informes" class="submenu-nav-group" role="tablist" aria-label="Opciones de Informes Técnicos" style="display: none;">
-          <button type="button" class="subnav-btn tab-btn active" data-subview="view-informe-tecnico" data-view="view-informe-tecnico" role="tab" aria-selected="true">
-            <span>📝</span> Informe actual
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-historial" data-view="view-informe-historial" role="tab" aria-selected="false">
-            <span>📜</span> Historial <span class="badge-count" id="badge-informes-count">0</span>
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-plantillas" data-view="view-informe-plantillas" role="tab" aria-selected="false">
-            <span>📑</span> Plantillas
-          </button>
-          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-datos" data-view="view-informe-datos" role="tab" aria-selected="false">
-            <span>👤</span> Mis datos
-          </button>
+          <button type="button" class="subnav-btn tab-btn active" data-subview="view-informe-tecnico" data-view="view-informe-tecnico" role="tab" aria-selected="true">Informe</button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-historial" data-view="view-informe-historial" role="tab" aria-selected="false">Historial <span class="badge-count" id="badge-informes-count">0</span></button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-plantillas" data-view="view-informe-plantillas" role="tab" aria-selected="false">Plantillas</button>
+          <button type="button" class="subnav-btn tab-btn" data-subview="view-informe-datos" data-view="view-informe-datos" role="tab" aria-selected="false">Mis datos</button>
         </div>
       </div>
-
     </div>
   </nav>
 
@@ -154,159 +119,79 @@
     <section id="view-main-menu" class="view-section active">
       <div class="main-menu-hub">
         <div class="hub-welcome-banner">
-          <h2 class="hub-title">Menú Principal</h2>
-          <p class="hub-desc">Selecciona el módulo con el que deseas trabajar hoy:</p>
+          <h2 class="hub-title">Inicio</h2>
+          <p class="hub-desc">¿Qué vas a preparar hoy?</p>
         </div>
 
         <div class="hub-cards-grid">
-          <!-- Opción 1: Cotizaciones -->
           <button type="button" id="btn-main-cotizaciones" class="hub-action-card card-cotizaciones" data-section="cotizaciones">
-            <div class="hub-card-top-row">
-              <div class="hub-card-title-group">
-                <div class="hub-card-icon-wrap icon-cotizaciones">
-                  <span class="hub-big-icon">📋</span>
-                </div>
-                <div class="hub-card-meta">
-                  <div class="hub-card-heading-wrap">
-                    <h3 class="hub-card-heading">Cotizaciones</h3>
-                    <span class="hub-status-pill pill-active">ACTIVO</span>
-                  </div>
-                  <span class="hub-card-subheading">Servicios técnicos & hardware</span>
-                </div>
-              </div>
-              <div class="hub-card-status-badge">
-                <span class="status-badge-label">ESTADO</span>
-                <span class="status-badge-val val-green">Al día</span>
-              </div>
-            </div>
-            
-            <p class="hub-card-desc">Crea cotizaciones para tus clientes, revisa el historial, actualiza precios y personaliza tu negocio con presupuestos profesionales.</p>
-            
-            <div class="hub-card-pills">
-              <span class="hub-pill">📝 Cotización actual</span>
-              <span class="hub-pill">📜 Historial</span>
-              <span class="hub-pill">📦 Catálogo</span>
-              <span class="hub-pill">⚙️ Mi Negocio</span>
-            </div>
-
-            <div class="hub-card-action">
-              <span class="btn-hub-open">Entrar a Cotizaciones →</span>
-            </div>
+            <span class="hub-card-icon-wrap icon-cotizaciones"><svg class="ic" aria-hidden="true"><use href="#i-quote-plus"/></svg></span>
+            <span class="hub-card-meta">
+              <span class="hub-card-heading">Cotizaciones</span>
+              <span class="hub-card-subheading">Servicios técnicos y hardware</span>
+            </span>
+            <span class="hub-card-status-badge">
+              <span class="status-badge-label">Estado</span>
+              <span class="status-badge-val val-green">Al día</span>
+            </span>
+            <svg class="ic hub-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
           </button>
 
-          <!-- Opción 2: Cuentas de Cobro -->
           <button type="button" id="btn-main-cobro" class="hub-action-card card-cobro" data-section="cuentas-cobro">
-            <div class="hub-card-top-row">
-              <div class="hub-card-title-group">
-                <div class="hub-card-icon-wrap icon-cobro">
-                  <span class="hub-big-icon">💼</span>
-                </div>
-                <div class="hub-card-meta">
-                  <div class="hub-card-heading-wrap">
-                    <h3 class="hub-card-heading">Cuentas de cobro</h3>
-                    <span class="hub-status-pill pill-legal">LEGAL</span>
-                  </div>
-                  <span class="hub-card-subheading">Facturación & recibos oficiales</span>
-                </div>
-              </div>
-              <div class="hub-card-status-badge">
-                <span class="status-badge-label label-pending">PENDIENTES</span>
-                <span class="status-badge-val val-amber" id="hub-badge-pending-val">$0</span>
-              </div>
-            </div>
-
-            <p class="hub-card-desc">Emite cuentas de cobro con formato legal y firma, controla saldos pendientes, genera PDFs listos y envía directamente por WhatsApp.</p>
-            
-            <div class="hub-card-pills">
-              <span class="hub-pill">📝 Cuenta de cobro actual</span>
-              <span class="hub-pill">📜 Historial con pagos</span>
-              <span class="hub-pill">👤 Mis Datos</span>
-            </div>
-
-            <div class="hub-card-action">
-              <span class="btn-hub-open">Entrar a Cuentas de cobro →</span>
-            </div>
+            <span class="hub-card-icon-wrap icon-cobro"><svg class="ic" aria-hidden="true"><use href="#i-receipt"/></svg></span>
+            <span class="hub-card-meta">
+              <span class="hub-card-heading">Cuentas de cobro</span>
+              <span class="hub-card-subheading">Recibos con formato legal y firma</span>
+            </span>
+            <span class="hub-card-status-badge">
+              <span class="status-badge-label label-pending">Por cobrar</span>
+              <span class="status-badge-val val-amber" id="hub-badge-pending-val">$0</span>
+            </span>
+            <svg class="ic hub-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
           </button>
 
-          <!-- Opción 3: Informes Técnicos -->
           <button type="button" id="btn-main-informes" class="hub-action-card card-informes" data-section="informes">
-            <div class="hub-card-top-row">
-              <div class="hub-card-title-group">
-                <div class="hub-card-icon-wrap icon-informes">
-                  <span class="hub-big-icon">🛠️</span>
-                </div>
-                <div class="hub-card-meta">
-                  <div class="hub-card-heading-wrap">
-                    <h3 class="hub-card-heading">Informes técnicos</h3>
-                    <span class="hub-status-pill pill-informes">DIAGNÓSTICO</span>
-                  </div>
-                  <span class="hub-card-subheading">Diagnóstico de equipos & hardware</span>
-                </div>
-              </div>
-              <div class="hub-card-status-badge">
-                <span class="status-badge-label" id="hub-badge-informes-label">EN ESPERA</span>
-                <span class="status-badge-val val-cyan" id="hub-badge-informes-val">0</span>
-              </div>
-            </div>
-
-            <p class="hub-card-desc">Elabora diagnósticos técnicos para computadores, impresoras y hardware con pruebas realizadas, propuesta económica de reparación y formato oficial en PDF.</p>
-            
-            <div class="hub-card-pills">
-              <span class="hub-pill">📝 Informe actual</span>
-              <span class="hub-pill">📜 Historial</span>
-              <span class="hub-pill">📑 Plantillas</span>
-              <span class="hub-pill">👤 Mis Datos</span>
-            </div>
-
-            <div class="hub-card-action">
-              <span class="btn-hub-open">Entrar a Informes técnicos →</span>
-            </div>
+            <span class="hub-card-icon-wrap icon-informes"><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg></span>
+            <span class="hub-card-meta">
+              <span class="hub-card-heading">Informes técnicos</span>
+              <span class="hub-card-subheading">Diagnóstico de equipos y propuesta</span>
+            </span>
+            <span class="hub-card-status-badge">
+              <span class="status-badge-label" id="hub-badge-informes-label">En espera</span>
+              <span class="status-badge-val val-cyan" id="hub-badge-informes-val">0</span>
+            </span>
+            <svg class="ic hub-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
           </button>
         </div>
 
-        <!-- Widgets de resumen rápido y soporte (según diseño Stitch) -->
         <div class="hub-quick-widgets">
           <div class="hub-stat-card">
-            <div class="stat-card-header">
-              <span class="stat-card-title">COTIZACIONES MES</span>
-              <span class="stat-card-icon">📋</span>
-            </div>
-            <div class="stat-card-number" id="hub-stat-quotes-count">0</div>
-            <div class="stat-card-foot" id="hub-stat-quotes-approved">registradas en historial</div>
+            <span class="stat-card-title">Cotizaciones guardadas</span>
+            <span class="stat-card-number" id="hub-stat-quotes-count">0</span>
+            <span class="stat-card-foot" id="hub-stat-quotes-approved">en el historial</span>
           </div>
-
           <div class="hub-stat-card">
-            <div class="stat-card-header">
-              <span class="stat-card-title">POR COBRAR</span>
-              <span class="stat-card-icon">💼</span>
-            </div>
-            <div class="stat-card-number stat-amber" id="hub-stat-cobros-pending">$0</div>
-            <div class="stat-card-foot" id="hub-stat-cobros-active-count">0 cuentas con saldo</div>
+            <span class="stat-card-title">Por cobrar</span>
+            <span class="stat-card-number stat-amber" id="hub-stat-cobros-pending">$0</span>
+            <span class="stat-card-foot" id="hub-stat-cobros-active-count">0 cuentas con saldo</span>
           </div>
-
           <div class="hub-stat-card">
-            <div class="stat-card-header">
-              <span class="stat-card-title">INFORMES ACTIVOS</span>
-              <span class="stat-card-icon">🛠️</span>
-            </div>
-            <div class="stat-card-number stat-cyan" id="hub-stat-informes-count">0</div>
-            <div class="stat-card-foot" id="hub-stat-informes-pending">0 en espera de respuesta</div>
+            <span class="stat-card-title">Informes activos</span>
+            <span class="stat-card-number stat-cyan" id="hub-stat-informes-count">0</span>
+            <span class="stat-card-foot" id="hub-stat-informes-pending">0 en espera de respuesta</span>
           </div>
         </div>
 
-        <!-- Banner de Soporte Técnico WhatsApp -->
-        <div class="hub-support-card">
-          <div class="support-card-info">
-            <span class="support-card-icon">💬</span>
-            <div class="support-card-text">
-              <strong class="support-title">Soporte y Atención Técnica</strong>
+        <a href="https://wa.me/573024555428?text=Hola%20Pedro,%20necesito%20asistencia%20t%C3%A9cnica%20especializada" target="_blank" rel="noopener noreferrer" class="hub-support-card">
+          <span class="support-card-info">
+            <span class="support-card-icon"><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg></span>
+            <span class="support-card-text">
+              <strong class="support-title">Soporte por WhatsApp</strong>
               <span class="support-sub">+57 302 455 5428</span>
-            </div>
-          </div>
-          <a href="https://wa.me/573024555428?text=Hola%20Pedro,%20necesito%20asistencia%20t%C3%A9cnica%20especializada" target="_blank" rel="noopener noreferrer" class="btn-support-contact">
-            Contactar ↗
-          </a>
-        </div>
+            </span>
+          </span>
+          <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>
+        </a>
       </div>
     </section>
 
@@ -319,30 +204,6 @@
         <!-- Columna Izquierda: Formulario y Editor -->
         <div class="cotizador-form-col">
 
-          <!-- Tarjeta Resumen en la Pantalla de Entrada de Cotizaciones -->
-          <div id="cotizador-entry-summary-card" class="card np section-entry-summary">
-            <div class="entry-summary-header">
-              <div class="card-title">
-                <span>📋</span> Cotizaciones Guardadas
-              </div>
-              <span class="card-badge" id="cot-entry-badge-count">0 cotizaciones</span>
-            </div>
-
-            <div class="entry-pending-list-section">
-              <div class="entry-pending-list-title">
-                <span>📜</span> Últimas cotizaciones registradas:
-              </div>
-              <div id="cot-entry-recent-list" class="entry-pending-list">
-                <!-- Se llena dinámicamente: N°, Cliente, Total -->
-              </div>
-              <div class="entry-pending-list-footer">
-                <button type="button" id="btn-cot-entry-view-history" class="btn-entry-history-full">
-                  📜 Ver historial completo →
-                </button>
-              </div>
-            </div>
-          </div>
-
           <!-- Estado del Documento Actual -->
           <div class="form-doc-status-wrap">
             <span class="form-doc-status-badge status-new" id="cot-form-status-badge">Documento nuevo</span>
@@ -352,7 +213,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>👤</span> Datos del Cliente
+                <span><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span> Datos del Cliente
               </div>
               <span class="card-badge" id="preview-quote-badge">Documento nuevo</span>
             </div>
@@ -365,21 +226,21 @@
                 <label for="q-client-phone">WhatsApp del cliente</label>
                 <div class="phone-input-group">
                   <select id="q-client-prefix" class="phone-prefix-select" aria-label="Código de país WhatsApp">
-                    <option value="57" selected>🇨🇴 +57</option>
-                    <option value="1">🇺🇸 +1</option>
-                    <option value="34">🇪🇸 +34</option>
-                    <option value="58">🇻🇪 +58</option>
-                    <option value="52">🇲🇽 +52</option>
-                    <option value="54">🇦🇷 +54</option>
-                    <option value="56">🇨🇱 +56</option>
-                    <option value="51">🇵🇪 +51</option>
-                    <option value="593">🇪🇨 +593</option>
-                    <option value="507">🇵🇦 +507</option>
+                    <option value="57" selected>CO +57</option>
+                    <option value="1">US +1</option>
+                    <option value="34">ES +34</option>
+                    <option value="58">VE +58</option>
+                    <option value="52">MX +52</option>
+                    <option value="54">AR +54</option>
+                    <option value="56">CL +56</option>
+                    <option value="51">PE +51</option>
+                    <option value="593">EC +593</option>
+                    <option value="507">PA +507</option>
                   </select>
                   <input id="q-client-phone" type="tel" inputmode="tel" placeholder="310 123 4567" autocomplete="tel">
                 </div>
                 <div id="q-phone-feedback" class="phone-feedback-badge">
-                  <span>📱</span> WhatsApp completo: <strong id="q-phone-feedback-num">+57 (escribe el número)</strong>
+                  <span><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg></span> WhatsApp completo: <strong id="q-phone-feedback-num">+57 (escribe el número)</strong>
                 </div>
               </div>
               <div class="input-group full-width">
@@ -393,7 +254,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>📦</span> Ítems & Servicios
+                <span><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg></span> Ítems & Servicios
               </div>
               <button id="btn-add-line" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
                 + Línea libre
@@ -427,7 +288,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>💰</span> Descuentos, Domicilio & Condiciones
+                <span><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span> Descuentos, Domicilio & Condiciones
               </div>
             </div>
             <div class="form-grid-4">
@@ -458,38 +319,62 @@
           </div>
 
           <!-- Barra de Acciones Principales -->
-          <div class="card np" style="background: rgba(22, 26, 36, 0.95); border: 1px solid var(--border-light);">
+          <div class="card np acciones-card">
             <div class="card-header" style="margin-bottom: 10px;">
               <div class="card-title">
-                <span>🚀</span> Acciones de Envío y Exportación
+                Enviar y guardar
               </div>
             </div>
             
             <div class="action-bar">
               <button id="btn-send-whatsapp-pdf" class="btn-whatsapp action-main-btn">
-                <span>📲</span> Enviar PDF por WhatsApp
+                <span><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg></span> Enviar PDF por WhatsApp
               </button>
               <button id="btn-download-pdf" class="btn-primary">
-                <span>📥</span> Descargar PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span> Descargar PDF
               </button>
               <button id="btn-preview-pdf">
-                <span>👁️</span> Ver PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Ver PDF
               </button>
               <button id="btn-send-whatsapp-text">
-                <span>💬</span> WhatsApp Solo Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-message"/></svg></span> WhatsApp Solo Texto
               </button>
               <button id="btn-copy-text">
-                <span>📋</span> Copiar Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg></span> Copiar Texto
               </button>
               <button id="btn-save-quote">
-                <span>💾</span> Guardar Cotización
+                <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg></span> Guardar Cotización
               </button>
               <button id="btn-print">
-                <span>🖨️</span> Imprimir
+                <span><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg></span> Imprimir
               </button>
               <button id="btn-new-quote" class="btn-danger">
-                <span>✨</span> Nueva cotización
+                <span><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></span> Nueva cotización
               </button>
+            </div>
+          </div>
+
+          <!-- Tarjeta Resumen en la Pantalla de Entrada de Cotizaciones -->
+          <div id="cotizador-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                Últimas cotizaciones
+              </div>
+              <span class="card-badge" id="cot-entry-badge-count">0 cotizaciones</span>
+            </div>
+
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                Recientes
+              </div>
+              <div id="cot-entry-recent-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente: N°, Cliente, Total -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-cot-entry-view-history" class="btn-entry-history-full">
+                  <svg class="ic" aria-hidden="true"><use href="#i-history"/></svg> Ver historial completo →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -501,7 +386,7 @@
             <!-- Barra de cabecera con botón para plegar / desplegar -->
             <div class="preview-header-bar np">
               <h3 class="preview-heading">
-                <span>👁️</span> Vista Previa del Documento Oficial
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Vista Previa del Documento Oficial
               </h3>
               <button id="btn-toggle-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
                 <span id="preview-toggle-icon">▲</span>
@@ -520,7 +405,7 @@
                       <div>
                         <div class="doc-brand-title" id="preview-biz-name">Pedro Roa - Servicios Técnicos</div>
                         <div class="doc-brand-sub" id="preview-biz-phone">WhatsApp / Tel: +57 302 4555428</div>
-                        <div class="doc-brand-sub" style="font-size: 0.76rem; color: #6b7280;">Soporte Especializado, Ensamble & Mantenimiento</div>
+                        <div class="doc-brand-sub" style="font-size: 0.76rem;">Soporte Especializado, Ensamble & Mantenimiento</div>
                       </div>
                     </div>
                     <div class="doc-meta-right">
@@ -615,50 +500,11 @@
         <!-- Columna Izquierda: Formulario de la Cuenta de Cobro -->
         <div class="cotizador-form-col">
 
-          <!-- Tarjeta Resumen Financiero en la Pantalla de Entrada de Cuentas de Cobro -->
-          <div id="cobro-entry-summary-card" class="card np section-entry-summary">
-            <div class="entry-summary-header">
-              <div class="card-title">
-                <span>💼</span> Control Financiero de Cuentas de Cobro
-              </div>
-              <span class="card-badge" id="cobro-entry-badge-status">0 pendientes</span>
-            </div>
-
-            <!-- Resumen con 3 métricas: Total Pendiente, Cantidad Pendientes, Total Cobrado -->
-            <div class="entry-stats-grid">
-              <div class="entry-stat-card stat-pending-glow">
-                <span class="entry-stat-label text-amber">Por Cobrar (Pendiente)</span>
-                <span class="entry-stat-val text-amber" id="cobro-entry-stat-pending">$0</span>
-                <span class="entry-stat-sub" id="cobro-entry-stat-pending-count">0 cuentas por cobrar</span>
-              </div>
-              <div class="entry-stat-card stat-paid-glow">
-                <span class="entry-stat-label text-emerald">Total Cobrado (Pagadas)</span>
-                <span class="entry-stat-val text-emerald" id="cobro-entry-stat-paid">$0</span>
-                <span class="entry-stat-sub" id="cobro-entry-stat-paid-count">0 cuentas pagadas</span>
-              </div>
-            </div>
-
-            <!-- Lista de las últimas 3 a 5 cuentas pendientes -->
-            <div class="entry-pending-list-section">
-              <div class="entry-pending-list-title">
-                <span>⏳</span> Cuentas pendientes por cobrar:
-              </div>
-              <div id="cobro-entry-pending-list" class="entry-pending-list">
-                <!-- Se llena dinámicamente: N°, Cliente, Saldo -->
-              </div>
-              <div class="entry-pending-list-footer">
-                <button type="button" id="btn-cobro-entry-view-history" class="btn-entry-history-full">
-                  📜 Ver historial completo →
-                </button>
-              </div>
-            </div>
-          </div>
-
           <!-- Panel Plegable: Mis Datos (Quien Cobra) -->
           <div class="card np">
             <div class="card-header" id="cc-emisor-accordion-btn" style="cursor: pointer;" title="Toca para desplegar o recoger tus datos personales">
               <div class="card-title">
-                <span>👤</span> Mis Datos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
+                <span><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span> Mis Datos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
               </div>
               <button type="button" class="btn-icon" id="cc-emisor-accordion-icon" aria-label="Desplegar mis datos">
                 ▼
@@ -705,15 +551,15 @@
                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                       <input type="file" id="cc-firma-input" accept="image/png, image/jpeg, image/jpg" style="display: none;">
                       <button type="button" id="btn-cc-upload-firma" class="btn-secondary" style="padding: 7px 14px; font-size: 0.82rem;">
-                        📁 Subir imagen de firma (PNG/JPG)
+                        <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg> Subir imagen de firma (PNG/JPG)
                       </button>
                       <button type="button" id="btn-cc-remove-firma" class="btn-danger" style="display: none; padding: 7px 14px; font-size: 0.82rem;">
-                        🗑️ Eliminar firma
+                        <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg> Eliminar firma
                       </button>
                       <div id="cc-firma-status" style="font-size: 0.8rem; color: var(--text-muted);">Sin firma (espacio en blanco)</div>
                     </div>
                     <div id="cc-firma-preview-box" style="display: none; margin-top: 8px; padding: 8px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border); width: fit-content;">
-                      <img id="cc-firma-preview-img" src="" alt="Firma previa" style="max-height: 50px; max-width: 180px; object-fit: contain;">
+                      <img id="cc-firma-preview-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Firma previa" style="max-height: 50px; max-width: 180px; object-fit: contain;">
                     </div>
                   </div>
 
@@ -722,7 +568,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                       <label for="cc-legal-text" style="margin-bottom: 0;">Texto legal por defecto (3 párrafos)</label>
                       <button type="button" id="btn-cc-reset-legal" class="btn-icon" style="font-size: 0.72rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer texto legal original">
-                        🔄 Restablecer
+                        <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer
                       </button>
                     </div>
                     <textarea id="cc-legal-text" rows="5" style="font-size: 0.8rem;"></textarea>
@@ -733,7 +579,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                       <label for="cc-default-notes" style="margin-bottom: 0;">Garantías, notas y observaciones predeterminadas</label>
                       <button type="button" id="btn-cc-reset-notes" class="btn-icon" style="font-size: 0.72rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer texto de ejemplo">
-                        🔄 Restablecer
+                        <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer
                       </button>
                     </div>
                     <textarea id="cc-default-notes" rows="3" style="font-size: 0.8rem;" placeholder="Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante."></textarea>
@@ -752,7 +598,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>📄</span> Datos de la Cuenta
+                <span><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg></span> Datos de la Cuenta
               </div>
               <span class="card-badge" id="cc-badge-number">Documento nuevo</span>
             </div>
@@ -818,7 +664,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>📝</span> Conceptos a Cobrar
+                <span><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span> Conceptos a Cobrar
               </div>
               <button id="btn-cc-add-concepto" type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
                 + Agregar Concepto
@@ -834,7 +680,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>💵</span> Adelantos o Abonos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Opcional)</small>
+                <span><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span> Adelantos o Abonos <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Opcional)</small>
               </div>
               <button id="btn-cc-add-adelanto" type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
                 + Agregar Adelanto
@@ -849,7 +695,7 @@
             </div>
 
             <div id="cc-warning-box" class="warning-banner" style="display: none; margin-top: 12px;">
-              ⚠️ <strong>Aviso:</strong> Los adelantos superan el total de los conceptos. El saldo a cobrar no puede ser negativo.
+              <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg> <strong>Aviso:</strong> Los adelantos superan el total de los conceptos. El saldo a cobrar no puede ser negativo.
             </div>
           </div>
 
@@ -857,7 +703,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>💰</span> Saldo y Acciones
+                <span><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span> Saldo y Acciones
               </div>
             </div>
 
@@ -881,29 +727,68 @@
 
             <div class="action-bar">
               <button id="btn-cc-whatsapp-pdf" type="button" class="btn-whatsapp action-main-btn">
-                <span>📲</span> Enviar PDF por WhatsApp
+                <span><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg></span> Enviar PDF por WhatsApp
               </button>
               <button id="btn-cc-download-pdf" type="button" class="btn-primary">
-                <span>📥</span> Descargar PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span> Descargar PDF
               </button>
               <button id="btn-cc-preview-pdf" type="button">
-                <span>👁️</span> Ver PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Ver PDF
               </button>
               <button id="btn-cc-save" type="button" class="btn-primary">
-                <span>💾</span> Guardar Cuenta
+                <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg></span> Guardar Cuenta
               </button>
               <button id="btn-cc-whatsapp" type="button">
-                <span>💬</span> WhatsApp Solo Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-message"/></svg></span> WhatsApp Solo Texto
               </button>
               <button id="btn-cc-copy" type="button">
-                <span>📋</span> Copiar Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg></span> Copiar Texto
               </button>
               <button id="btn-cc-print" type="button">
-                <span>🖨️</span> Imprimir
+                <span><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg></span> Imprimir
               </button>
               <button id="btn-cc-new" type="button" class="btn-danger">
-                <span>✨</span> Nueva cuenta de cobro
+                <span><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></span> Nueva cuenta de cobro
               </button>
+            </div>
+          </div>
+
+          <!-- Tarjeta Resumen Financiero en la Pantalla de Entrada de Cuentas de Cobro -->
+          <div id="cobro-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                <span><svg class="ic" aria-hidden="true"><use href="#i-receipt"/></svg></span> Resumen de cobros
+              </div>
+              <span class="card-badge" id="cobro-entry-badge-status">0 pendientes</span>
+            </div>
+
+            <!-- Resumen con 3 métricas: Total Pendiente, Cantidad Pendientes, Total Cobrado -->
+            <div class="entry-stats-grid">
+              <div class="entry-stat-card stat-pending-glow">
+                <span class="entry-stat-label text-amber">Por Cobrar (Pendiente)</span>
+                <span class="entry-stat-val text-amber" id="cobro-entry-stat-pending">$0</span>
+                <span class="entry-stat-sub" id="cobro-entry-stat-pending-count">0 cuentas por cobrar</span>
+              </div>
+              <div class="entry-stat-card stat-paid-glow">
+                <span class="entry-stat-label text-emerald">Total Cobrado (Pagadas)</span>
+                <span class="entry-stat-val text-emerald" id="cobro-entry-stat-paid">$0</span>
+                <span class="entry-stat-sub" id="cobro-entry-stat-paid-count">0 cuentas pagadas</span>
+              </div>
+            </div>
+
+            <!-- Lista de las últimas 3 a 5 cuentas pendientes -->
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                <span><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span> Cuentas pendientes por cobrar:
+              </div>
+              <div id="cobro-entry-pending-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente: N°, Cliente, Saldo -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-cobro-entry-view-history" class="btn-entry-history-full">
+                  <svg class="ic" aria-hidden="true"><use href="#i-history"/></svg> Ver historial completo →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -915,7 +800,7 @@
             <!-- Barra de cabecera con botón para plegar / desplegar -->
             <div class="preview-header-bar np">
               <h3 class="preview-heading">
-                <span>👁️</span> Vista Previa de la Cuenta de Cobro
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Vista Previa de la Cuenta de Cobro
               </h3>
               <button id="btn-toggle-cobro-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
                 <span id="cobro-preview-toggle-icon">▲</span>
@@ -1023,7 +908,7 @@
                     </div>
                     
                     <div id="cc-doc-preview-firma-wrap" class="doc-cobro-firma-img-wrapper" style="display: none;">
-                      <img id="cc-doc-preview-firma-img" src="" alt="Firma">
+                      <img id="cc-doc-preview-firma-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Firma">
                     </div>
                     <div id="cc-doc-preview-firma-blank" class="doc-cobro-firma-space"></div>
 
@@ -1052,10 +937,10 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📜</span> Historial de Cuentas de Cobro
+            <span><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span> Historial de Cuentas de Cobro
           </div>
           <button type="button" class="btn-primary" id="btn-hist-create-new-cobro" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-            <span>📝</span> Cuenta de cobro actual
+            <span><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span> Cuenta de cobro actual
           </button>
         </div>
         
@@ -1086,7 +971,7 @@
         <div class="cobro-filters-bar">
           <div class="filter-input-wrap search-wrap">
             <label for="cc-hist-search" class="sr-only">Buscar por cliente o número</label>
-            <input type="text" id="cc-hist-search" placeholder="🔍 Buscar por cliente, NIT, número o concepto..." autocomplete="off">
+            <input type="text" id="cc-hist-search" placeholder="Buscar por cliente, NIT, número o concepto..." autocomplete="off">
           </div>
           <div class="filter-input-wrap select-wrap">
             <label for="cc-hist-filter-status" class="sr-only">Filtrar por estado</label>
@@ -1108,14 +993,14 @@
         <!-- Barra de Respaldo: Exportar e Importar -->
         <div class="cobro-backup-bar">
           <div class="backup-info">
-            <span>💾 Respaldo de información:</span>
+            <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Respaldo de información:</span>
           </div>
           <div class="backup-actions">
             <button type="button" id="btn-cc-export-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;" title="Descargar copia del historial en archivo JSON">
-              <span>📥</span> Exportar historial (.json)
+              <span><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span> Exportar historial (.json)
             </button>
             <button type="button" id="btn-cc-import-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;" title="Cargar historial desde archivo JSON previamente guardado">
-              <span>📤</span> Importar historial (.json)
+              <span><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg></span> Importar historial (.json)
             </button>
             <input type="file" id="cc-import-history-file" accept=".json,application/json" style="display: none;">
           </div>
@@ -1134,7 +1019,7 @@
       <div class="card" style="max-width: 820px; margin: 0 auto;">
         <div class="card-header">
           <div class="card-title">
-            <span>👤</span> Mis Datos de Emisor <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
+            <span><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span> Mis Datos de Emisor <small style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal;">(Quien cobra)</small>
           </div>
           <button type="button" class="btn-secondary" id="btn-back-to-cobro-form" style="padding: 6px 12px; font-size: 0.8rem; min-height: 38px;">
             ← Ir a Crear Cuenta
@@ -1145,11 +1030,11 @@
         </p>
 
         <!-- Panel de Sincronización en la Nube -->
-        <div class="sync-panel-card card" style="margin-bottom: 20px; background: rgba(14, 16, 24, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px;">
+        <div class="sync-panel-card card" style="margin-bottom: 20px;">
           <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #38bdf8;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ic-acento"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización Multidispositivo</strong>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
@@ -1161,34 +1046,34 @@
 
           <div class="sync-grid-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">👤 Cuenta:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg> Cuenta:</span>
               <strong class="sync-user-email-text" style="font-size: 0.82rem; color: var(--text-main); word-break: break-all;">No has iniciado sesión</strong>
             </div>
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">📡 Estado:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-signal"/></svg> Estado:</span>
               <span class="sync-status-detail-text" style="font-size: 0.82rem; color: var(--text-muted);">Modo local listo</span>
             </div>
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">🕒 Última sincronización:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg> Última sincronización:</span>
               <span class="sync-last-time-text" style="font-size: 0.82rem; color: var(--text-muted);">Nunca</span>
             </div>
           </div>
 
           <div class="sync-actions-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
-              <span class="sync-btn-icon">🔄</span> Sincronizar ahora
+              <span class="sync-btn-icon"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg></span> Sincronizar ahora
             </button>
-            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
-              🛠️ Reparar sincronización de informes
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 40px; padding: 6px 14px; font-size: 0.82rem;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
+              <svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Reparar sincronización de informes
             </button>
             <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
-              🔑 Iniciar sesión
+              <svg class="ic" aria-hidden="true"><use href="#i-key"/></svg> Iniciar sesión
             </button>
             <button type="button" class="btn-secondary btn-export-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Descargar copia completa de respaldo en JSON">
-              📥 Exportar (.json)
+              <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg> Exportar (.json)
             </button>
             <button type="button" class="btn-secondary btn-import-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Restaurar datos desde archivo JSON">
-              📤 Importar (.json)
+              <svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg> Importar (.json)
             </button>
             <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
           </div>
@@ -1233,15 +1118,15 @@
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
               <input type="file" id="cc-firma-input-tab" accept="image/png, image/jpeg, image/jpg" style="display: none;">
               <button type="button" id="btn-cc-upload-firma-tab" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; min-height: 44px;">
-                📁 Subir imagen de firma (PNG/JPG)
+                <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg> Subir imagen de firma (PNG/JPG)
               </button>
               <button type="button" id="btn-cc-remove-firma-tab" class="btn-danger" style="display: none; padding: 8px 16px; font-size: 0.85rem; min-height: 44px;">
-                🗑️ Eliminar firma
+                <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg> Eliminar firma
               </button>
               <div id="cc-firma-status-tab" style="font-size: 0.82rem; color: var(--text-muted);">Sin firma (espacio en blanco)</div>
             </div>
             <div id="cc-firma-preview-box-tab" style="display: none; margin-top: 10px; padding: 10px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border); width: fit-content;">
-              <img id="cc-firma-preview-img-tab" src="" alt="Firma previa" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+              <img id="cc-firma-preview-img-tab" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Firma previa" style="max-height: 60px; max-width: 200px; object-fit: contain;">
             </div>
           </div>
 
@@ -1250,7 +1135,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label for="cc-legal-text-tab" style="margin-bottom: 0;">Texto legal por defecto (3 párrafos)</label>
               <button type="button" id="btn-cc-reset-legal-tab" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer texto legal original">
-                🔄 Restablecer
+                <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer
               </button>
             </div>
             <textarea id="cc-legal-text-tab" rows="6" style="font-size: 0.82rem; line-height: 1.4;"></textarea>
@@ -1261,7 +1146,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label for="cc-default-notes-tab" style="margin-bottom: 0;">Garantías, notas y observaciones predeterminadas</label>
               <button type="button" id="btn-cc-reset-notes-tab" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer texto de ejemplo">
-                🔄 Restablecer
+                <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer
               </button>
             </div>
             <textarea id="cc-default-notes-tab" rows="4" style="font-size: 0.85rem; line-height: 1.4;" placeholder="Garantía de 30 días sobre el servicio. Repuestos sujetos a garantía del fabricante."></textarea>
@@ -1271,7 +1156,7 @@
 
         <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
           <button type="button" id="btn-save-emisor-tab" class="btn-primary" style="min-height: 44px; padding: 10px 22px;">
-            <span>💾</span> Guardar Mis Datos
+            <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg></span> Guardar Mis Datos
           </button>
         </div>
       </div>
@@ -1284,7 +1169,7 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📦</span> Catálogo de Precios de Pedro Roa
+            <span><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg></span> Catálogo de Precios de Pedro Roa
           </div>
           <button id="btn-cat-add-new" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
             + Nuevo Ítem
@@ -1296,7 +1181,7 @@
         </p>
 
         <div class="catalog-search-bar">
-          <input id="catalog-search" type="search" placeholder="🔍 Buscar servicio o producto por nombre o categoría...">
+          <input id="catalog-search" type="search" placeholder="Buscar servicio o producto por nombre o categoría...">
         </div>
 
         <datalist id="catalog-category-datalist"></datalist>
@@ -1305,7 +1190,7 @@
 
         <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
           <button id="btn-cat-restore" class="btn-danger" style="font-size: 0.8rem; padding: 6px 12px;">
-            🔄 Restaurar catálogo por defecto
+            <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restaurar catálogo por defecto
           </button>
         </div>
       </div>
@@ -1318,7 +1203,7 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📜</span> Historial de Cotizaciones
+            <span><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span> Historial de Cotizaciones
           </div>
         </div>
         <p style="font-size: 0.84rem; margin-bottom: 14px;">
@@ -1336,19 +1221,19 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>⚙️</span> Perfil de Mi Negocio
+            <span><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg></span> Perfil de Mi Negocio
           </div>
           <button id="btn-save-biz" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
-            💾 Guardar Cambios
+            <svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Guardar Cambios
           </button>
         </div>
 
         <!-- Panel de Sincronización en la Nube -->
-        <div class="sync-panel-card card" style="margin-bottom: 20px; background: rgba(14, 16, 24, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px;">
+        <div class="sync-panel-card card" style="margin-bottom: 20px;">
           <div class="sync-panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 10px; flex-wrap: wrap;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #38bdf8;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ic-acento"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 <strong style="font-size: 0.95rem; color: var(--text-main);">Sincronización Multidispositivo</strong>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
@@ -1360,34 +1245,34 @@
 
           <div class="sync-grid-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">👤 Cuenta:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg> Cuenta:</span>
               <strong class="sync-user-email-text" style="font-size: 0.82rem; color: var(--text-main); word-break: break-all;">No has iniciado sesión</strong>
             </div>
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">📡 Estado:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-signal"/></svg> Estado:</span>
               <span class="sync-status-detail-text" style="font-size: 0.82rem; color: var(--text-muted);">Modo local listo</span>
             </div>
             <div>
-              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;">🕒 Última sincronización:</span>
+              <span style="font-size: 0.74rem; color: var(--text-dim); display: block;"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg> Última sincronización:</span>
               <span class="sync-last-time-text" style="font-size: 0.82rem; color: var(--text-muted);">Nunca</span>
             </div>
           </div>
 
           <div class="sync-actions-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" class="btn-primary btn-trigger-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
-              <span class="sync-btn-icon">🔄</span> Sincronizar ahora
+              <span class="sync-btn-icon"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg></span> Sincronizar ahora
             </button>
-            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
-              🛠️ Reparar sincronización de informes
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="min-height: 40px; padding: 6px 14px; font-size: 0.82rem;" title="Repara discrepancias de informes técnicos fusionando por ID con la nube">
+              <svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Reparar sincronización de informes
             </button>
             <button type="button" class="btn-secondary btn-trigger-auth" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;">
-              🔑 Iniciar sesión
+              <svg class="ic" aria-hidden="true"><use href="#i-key"/></svg> Iniciar sesión
             </button>
             <button type="button" class="btn-secondary btn-export-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Descargar copia completa de respaldo en JSON">
-              📥 Exportar (.json)
+              <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg> Exportar (.json)
             </button>
             <button type="button" class="btn-secondary btn-import-all-backup" style="min-height: 38px; padding: 6px 14px; font-size: 0.82rem;" title="Restaurar datos desde archivo JSON">
-              📤 Importar (.json)
+              <svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg> Importar (.json)
             </button>
             <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
           </div>
@@ -1403,7 +1288,7 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-md); border: 1px solid var(--border);">
-          <img src="assets/logo.png" alt="Logo de Pedro Roa" style="width: 56px; height: 56px; border-radius: 8px; border: 1px solid var(--border-light); background: rgba(255,255,255,0.05);">
+          <img src="assets/logo.png" alt="Logo de Pedro Roa" style="width: 56px; height: 56px; object-fit: contain;">
           <div>
             <h4 style="font-size: 1rem; margin-bottom: 2px;">Logo Oficial Pedro Roa</h4>
             <p style="font-size: 0.78rem;">Este logotipo aparece automáticamente en el encabezado de todas las cotizaciones y en el PDF exportado.</p>
@@ -1419,16 +1304,16 @@
             <label for="b-phone">WhatsApp / Teléfono de Contacto</label>
             <div class="phone-input-group">
               <select id="b-prefix" class="phone-prefix-select" aria-label="Código de país WhatsApp negocio">
-                <option value="57" selected>🇨🇴 +57</option>
-                <option value="1">🇺🇸 +1</option>
-                <option value="34">🇪🇸 +34</option>
-                <option value="58">🇻🇪 +58</option>
-                <option value="52">🇲🇽 +52</option>
+                <option value="57" selected>CO +57</option>
+                <option value="1">US +1</option>
+                <option value="34">ES +34</option>
+                <option value="58">VE +58</option>
+                <option value="52">MX +52</option>
               </select>
               <input id="b-phone" type="tel" inputmode="tel" placeholder="302 455 5428">
             </div>
             <div id="b-phone-feedback" class="phone-feedback-badge ready">
-              <span>📱</span> WhatsApp oficial: <strong id="b-phone-feedback-num">+57 302 455 5428</strong>
+              <span><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg></span> WhatsApp oficial: <strong id="b-phone-feedback-num">+57 302 455 5428</strong>
             </div>
           </div>
           <div class="input-group full-width">
@@ -1443,7 +1328,7 @@
 
         <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
           <button id="btn-reset-biz" class="btn-danger" style="font-size: 0.8rem; padding: 6px 12px;">
-            🔄 Restablecer a valores de Pedro Roa
+            <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer a valores de Pedro Roa
           </button>
         </div>
       </div>
@@ -1458,45 +1343,6 @@
         <!-- Columna Izquierda: Formulario y Editor del Informe -->
         <div class="cotizador-form-col">
 
-          <!-- Tarjeta Resumen en la Pantalla de Entrada de Informes Técnicos -->
-          <div id="informe-entry-summary-card" class="card np section-entry-summary">
-            <div class="entry-summary-header">
-              <div class="card-title">
-                <span>🛠️</span> Informes Técnicos de Diagnóstico
-              </div>
-              <span class="card-badge" id="inf-entry-badge-status">0 informes</span>
-            </div>
-
-            <!-- Resumen con métricas: Cantidad informes, Esperando respuesta, Valor propuestas -->
-            <div class="entry-stats-grid">
-              <div class="entry-stat-card stat-pending-glow">
-                <span class="entry-stat-label text-cyan" style="color: #38bdf8;">Enviados (En espera)</span>
-                <span class="entry-stat-val text-cyan" id="inf-entry-stat-pending-val" style="color: #38bdf8;">$0</span>
-                <span class="entry-stat-sub" id="inf-entry-stat-pending-count">0 informes en espera</span>
-              </div>
-              <div class="entry-stat-card stat-paid-glow">
-                <span class="entry-stat-label text-emerald">Total Informes</span>
-                <span class="entry-stat-val text-emerald" id="inf-entry-stat-total-count">0</span>
-                <span class="entry-stat-sub" id="inf-entry-stat-approved-count">registrados en el historial</span>
-              </div>
-            </div>
-
-            <!-- Lista de los últimos 3 a 5 informes -->
-            <div class="entry-pending-list-section">
-              <div class="entry-pending-list-title">
-                <span>📜</span> Últimos informes registrados:
-              </div>
-              <div id="inf-entry-recent-list" class="entry-pending-list">
-                <!-- Se llena dinámicamente -->
-              </div>
-              <div class="entry-pending-list-footer">
-                <button type="button" id="btn-inf-entry-view-history" class="btn-entry-history-full">
-                  📜 Ver historial completo →
-                </button>
-              </div>
-            </div>
-          </div>
-
           <!-- Estado del Documento Actual -->
           <div class="form-doc-status-wrap">
             <span class="form-doc-status-badge status-new" id="inf-form-status-badge">Documento nuevo</span>
@@ -1506,14 +1352,14 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>🏷️</span> Encabezado del Informe
+                <span><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span> Encabezado del Informe
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button type="button" id="btn-inf-pick-template" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;" title="Cargar textos desde una plantilla guardada">
-                  📑 Usar plantilla
+                  <svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg> Usar plantilla
                 </button>
                 <button type="button" id="btn-inf-quick-save-template" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;" title="Guardar los textos actuales como plantilla">
-                  💾 Guardar como plantilla
+                  <svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Guardar como plantilla
                 </button>
               </div>
             </div>
@@ -1537,7 +1383,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>📋</span> Ficha del Informe
+                <span><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg></span> Ficha del Informe
               </div>
               <span class="card-badge" id="inf-badge-number">INF-0001</span>
             </div>
@@ -1578,7 +1424,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>📝</span> Secciones del Informe
+                <span><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span> Secciones del Informe
               </div>
               <button type="button" id="btn-inf-add-custom-section" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
                 + Agregar sección extra
@@ -1674,7 +1520,7 @@
                 </label>
                 <input type="text" id="inf-sec-obs-title" class="informe-sec-title-input" value="Observaciones">
                 <button type="button" id="btn-inf-reset-obs" class="btn-icon" style="font-size: 0.75rem; padding: 2px 8px; width: auto; height: auto;" title="Restablecer a observaciones predeterminadas de Mis datos">
-                  🔄 Restablecer predeterminadas
+                  <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer predeterminadas
                 </button>
               </div>
               <div class="input-group full-width">
@@ -1704,7 +1550,7 @@
           <div class="card np">
             <div class="card-header">
               <div class="card-title">
-                <span>👤</span> Elaborado por & Opciones
+                <span><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span> Elaborado por & Opciones
               </div>
             </div>
             
@@ -1759,38 +1605,77 @@
           </div>
 
           <!-- Barra de Acciones Principales -->
-          <div class="card np" style="background: rgba(22, 26, 36, 0.95); border: 1px solid var(--border-light);">
+          <div class="card np" style="">
             <div class="card-header" style="margin-bottom: 10px;">
               <div class="card-title">
-                <span>🚀</span> Acciones de Envío y Exportación
+                <span><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg></span> Acciones de Envío y Exportación
               </div>
             </div>
             
             <div class="action-bar">
               <button id="btn-inf-whatsapp-pdf" type="button" class="btn-whatsapp action-main-btn">
-                <span>📲</span> Enviar PDF por WhatsApp
+                <span><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg></span> Enviar PDF por WhatsApp
               </button>
               <button id="btn-inf-download-pdf" type="button" class="btn-primary">
-                <span>📥</span> Descargar PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span> Descargar PDF
               </button>
               <button id="btn-inf-preview-pdf" type="button">
-                <span>👁️</span> Ver PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Ver PDF
               </button>
               <button id="btn-inf-save" type="button" class="btn-primary">
-                <span>💾</span> Guardar Informe
+                <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg></span> Guardar Informe
               </button>
               <button id="btn-inf-whatsapp-text" type="button">
-                <span>💬</span> WhatsApp Solo Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-message"/></svg></span> WhatsApp Solo Texto
               </button>
               <button id="btn-inf-copy-text" type="button">
-                <span>📋</span> Copiar Texto
+                <span><svg class="ic" aria-hidden="true"><use href="#i-quote"/></svg></span> Copiar Texto
               </button>
               <button id="btn-inf-print" type="button">
-                <span>🖨️</span> Imprimir / PDF
+                <span><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg></span> Imprimir / PDF
               </button>
               <button id="btn-inf-new" type="button" class="btn-danger">
-                <span>✨</span> Nuevo informe
+                <span><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></span> Nuevo informe
               </button>
+            </div>
+          </div>
+
+          <!-- Tarjeta Resumen en la Pantalla de Entrada de Informes Técnicos -->
+          <div id="informe-entry-summary-card" class="card np section-entry-summary">
+            <div class="entry-summary-header">
+              <div class="card-title">
+                <span><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg></span> Informes Técnicos de Diagnóstico
+              </div>
+              <span class="card-badge" id="inf-entry-badge-status">0 informes</span>
+            </div>
+
+            <!-- Resumen con métricas: Cantidad informes, Esperando respuesta, Valor propuestas -->
+            <div class="entry-stats-grid">
+              <div class="entry-stat-card stat-pending-glow">
+                <span class="entry-stat-label text-cyan" class="ic-acento">Enviados (En espera)</span>
+                <span class="entry-stat-val text-cyan" id="inf-entry-stat-pending-val" class="ic-acento">$0</span>
+                <span class="entry-stat-sub" id="inf-entry-stat-pending-count">0 informes en espera</span>
+              </div>
+              <div class="entry-stat-card stat-paid-glow">
+                <span class="entry-stat-label text-emerald">Total Informes</span>
+                <span class="entry-stat-val text-emerald" id="inf-entry-stat-total-count">0</span>
+                <span class="entry-stat-sub" id="inf-entry-stat-approved-count">registrados en el historial</span>
+              </div>
+            </div>
+
+            <!-- Lista de los últimos 3 a 5 informes -->
+            <div class="entry-pending-list-section">
+              <div class="entry-pending-list-title">
+                <span><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span> Últimos informes registrados:
+              </div>
+              <div id="inf-entry-recent-list" class="entry-pending-list">
+                <!-- Se llena dinámicamente -->
+              </div>
+              <div class="entry-pending-list-footer">
+                <button type="button" id="btn-inf-entry-view-history" class="btn-entry-history-full">
+                  <svg class="ic" aria-hidden="true"><use href="#i-history"/></svg> Ver historial completo →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1802,7 +1687,7 @@
             <!-- Barra con toggle -->
             <div class="preview-header-bar np">
               <h3 class="preview-heading">
-                <span>👁️</span> Vista Previa del Informe Técnico
+                <span><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span> Vista Previa del Informe Técnico
               </h3>
               <button id="btn-toggle-inf-preview" class="btn-toggle-preview" type="button" aria-expanded="true">
                 <span id="inf-preview-toggle-icon">▲</span>
@@ -1832,14 +1717,14 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📜</span> Historial de Informes Técnicos
+            <span><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg></span> Historial de Informes Técnicos
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn-secondary btn-repair-informes-sync" style="padding: 7px 12px; font-size: 0.82rem; min-height: 40px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Repara sincronización de informes técnicos fusionando por ID con la nube">
-              🛠️ Reparar sincronización
+            <button type="button" class="btn-secondary btn-repair-informes-sync" style="padding: 7px 12px; font-size: 0.82rem; min-height: 40px;" title="Repara sincronización de informes técnicos fusionando por ID con la nube">
+              <svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Reparar sincronización
             </button>
             <button type="button" class="btn-primary" id="btn-hist-create-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-              <span>📝</span> Informe actual
+              <span><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span> Informe actual
             </button>
           </div>
         </div>
@@ -1858,7 +1743,7 @@
           </div>
           <div class="stat-card stat-card-pending">
             <div class="stat-label">Enviados (En espera)</div>
-            <div class="stat-value text-cyan" id="inf-stat-pending-count" style="color: #38bdf8;">0</div>
+            <div class="stat-value text-cyan" id="inf-stat-pending-count" class="ic-acento">0</div>
             <div class="stat-sub">Esperando respuesta del cliente</div>
           </div>
           <div class="stat-card stat-card-paid">
@@ -1872,7 +1757,7 @@
         <div class="cobro-filters-bar">
           <div class="filter-input-wrap search-wrap">
             <label for="inf-hist-search" class="sr-only">Buscar por cliente, equipo o número</label>
-            <input type="text" id="inf-hist-search" placeholder="🔍 Buscar por cliente, equipo, serial o número..." autocomplete="off">
+            <input type="text" id="inf-hist-search" placeholder="Buscar por cliente, equipo, serial o número..." autocomplete="off">
           </div>
           <div class="filter-input-wrap select-wrap">
             <label for="inf-hist-filter-status" class="sr-only">Filtrar por estado</label>
@@ -1896,14 +1781,14 @@
         <!-- Respaldo -->
         <div class="cobro-backup-bar">
           <div class="backup-info">
-            <span>💾 Respaldo de informes:</span>
+            <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Respaldo de informes:</span>
           </div>
           <div class="backup-actions">
             <button type="button" id="btn-inf-export-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;">
-              <span>📥</span> Exportar historial (.json)
+              <span><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg></span> Exportar historial (.json)
             </button>
             <button type="button" id="btn-inf-import-history" class="btn-secondary" style="padding: 7px 12px; font-size: 0.8rem; min-height: 40px;">
-              <span>📤</span> Importar historial (.json)
+              <span><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg></span> Importar historial (.json)
             </button>
             <input type="file" id="inf-import-history-file" accept=".json,application/json" style="display: none;">
           </div>
@@ -1922,10 +1807,10 @@
       <div class="card" style="max-width: 860px; margin: 0 auto;">
         <div class="card-header">
           <div class="card-title">
-            <span>📑</span> Plantillas de Informes Técnicos
+            <span><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg></span> Plantillas de Informes Técnicos
           </div>
           <button type="button" class="btn-primary" id="btn-plantillas-new-inf" style="padding: 7px 14px; font-size: 0.82rem; min-height: 40px;">
-            <span>📝</span> Informe actual
+            <span><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span> Informe actual
           </button>
         </div>
         <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px;">
@@ -1945,7 +1830,7 @@
       <div class="card" style="max-width: 820px; margin: 0 auto;">
         <div class="card-header">
           <div class="card-title">
-            <span>👤</span> Mis Datos · Informes Técnicos
+            <span><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span> Mis Datos · Informes Técnicos
           </div>
           <button type="button" class="btn-secondary" id="btn-back-to-inf-form" style="padding: 6px 12px; font-size: 0.8rem; min-height: 38px;">
             ← Ir a Informe actual
@@ -1981,7 +1866,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label for="inf-datos-obs" style="margin-bottom: 0;">Observaciones predeterminadas (una por línea)</label>
               <button type="button" id="btn-inf-reset-datos-obs" class="btn-icon" style="font-size: 0.76rem; padding: 4px 10px; width: auto; height: auto;" title="Restablecer textos por defecto">
-                🔄 Restablecer
+                <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Restablecer
               </button>
             </div>
             <textarea id="inf-datos-obs" rows="5" style="font-size: 0.85rem; line-height: 1.45;"></textarea>
@@ -1991,7 +1876,7 @@
 
         <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
           <button type="button" id="btn-save-inf-datos" class="btn-primary" style="min-height: 44px; padding: 10px 22px;">
-            <span>💾</span> Guardar Mis Datos
+            <span><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg></span> Guardar Mis Datos
           </button>
         </div>
       </div>
@@ -2006,7 +1891,7 @@
       <span class="sticky-total-amount" id="sticky-total">$0</span>
     </div>
     <button id="sticky-btn-pdf" class="btn-whatsapp" style="padding: 10px 16px; font-size: 0.88rem;">
-      <span>📲</span> Enviar PDF
+      <span><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg></span> Enviar PDF
     </button>
   </div>
 
@@ -2028,14 +1913,14 @@
   <!-- Modal Conflicto de Número de Cuenta de Cobro -->
   <div id="cobro-conflict-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-content" style="max-width: 480px;">
-      <div style="font-size: 2.2rem; margin-bottom: 8px; text-align: center;">⚠️</div>
+      <div style="font-size: 2.2rem; margin-bottom: 8px; text-align: center;"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg></div>
       <h3 id="cobro-conflict-title" class="modal-title" style="margin-bottom: 10px; text-align: center;">Número de cuenta ya existe</h3>
       <div id="cobro-conflict-body" class="modal-body" style="font-size: 0.9rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;"></div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
         <button type="button" id="btn-conflict-use-next" class="btn-primary" style="justify-content: center; min-height: 44px; font-weight: 600; width: 100%;">
           Usar el siguiente número
         </button>
-        <button type="button" id="btn-conflict-replace" class="btn-secondary" style="justify-content: center; min-height: 44px; width: 100%; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+        <button type="button" id="btn-conflict-replace" class="btn-secondary" style="justify-content: center; min-height: 44px; width: 100%;">
           Reemplazar la existente
         </button>
         <button type="button" id="btn-conflict-cancel" class="btn-secondary" style="justify-content: center; min-height: 42px; width: 100%;">
@@ -2050,7 +1935,7 @@
     <div class="modal-content auth-modal-box" style="max-width: 440px;">
       <div class="auth-modal-top" style="text-align: center; margin-bottom: 18px;">
         <div style="margin-bottom: 14px; display: flex; justify-content: center;">
-          <img src="assets/logo.png" alt="Pedro Roa Logo" style="width: 64px; height: 64px; border-radius: 12px; object-fit: contain; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-light); background: rgba(255, 255, 255, 0.04); padding: 4px;">
+          <img src="assets/logo.png" alt="Pedro Roa Logo" style="width: 56px; height: 56px; object-fit: contain;">
         </div>
         <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.15rem; font-weight: 700;">Acceso a tu Cuenta Profesional</h3>
         <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
@@ -2058,7 +1943,7 @@
         </p>
       </div>
 
-      <div id="auth-error-alert" class="auth-error-alert" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--danger-bg); border: 1px solid var(--danger); color: #fca5a5; font-size: 0.82rem; margin-bottom: 14px; line-height: 1.4;"></div>
+      <div id="auth-error-alert" class="auth-error-alert" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); font-size: 0.82rem; margin-bottom: 14px; line-height: 1.4;"></div>
 
       <form id="form-auth-login" onsubmit="return false;">
         <div class="input-group full-width" style="margin-bottom: 12px;">
@@ -2070,13 +1955,13 @@
           <label for="auth-password-input">Contraseña</label>
           <div style="position: relative; display: flex; align-items: center;">
             <input type="password" id="auth-password-input" placeholder="Tu contraseña" required autocomplete="current-password" style="width: 100%; padding-right: 42px;">
-            <button type="button" id="btn-toggle-auth-pwd" class="btn-icon" style="position: absolute; right: 6px; width: 32px; height: 32px; background: transparent; border: none; font-size: 0.9rem;" title="Mostrar/ocultar contraseña" aria-label="Mostrar contraseña">👁️</button>
+            <button type="button" id="btn-toggle-auth-pwd" class="btn-icon" style="position: absolute; right: 6px; width: 32px; height: 32px; background: transparent; border: none; font-size: 0.9rem;" title="Mostrar/ocultar contraseña" aria-label="Mostrar contraseña"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></button>
           </div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <button type="submit" id="btn-auth-submit" class="btn-primary" style="min-height: 44px; justify-content: center; font-size: 0.9rem; font-weight: 600;">
-            <span id="auth-btn-icon" style="margin-right: 6px;">🔐</span> Iniciar Sesión
+            <span id="auth-btn-icon" style="margin-right: 6px;"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></span> Iniciar Sesión
           </button>
           <button type="button" id="btn-auth-close" class="btn-secondary" style="min-height: 40px; justify-content: center; font-size: 0.84rem;">
             Continuar en modo local (sin cuenta)
@@ -2085,7 +1970,7 @@
       </form>
 
       <p style="font-size: 0.74rem; color: var(--text-dim); text-align: center; margin-top: 14px; line-height: 1.35;">
-        🔒 Tus datos se respaldan con cifrado de alta seguridad. La aplicación funciona al 100% incluso sin internet.
+        <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> Tus datos se respaldan con cifrado de alta seguridad. La aplicación funciona al 100% incluso sin internet.
       </p>
     </div>
   </div>
@@ -2096,13 +1981,16 @@
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/almacen.js?v=2.8.1"></script>
+  <script src="js/iconos.js?v=2.9.0"></script>
+  <script src="assets/motion-mini.js"></script>
+  <script src="js/movimiento.js?v=2.9.0"></script>
+  <script src="js/almacen.js?v=2.9.0"></script>
   <script>
     // La app arranca cuando el almacén interno terminó de restaurar los datos que el navegador no haya podido guardar.
     (function () {
       function cargarApp() {
         var s = document.createElement('script');
-        s.src = 'js/app.js?v=2.8.1';
+        s.src = 'js/app.js?v=2.9.0';
         document.body.appendChild(s);
       }
       if (window.PRAlmacen) window.PRAlmacen.hidratar().then(cargarApp, cargarApp);

@@ -1,7 +1,7 @@
 // Cuando dos dispositivos ya usaron el mismo número, la app lo marca y deja renumerar una de las dos.
 const { test, expect } = require("@playwright/test");
 const {
-  ID_A, ID_B, reiniciarNube, cerrarDispositivos, dispositivo, sincronizar,
+  accion, ID_A, ID_B, reiniciarNube, cerrarDispositivos, dispositivo, sincronizar,
   cotizacionesEnPantalla, cuentasEnPantalla, cotizacion, cuentaDeCobro,
 } = require("./ayudas");
 
@@ -27,7 +27,7 @@ test("las cotizaciones con número repetido se marcan y se pueden renumerar", as
 
   // En el computador se renumera una (se acepta la confirmación)
   pc.page.on("dialog", (d) => d.accept());
-  await pc.page.locator('#history-list .uhc-btn[data-accion="renumerar"]').first().click();
+  await accion(pc.page, '#history-list .uhc-btn[data-accion="renumerar"]');
   for (const d of [pc, celular, pc, celular]) await sincronizar(d.page, request);
 
   for (const [nombre, d] of [["computador", pc], ["celular", celular]]) {
@@ -54,7 +54,7 @@ test("las cuentas de cobro con número repetido se marcan y se pueden renumerar"
   await expect(pc.page.locator("#cc-history-list .dup-alert")).toHaveCount(2);
 
   pc.page.on("dialog", (d) => d.accept());
-  await pc.page.locator('#cc-history-list .uhc-btn[data-accion="renumerar"]').first().click();
+  await accion(pc.page, '#cc-history-list .uhc-btn[data-accion="renumerar"]');
   for (const d of [pc, celular, pc, celular]) await sincronizar(d.page, request);
 
   for (const [nombre, d] of [["computador", pc], ["celular", celular]]) {

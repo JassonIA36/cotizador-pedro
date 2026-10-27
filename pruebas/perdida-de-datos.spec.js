@@ -2,7 +2,7 @@
 // Cada prueba reproduce una causa encontrada en el código; debe pasar cuando está corregida.
 const { test, expect } = require("@playwright/test");
 const {
-  ID_A, ID_B, reiniciarNube, cerrarDispositivos, nube, dispositivo, sincronizar,
+  accion, ID_A, ID_B, reiniciarNube, cerrarDispositivos, nube, dispositivo, sincronizar,
   cotizacionesEnPantalla, cuentasEnPantalla, cotizacion, cuentaDeCobro,
 } = require("./ayudas");
 
@@ -70,7 +70,7 @@ test("«Duplicar» y «Estado» funcionan en la primera cotización del historia
     pr_quote_num: "1",
   });
   await cotizacionesEnPantalla(page);
-  await page.locator('#history-list .uhc-btn[data-accion="estado"]').click();
+  await accion(page, '#history-list .uhc-btn[data-accion="estado"]');
   await expect(page.locator("#history-list .unified-history-card")).toContainText(/Enviada/i);
 });
 

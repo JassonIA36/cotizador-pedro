@@ -1,0 +1,2 @@
+assets/motion-mini.js: función `animate` de «motion/mini» (Motion, https://motion.dev), empaquetada con esbuild.
+Licencia MIT, Copyright (c) 2020-present Motion Division Ltd.

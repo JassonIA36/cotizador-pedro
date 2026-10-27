@@ -289,7 +289,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     } catch (e) { /* el registro nunca debe romper la sincronización */ }
   }
 
-  const APP_VERSION = '2.8.1';
+  const APP_VERSION = '2.9.0';
 
   function diagnosticsText() {
     const l = Array.isArray(syncState.log) ? syncState.log[0] : null;
@@ -1221,11 +1221,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       });
 
       const firstSyncKey = 'pr_first_sync_done_' + syncState.user.id;
+      // Solo se avisa lo que la persona no hizo ella misma: lo que llegó desde otro dispositivo o al iniciar sesión
       if (options.isInitial || !getStorage(firstSyncKey, false)) {
         setStorage(firstSyncKey, true);
-        showToast(`Sincronización completada: se subieron ${uploadedCount}, se bajaron ${downloadedCount}`, '🔄');
-      } else if (uploadedCount > 0 || downloadedCount > 0) {
-        showToast(`Sincronizado: ${uploadedCount} subidos, ${downloadedCount} descargados`, '🔄');
+        showToast(downloadedCount > 0 ? `Sincronizado: llegaron ${downloadedCount} documentos de tu cuenta` : 'Sesión iniciada y sincronizada', '🔄');
+      } else if (downloadedCount > 0) {
+        showToast(downloadedCount === 1 ? 'Llegó 1 documento nuevo desde otro dispositivo' : `Llegaron ${downloadedCount} documentos nuevos desde otro dispositivo`, '🔄');
       }
 
       renderHistory();
@@ -1487,7 +1488,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
       if (diag.errorHeader) {
         box.innerHTML = `
-          <div style="color: #ef4444; font-weight: 600; margin-bottom: 4px;">⚠️ ${escapeHtml(diag.errorHeader)}</div>
+          <div style="color: var(--danger); font-weight: 600; margin-bottom: 4px;">⚠️ ${escapeHtml(diag.errorHeader)}</div>
           <div style="color: var(--text-muted); font-size: 0.8rem;">${escapeHtml(diag.errorMsg)}</div>
         `;
         return;
@@ -1504,22 +1505,22 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; flex-wrap:wrap;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span>${hasErrors ? '⚠️' : '✅'}</span>
-            <strong style="color: ${hasErrors ? '#f59e0b' : '#38bdf8'}; font-size:0.86rem;">Resultado de la Reparación de Informes</strong>
+            <strong style="color: ${hasErrors ? 'var(--warning)' : 'var(--primary)'}; font-size:0.86rem;">Resultado de la Reparación de Informes</strong>
           </div>
           <span style="font-size:0.75rem; color:var(--text-dim);">${formatSyncTime(new Date())}</span>
         </div>
-        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius:4px; padding: 10px 12px; font-family: monospace; font-size:0.82rem; color: var(--text-main); line-height: 1.5; word-break: break-word;">
+        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius:4px; padding: 10px 12px; font-family: monospace; font-size:0.82rem; color: var(--text-main); line-height: 1.5; word-break: break-word;">
           ${escapeHtml(diagnosticText)}
         </div>
         ${hasErrors ? `
-          <div style="margin-top:8px; padding:8px 10px; background:rgba(239, 68, 68, 0.1); border-left:3px solid #ef4444; border-radius:2px;">
-            <div style="font-weight:600; font-size:0.78rem; color:#ef4444; margin-bottom:4px;">Motivos de los errores:</div>
+          <div style="margin-top:8px; padding:8px 10px; background:var(--danger-bg); border-left:3px solid var(--danger); border-radius:2px;">
+            <div style="font-weight:600; font-size:0.78rem; color:var(--danger); margin-bottom:4px;">Motivos de los errores:</div>
             <ul style="margin:0; padding-left:18px; font-size:0.76rem; color:var(--text-main);">
               ${diag.errors.map(e => `<li><strong>${escapeHtml(e.tipo)}</strong> (<code>${escapeHtml(e.id)}</code>): ${escapeHtml(e.reason)}</li>`).join('')}
             </ul>
           </div>
         ` : `
-          <div style="margin-top:6px; font-size:0.78rem; color:#10b981;">
+          <div style="margin-top:6px; font-size:0.78rem; color:var(--success);">
             Ambos dispositivos y la nube están ahora sincronizados con la misma cantidad de informes activos.
           </div>
         `}
@@ -2643,7 +2644,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     // Rows
     const tableBody = $('preview-table-body');
     if (data.items.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 16px;">Sin ítems</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 16px;">Sin ítems</td></tr>`;
     } else {
       tableBody.innerHTML = data.items.map(it => `
         <tr>
@@ -2832,7 +2833,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   function renderUnifiedHistoryCardHtml(cfg) {
     const cardId = cfg.id !== undefined && cfg.id !== null ? String(cfg.id) : '';
-    const actionsHtml = (cfg.actions || []).map(act => {
+    const PRINCIPALES = ['abrir', 'whatsapp', 'pdf'];
+    const htmlDeAccion = act => {
       let variantClass = 'uhc-btn-secondary';
       if (act.variant === 'primary') variantClass = 'uhc-btn-primary';
       else if (act.variant === 'whatsapp') variantClass = 'uhc-btn-whatsapp';
@@ -2852,7 +2854,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <span>${escapeHtml(act.label)}</span>
         </button>
       `;
-    }).join('');
+    };
+    const todas = cfg.actions || [];
+    const principales = todas.filter(a => PRINCIPALES.includes(a.accion || a.action));
+    const otras = todas.filter(a => !PRINCIPALES.includes(a.accion || a.action));
+    const actionsHtml = principales.map(htmlDeAccion).join('');
+    const masHtml = otras.length ? `<details class="uhc-mas"><summary>Más opciones</summary><div class="uhc-actions-grid">${otras.map(htmlDeAccion).join('')}</div></details>` : '';
 
     return `
       <div class="unified-history-card card-${cfg.type}" data-card-id="${escapeHtml(cfg.id)}">
@@ -2860,7 +2867,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <div class="uhc-identity">
             <span class="uhc-number ${cfg.numberClass || ''}">${escapeHtml(cfg.numberText)}</span>
             <span class="badge-status-pill ${cfg.badgeClass}">${escapeHtml(cfg.statusText || cfg.status)}</span>
-            ${cfg.dateText ? `<span class="uhc-date">📅 ${escapeHtml(cfg.dateText)}</span>` : ''}
+            ${cfg.dateText ? `<span class="uhc-date">${escapeHtml(cfg.dateText)}</span>` : ''}
           </div>
           <div class="uhc-amount-box">
             <span class="uhc-amount-label">${escapeHtml(cfg.amountLabel || 'TOTAL')}</span>
@@ -2871,7 +2878,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
         <div class="uhc-body">
           <div class="uhc-client-name">
-            <span>👤 ${escapeHtml(cfg.clientName || 'Cliente General')}</span>
+            <span>${escapeHtml(cfg.clientName || 'Cliente General')}</span>
             ${cfg.clientNit ? `<span class="uhc-client-nit">(${escapeHtml(cfg.clientNit)})</span>` : ''}
           </div>
           ${cfg.detailHtml ? `<div class="uhc-detail-box">${cfg.detailHtml}</div>` : ''}
@@ -2879,9 +2886,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
         <div class="uhc-divider"></div>
 
-        <div class="uhc-actions-grid">
+        <div class="uhc-actions-grid uhc-actions-main">
           ${actionsHtml}
         </div>
+        ${masHtml}
       </div>
     `;
   }
@@ -3023,7 +3031,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     if ($('hub-stat-informes-count')) $('hub-stat-informes-count').textContent = infCount;
     if ($('hub-badge-informes-val')) $('hub-badge-informes-val').textContent = infPendingCount;
-    if ($('hub-badge-informes-label')) $('hub-badge-informes-label').textContent = infPendingCount === 1 ? '1 EN ESPERA' : `${infPendingCount} EN ESPERA`;
+    if ($('hub-badge-informes-label')) $('hub-badge-informes-label').textContent = 'En espera';
 
     // Actualizar tarjetas resumen en las pantallas de entrada
     updateSectionEntrySummaries();
@@ -3101,7 +3109,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <div class="entry-empty-pending-state">
             <span class="empty-icon">🎉</span>
             <div class="entry-empty-text">
-              <strong style="color: #34d399; font-size: 0.86rem; display: block;">¡Al día! No tienes cuentas pendientes</strong>
+              <strong style="color: var(--success); font-size: 0.86rem; display: block;">¡Al día! No tienes cuentas pendientes</strong>
               <span style="color: var(--text-muted); font-size: 0.78rem;">Todas tus cuentas registradas están marcadas como pagadas.</span>
             </div>
           </div>
@@ -3137,7 +3145,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <div class="entry-empty-pending-state">
             <span class="empty-icon">📝</span>
             <div class="entry-empty-text">
-              <strong style="color: #cbd5e1; font-size: 0.86rem; display: block;">No hay cotizaciones guardadas aún</strong>
+              <strong style="color: var(--text-main); font-size: 0.86rem; display: block;">No hay cotizaciones guardadas aún</strong>
               <span style="color: var(--text-muted); font-size: 0.78rem;">Tus cotizaciones guardadas se listarán aquí para acceso rápido.</span>
             </div>
           </div>
@@ -3202,7 +3210,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           <div class="entry-empty-pending-state">
             <span class="empty-icon">🛠️</span>
             <div class="entry-empty-text">
-              <strong style="color: #38bdf8; font-size: 0.86rem; display: block;">No hay informes técnicos registrados aún</strong>
+              <strong style="color: var(--primary); font-size: 0.86rem; display: block;">No hay informes técnicos registrados aún</strong>
               <span style="color: var(--text-muted); font-size: 0.78rem;">Tus diagnósticos técnicos guardados aparecerán aquí con su propuesta y estado.</span>
             </div>
           </div>
@@ -3217,13 +3225,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
             <div class="entry-pending-row entry-inf-row" data-inf-id="${escapeHtml(item.id || '')}" data-inf-num="${escapeHtml(item.number || '')}" title="Toca para abrir y editar este informe">
               <div class="entry-pending-row-left">
                 <div class="entry-pending-badge-group">
-                  <span class="entry-pending-num" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); background: rgba(56, 189, 248, 0.15);">${escapeHtml(item.number || 'INF')}</span>
+                  <span class="entry-pending-num" style="color: var(--primary); border-color: transparent; background: var(--primary-soft);">${escapeHtml(item.number || 'INF')}</span>
                   <span class="card-badge ${badgeClass}" style="font-size: 0.68rem; padding: 1px 6px;">${escapeHtml(st)}</span>
                 </div>
                 <span class="entry-pending-client">${escapeHtml(item.clientName || 'Cliente General')}${item.equipment ? ' · ' + escapeHtml(item.equipment) : ''}</span>
               </div>
               <div class="entry-pending-row-right">
-                <span class="entry-pending-amount" style="color: #38bdf8; font-size: 0.84rem;">${formatMoneyCop(propTotal)}</span>
+                <span class="entry-pending-amount" style="color: var(--primary); font-size: 0.84rem;">${formatMoneyCop(propTotal)}</span>
                 <span class="entry-pending-arrow">→</span>
               </div>
             </div>
@@ -4115,7 +4123,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       if (countLabel) countLabel.textContent = `Cuenta ${String(state.cobroNum || 1).padStart(3, '0')}`;
       if (amountLabel) {
         if (totals.totalAdelantos > 0) {
-          amountLabel.innerHTML = `<span>Total: ${formatMoney(totals.totalConceptos)}</span><span style="font-size: 0.72rem; font-weight: 600; color: #a7f3d0; display: block; line-height: 1.15;">Saldo: ${formatMoney(totals.saldo)}</span>`;
+          amountLabel.innerHTML = `<span>Total: ${formatMoney(totals.totalConceptos)}</span><span style="font-size: 0.72rem; font-weight: 600; color: var(--success); display: block; line-height: 1.15;">Saldo: ${formatMoney(totals.saldo)}</span>`;
         } else {
           amountLabel.textContent = `Total: ${formatMoney(totals.totalConceptos)}`;
         }
@@ -4984,7 +4992,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       }
 
       const amountSubHtml = hasAdelantos
-        ? `<span style="font-size:0.74rem; font-weight:600; color:${isPaid ? '#34d399' : '#38bdf8'}; margin-top:2px; display:block; text-align:right;">Saldo: ${formatMoney(saldo)}</span>`
+        ? `<span style="font-size:0.74rem; font-weight:600; color:${isPaid ? 'var(--success)' : 'var(--primary)'}; margin-top:2px; display:block; text-align:right;">Saldo: ${formatMoney(saldo)}</span>`
         : '';
 
       return renderUnifiedHistoryCardHtml({
@@ -6408,10 +6416,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
 
     list.innerHTML = tpls.map(t => `
-      <div class="card" style="padding: 14px; background: rgba(22, 26, 36, 0.7); border: 1px solid var(--border); border-radius: var(--radius-md);">
+      <div class="card" style="padding: 14px; background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-md);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
           <div>
-            <strong style="font-size: 0.95rem; color: #38bdf8; display: block;">${escapeHtml(t.name || 'Plantilla de diagnóstico')}</strong>
+            <strong style="font-size: 0.95rem; color: var(--primary); display: block;">${escapeHtml(t.name || 'Plantilla de diagnóstico')}</strong>
             <span style="font-size: 0.78rem; color: var(--text-muted);">${escapeHtml(t.subtitle || t.title || '')}</span>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -7071,6 +7079,16 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     'view-informe-datos': 'Mis datos'
   };
 
+  // Marca el módulo activo en la barra de navegación principal
+  function updateMainNav() {
+    const activo = state.activeMainSection === 'main-menu' ? 'inicio' : state.activeMainSection;
+    document.querySelectorAll('.main-nav-btn').forEach(btn => {
+      const on = btn.dataset.nav === activo;
+      btn.classList.toggle('active', on);
+      if (on) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
+    });
+  }
+
   // Volver al Menú Principal (Ahora 3 Opciones)
   function goToMainMenu() {
     const navWrap = $('section-nav-wrapper');
@@ -7082,9 +7100,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     state.activeMainSection = 'main-menu';
     setStorage('pr_active_tab', 'view-main-menu');
 
+    updateMainNav();
     updateMobileStickyBar();
     updateBadges();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   // Entrar a una sección principal ('cotizaciones', 'cuentas-cobro' o 'informes')
@@ -7225,10 +7244,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
 
     // Barra fija inferior en móviles
+    updateMainNav();
     updateMobileStickyBar();
     updateBadges();
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   // --- Event Listeners Setup ---
@@ -7249,11 +7269,15 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       btnMainInf.addEventListener('click', () => enterSection('informes'));
     }
 
-    // Botón para volver al Menú Principal
-    const btnBackMain = $('btn-back-to-main-menu');
-    if (btnBackMain) {
-      btnBackMain.addEventListener('click', goToMainMenu);
-    }
+    // Barra de navegación principal (abajo en el celular)
+    document.querySelectorAll('.main-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const destino = btn.dataset.nav;
+        if (destino === 'inicio') goToMainMenu();
+        else if (state.activeMainSection === destino) window.scrollTo({ top: 0, behavior: 'auto' });
+        else enterSection(destino);
+      });
+    });
 
     // 2. Submenús (Cada opción abre su propia vista)
     document.querySelectorAll('.subnav-btn, .tab-btn').forEach(btn => {
@@ -7562,26 +7586,30 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     // Theme toggle
     const themeToggle = $('theme-toggle');
-    const currentTheme = PRAlmacen.get('pr_theme') || 'dark';
-    if (currentTheme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-      themeToggle.textContent = '🌙';
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      themeToggle.textContent = '☀️';
+    // La altura de la cabecera fija se mide para que las pestañas queden pegadas justo debajo
+    const cabecera = document.querySelector('.app-header');
+    if (cabecera) {
+      const medir = () => document.documentElement.style.setProperty('--header-h', cabecera.offsetHeight + 'px');
+      medir();
+      if (window.ResizeObserver) new ResizeObserver(medir).observe(cabecera);
+      window.addEventListener('resize', medir);
     }
 
+    // Claro por defecto (se usa al aire libre); oscuro si la persona lo eligió
+    const aplicarTema = (oscuro) => {
+      if (oscuro) document.documentElement.setAttribute('data-theme', 'dark');
+      else document.documentElement.removeAttribute('data-theme');
+      themeToggle.textContent = oscuro ? '☀️' : '🌙';
+      themeToggle.title = oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro';
+      const color = oscuro ? '#0e1114' : '#f2f3f4';
+      document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color));
+    };
+    aplicarTema(PRAlmacen.get('pr_theme') === 'dark');
+
     themeToggle.addEventListener('click', () => {
-      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-      if (isLight) {
-        document.documentElement.removeAttribute('data-theme');
-        PRAlmacen.set('pr_theme', 'dark');
-        themeToggle.textContent = '☀️';
-      } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        PRAlmacen.set('pr_theme', 'light');
-        themeToggle.textContent = '🌙';
-      }
+      const oscuro = document.documentElement.getAttribute('data-theme') !== 'dark';
+      PRAlmacen.set('pr_theme', oscuro ? 'dark' : 'light');
+      aplicarTema(oscuro);
     });
 
     // Toggle para desplegar / recoger vista previa de la cotización

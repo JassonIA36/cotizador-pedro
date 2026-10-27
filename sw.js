@@ -1,11 +1,21 @@
 // Service Worker for Cotizador Pedro Roa PWA
-const CACHE_NAME = 'pedro-roa-cotizador-v2.8.1';
+const CACHE_NAME = 'pedro-roa-cotizador-v2.9.0';
 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './css/app.css',
+  './css/documento.css',
+  './js/iconos.js',
+  './js/movimiento.js',
+  './assets/motion-mini.js',
+  './assets/fonts/atkinson-400.ttf',
+  './assets/fonts/atkinson-500.ttf',
+  './assets/fonts/atkinson-600.ttf',
+  './assets/fonts/atkinson-700.ttf',
+  './assets/fonts/atkinson-mono-400.ttf',
+  './assets/fonts/atkinson-mono-600.ttf',
   './js/logo-data.js',
   './js/pdf-generator.js',
   './js/almacen.js',
