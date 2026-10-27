@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 
   <!-- Estilos Modernos -->
-  <link rel="stylesheet" href="css/app.css?v=2.8.0">
+  <link rel="stylesheet" href="css/app.css?v=2.8.1">
 </head>
 <body>
 
@@ -1392,6 +1392,14 @@
             <input type="file" class="input-import-all-file" accept=".json,application/json" style="display: none;">
           </div>
           <div class="sync-repair-diagnostic-box" style="display: none; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; background: var(--bg-input); border: 1px solid var(--border); line-height: 1.5;"></div>
+
+          <div id="sync-diagnostico" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text-muted); line-height: 1.55;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <strong style="color: var(--text-main);">Diagnóstico</strong>
+              <button type="button" id="btn-copiar-diagnostico" class="btn-secondary" style="min-height: 34px; padding: 4px 12px; font-size: 0.78rem;">Copiar para soporte</button>
+            </div>
+            <div id="sync-diagnostico-cuerpo"></div>
+          </div>
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-md); border: 1px solid var(--border);">
@@ -2083,18 +2091,18 @@
   </div>
 
   <!-- Scripts (Carga de librerías locales para funcionamiento 100% Offline) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-2.118.0.min.js"></script>
   <script src="assets/jspdf.umd.min.js"></script>
   <script src="assets/jspdf.plugin.autotable.min.js"></script>
   <script src="js/logo-data.js"></script>
   <script src="js/pdf-generator.js"></script>
-  <script src="js/almacen.js?v=2.8.0"></script>
+  <script src="js/almacen.js?v=2.8.1"></script>
   <script>
     // La app arranca cuando el almacén interno terminó de restaurar los datos que el navegador no haya podido guardar.
     (function () {
       function cargarApp() {
         var s = document.createElement('script');
-        s.src = 'js/app.js?v=2.8.0';
+        s.src = 'js/app.js?v=2.8.1';
         document.body.appendChild(s);
       }
       if (window.PRAlmacen) window.PRAlmacen.hidratar().then(cargarApp, cargarApp);

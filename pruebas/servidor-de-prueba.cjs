@@ -9,7 +9,8 @@ const CARPETAS = ["assets", "css", "js", "pruebas"];
 const TIPOS = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon" };
 
 let filas = [];
-const estadisticas = { descargas: 0, filasDescargadas: 0, subidas: 0, filasSubidas: 0 };
+const ceros = () => ({ descargas: 0, filasDescargadas: 0, filasConDatos: 0, bytesDescargados: 0, subidas: 0, filasSubidas: 0 });
+const estadisticas = ceros();
 const comportamiento = { falla: false, latenciaMs: 0 };
 
 const leerCuerpo = (req) => new Promise((ok) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => ok(d)); });
@@ -30,24 +31,33 @@ http.createServer(async (req, res) => {
         const i = filas.findIndex((x) => x.id === f.id);
         if (i >= 0) filas[i] = fila; else filas.push(fila);
       }
-      estadisticas.subidas++; estadisticas.filasSubidas += nuevas.length;
+      estadisticas.subidas++;
+      estadisticas.filasSubidas += nuevas.length;
       return json(res, {});
     }
     if (comportamiento.falla) return json(res, { message: "fallo simulado" }, 500);
+
     const tipos = url.searchParams.get("tipos");
-    const desde = url.searchParams.get("desde");
+    const ids = url.searchParams.get("ids");
+    const columnas = (url.searchParams.get("cols") || "").split(",").filter((c) => c && c !== "*");
     const de = Number(url.searchParams.get("from")) || 0;
     const a = Number(url.searchParams.get("to")) || 99999;
+
     let r = filas.slice().sort((x, y) => String(y.updated_at).localeCompare(String(x.updated_at)));
     if (tipos) r = r.filter((x) => tipos.split(",").includes(x.tipo));
-    if (desde) r = r.filter((x) => String(x.updated_at) > desde);
+    if (ids) r = r.filter((x) => ids.split(",").includes(x.id));
     r = r.slice(de, a + 1);
-    estadisticas.descargas++; estadisticas.filasDescargadas += r.length;
-    return json(res, r);
+
+    const salida = columnas.length ? r.map((x) => Object.fromEntries(columnas.filter((c) => c in x).map((c) => [c, x[c]]))) : r;
+    estadisticas.descargas++;
+    estadisticas.filasDescargadas += r.length;
+    if (!columnas.length || columnas.includes("datos")) estadisticas.filasConDatos += r.length;
+    estadisticas.bytesDescargados += Buffer.byteLength(JSON.stringify(salida));
+    return json(res, salida);
   }
   if (ruta === "/__db/ver") return json(res, filas);
   if (ruta === "/__db/estadisticas") return json(res, estadisticas);
-  if (ruta === "/__db/reset") { filas = []; Object.assign(estadisticas, { descargas: 0, filasDescargadas: 0, subidas: 0, filasSubidas: 0 }); Object.assign(comportamiento, { falla: false, latenciaMs: 0 }); return json(res, "ok"); }
+  if (ruta === "/__db/reset") { filas = []; Object.assign(estadisticas, ceros()); Object.assign(comportamiento, { falla: false, latenciaMs: 0 }); return json(res, "ok"); }
   if (ruta === "/__db/comportamiento") { Object.assign(comportamiento, JSON.parse(await leerCuerpo(req))); return json(res, comportamiento); }
 
   let rel = decodeURIComponent(ruta).replace(/^\/+/, "") || "index.html";

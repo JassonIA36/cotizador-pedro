@@ -28,7 +28,8 @@ async function comportamiento(request, cambios) {
 async function dispositivo(browser, almacen = {}) {
   const context = await browser.newContext({ ...devices["Pixel 7"], baseURL: BASE });
   abiertos.push(context);
-  await context.route("**/cdn.jsdelivr.net/**", (ruta) => ruta.abort());
+  // Se bloquea la librería real de Supabase (CDN o la copia local) y se usa la nube falsa
+  await context.route((url) => /cdn\.jsdelivr\.net|supabase-[\d.]+\.min\.js/.test(url.href), (ruta) => ruta.abort());
   await context.addInitScript({ path: path.resolve(__dirname, "nube-falsa.js") });
   await context.addInitScript((datos) => {
     if (!sessionStorage.getItem("__sembrado")) {

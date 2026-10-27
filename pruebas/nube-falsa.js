@@ -2,18 +2,22 @@
 (() => {
   const BASE = location.origin + "/__db";
   const usuario = { id: "usuario-de-prueba", email: "prueba@local.test" };
+  const oyentesDeSesion = [];
+  const control = { sinSesion: false };
 
   function consulta() {
-    const q = { tipos: null, de: 0, a: 99999, desde: null };
+    const q = { cols: null, tipos: null, ids: null, de: 0, a: 99999 };
     const api = {
-      select() { return api; },
+      select(cols) { q.cols = cols || null; return api; },
       order() { return api; },
       range(a, b) { q.de = a; q.a = b; return api; },
-      in(_columna, valores) { q.tipos = valores; return api; },
-      gt(_columna, valor) { q.desde = valor; return api; },
+      in(columna, valores) { if (columna === "id") q.ids = valores; else q.tipos = valores; return api; },
       then(ok, mal) {
-        const url = BASE + "?from=" + q.de + "&to=" + q.a + (q.tipos ? "&tipos=" + q.tipos.join(",") : "") + (q.desde ? "&desde=" + encodeURIComponent(q.desde) : "");
-        return fetch(url)
+        const p = new URLSearchParams({ from: String(q.de), to: String(q.a) });
+        if (q.cols) p.set("cols", q.cols.replace(/\s+/g, ""));
+        if (q.tipos) p.set("tipos", q.tipos.join(","));
+        if (q.ids) p.set("ids", q.ids.join(","));
+        return fetch(BASE + "?" + p.toString())
           .then(async (r) => (r.ok ? { data: await r.json(), error: null } : { data: null, error: { message: "Server error " + r.status } }))
           .then(ok, mal);
       },
@@ -28,11 +32,16 @@
   const cliente = {
     from: consulta,
     auth: {
-      getSession: async () => ({ data: { session: { user: usuario } }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
-      signInWithPassword: async () => ({ data: { user: usuario }, error: null }),
+      getSession: async () => ({ data: { session: control.sinSesion ? null : { user: usuario } }, error: null }),
+      onAuthStateChange: (fn) => { oyentesDeSesion.push(fn); return { data: { subscription: { unsubscribe() {} } } }; },
+      signInWithPassword: async () => { control.sinSesion = false; return { data: { user: usuario }, error: null }; },
       signOut: async () => ({ error: null }),
     },
   };
+
   window.supabase = { createClient: () => cliente };
+  // Para las pruebas: simula que la sesión venció
+  window.__nube = {
+    vencerSesion() { control.sinSesion = true; oyentesDeSesion.forEach((fn) => fn("SIGNED_OUT", null)); },
+  };
 })();

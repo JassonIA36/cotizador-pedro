@@ -163,13 +163,35 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
   }
 
+  // Fecha estable para lo que nunca se ha editado: así no se vuelve a subir en cada sincronización
+  const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
+
+  // Los elementos que vienen de fábrica (catálogo de ejemplo, clientes) tienen el mismo id en todos los
+  // dispositivos; con ids al azar cada equipo subía su propia copia y se bajaban y cambiaban sin parar.
+  function seedForItem(item) {
+    if (typeof item.id === 'string' && item.id) return 'id|' + item.id; // p. ej. la plantilla de fábrica «plantilla-epson-l565»
+    if (typeof item.c === 'string' && typeof item.n === 'string') return 'catalogo|' + item.c.trim().toLowerCase() + '|' + item.n.trim().toLowerCase();
+    if (typeof item.name === 'string' && 'nit' in item && !('items' in item)) return 'cliente|' + item.name.trim().toLowerCase();
+    return '';
+  }
+
+  function deterministicUUID(seed) {
+    const h = [0x9e3779b1, 0x85ebca6b, 0xc2b2ae35, 0x27d4eb2f];
+    for (let i = 0; i < seed.length; i++) {
+      const c = seed.charCodeAt(i);
+      for (let k = 0; k < 4; k++) h[k] = Math.imul(h[k] ^ (c + k), 0x01000193 + 2 * k) >>> 0;
+    }
+    const hex = h.map(n => n.toString(16).padStart(8, '0')).join('');
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-4' + hex.slice(13, 16) + '-8' + hex.slice(17, 20) + '-' + hex.slice(20, 32);
+  }
+
   function ensureItemUuid(item) {
     if (!item) return '';
     if (!item.id || !isValidUUID(item.id)) {
-      item.id = generateUUID();
+      item.id = seedForItem(item) ? deterministicUUID(seedForItem(item)) : generateUUID();
     }
     if (!item.updatedAt) {
-      item.updatedAt = new Date().toISOString();
+      item.updatedAt = EPOCH_ISO;
     }
     return item.id;
   }
@@ -246,10 +268,54 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     lastSyncTime: getStorage('pr_sync_last_time', null),
     pendingChanges: getStorage('pr_sync_pending', false),
     isSyncing: false,
-    debounceTimer: null
+    debounceTimer: null,
+    queued: false,
+    changeCounter: 0,
+    retryDelay: 0,
+    retryTimer: null,
+    sessionExpired: false,
+    manualSignOut: false,
+    log: getStorage('pr_sync_log', [])
   };
 
+  // Registro corto de las últimas sincronizaciones, para el panel de diagnóstico
+  function logSync(entry) {
+    try {
+      if (!Array.isArray(syncState.log)) syncState.log = [];
+      syncState.log.unshift({ t: new Date().toISOString(), ...entry });
+      syncState.log.length = Math.min(syncState.log.length, 12);
+      setStorage('pr_sync_log', syncState.log);
+      renderSyncDiagnostics();
+    } catch (e) { /* el registro nunca debe romper la sincronización */ }
+  }
+
+  const APP_VERSION = '2.8.1';
+
+  function diagnosticsText() {
+    const l = Array.isArray(syncState.log) ? syncState.log[0] : null;
+    const alm = (window.PRAlmacen && window.PRAlmacen.estado) || {};
+    const lineas = [
+      ['Versión', APP_VERSION],
+      ['Cuenta', syncState.user ? syncState.user.email : (syncState.sessionExpired ? 'Sesión vencida' : 'Sin sesión')],
+      ['Conexión', navigator.onLine ? 'En línea' : 'Sin conexión'],
+      ['Última sincronización', syncState.lastSyncTime ? formatSyncTime(syncState.lastSyncTime) : 'Nunca'],
+      ['Cambios pendientes', syncState.pendingChanges ? 'Sí' : 'No'],
+      ['Almacenamiento', alm.fallo ? (alm.sinRespaldo ? 'Con fallos y sin copia de seguridad' : 'Con fallos (la copia de seguridad lo cubre)') : 'Correcto'],
+      ['Último intento', l ? `${l.ok ? 'bien' : 'con problemas'}${l.ms != null ? ` en ${l.ms} ms` : ''}${l.subidos != null ? ` · ${l.subidos} subidos, ${l.bajados} bajados` : ''}${l.nota ? ` · ${l.nota}` : ''}` : 'Ninguno todavía']
+    ];
+    return lineas;
+  }
+
+  function renderSyncDiagnostics() {
+    const cuerpo = $('sync-diagnostico-cuerpo');
+    if (!cuerpo) return;
+    cuerpo.innerHTML = diagnosticsText()
+      .map(([k, v]) => `<div><span style="color: var(--text-dim);">${escapeHtml(k)}:</span> ${escapeHtml(v)}</div>`)
+      .join('');
+  }
+
   function markSyncPending() {
+    syncState.changeCounter++;
     syncState.pendingChanges = true;
     setStorage('pr_sync_pending', true);
     if (syncState.user && navigator.onLine && syncState.status !== 'syncing') {
@@ -280,13 +346,17 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       const txt = $('sync-text');
       const topbarBtn = $('topbar-sync-btn');
 
+      renderSyncDiagnostics();
+
       if (dot && txt) {
         dot.className = `sync-dot ${syncState.status}`;
 
         if (!navigator.onLine) {
           txt.textContent = 'Sin conexión · Modo local activo';
         } else if (!syncState.user) {
-          txt.textContent = 'Modo local · Iniciar sesión para sincronizar';
+          txt.textContent = syncState.sessionExpired
+            ? 'Sesión vencida · Toca para volver a entrar'
+            : 'Modo local · Iniciar sesión para sincronizar';
         } else if (syncState.status === 'syncing') {
           txt.textContent = 'Sincronizando datos...';
         } else if (syncState.status === 'synced') {
@@ -318,7 +388,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         if (!navigator.onLine) {
           el.textContent = 'Sin conexión (Modo local activo)';
         } else if (!syncState.user) {
-          el.textContent = 'Modo local (Sin sesión iniciada)';
+          el.textContent = syncState.sessionExpired
+            ? 'Sesión vencida: tus datos siguen guardados aquí. Vuelve a entrar para sincronizar.'
+            : 'Modo local (Sin sesión iniciada)';
         } else if (syncState.status === 'syncing') {
           el.textContent = 'Sincronizando ahora...';
         } else if (syncState.status === 'synced') {
@@ -409,28 +481,48 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
     if (!navigator.onLine || errStr.includes('Failed to fetch') || errStr.includes('NetworkError') || errStr.includes('ERR_INTERNET_DISCONNECTED')) {
       setSyncStatus('offline', 'Sin conexión a internet. Cambios guardados en tu dispositivo.');
-      return;
+      return { kind: 'offline', text: errStr };
     }
 
     if (errStr.includes('Invalid login credentials') || errStr.includes('invalid_grant')) {
       msg = 'Credenciales incorrectas. Verifica tu correo y contraseña.';
       setSyncStatus('error', msg);
-      return;
+      return { kind: 'error', text: errStr };
+    }
+
+    if (errStr.includes('JWT') || errStr.includes('token') || errStr.includes('not authenticated')) {
+      expireSession();
+      return { kind: 'auth', text: errStr };
     }
 
     if (errStr.includes('paused') || errStr.includes('503') || errStr.includes('500') || errStr.includes('Server error')) {
       msg = 'El servidor de sincronización está temporalmente en mantenimiento. La app sigue en modo local.';
       setSyncStatus('error', msg);
-      return;
-    }
-
-    if (errStr.includes('JWT') || errStr.includes('token') || errStr.includes('not authenticated')) {
-      msg = 'La sesión expiró. Inicia sesión nuevamente.';
-      setSyncStatus('no-auth', msg);
-      return;
+      return { kind: 'error', text: errStr };
     }
 
     setSyncStatus('error', msg);
+    return { kind: 'error', text: errStr };
+  }
+
+  // La sesión venció: se avisa en la barra de estado, sin ventanas que interrumpan el trabajo
+  function expireSession() {
+    syncState.user = null;
+    syncState.sessionExpired = true;
+    clearTimeout(syncState.retryTimer);
+    setSyncStatus('no-auth', 'Sesión vencida');
+    logSync({ ok: false, nota: 'Sesión vencida' });
+  }
+
+  // Reintento con espera creciente: 5 s, 10 s, 20 s, 40 s y luego 60 s
+  function scheduleSyncRetry() {
+    clearTimeout(syncState.retryTimer);
+    syncState.retryDelay = syncState.retryDelay ? Math.min(syncState.retryDelay * 2, 60000) : 5000;
+    syncState.retryTimer = setTimeout(() => performSync({ isRetry: true }), syncState.retryDelay);
+  }
+
+  function currentConsecutivoFirma() {
+    return [state.quoteNumber, state.cobroNum, state.informeNum || 1].join('|');
   }
 
   function getAllLocalRecords() {
@@ -445,7 +537,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'catalogo',
           datos: { c: item.c, n: item.n, p: item.p },
           deleted: false,
-          updated_at: item.updatedAt || new Date().toISOString()
+          updated_at: item.updatedAt || EPOCH_ISO
         });
       });
     }
@@ -459,7 +551,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'cotizacion',
           datos: { ...quote },
           deleted: false,
-          updated_at: quote.updatedAt || new Date().toISOString()
+          updated_at: quote.updatedAt || EPOCH_ISO
         });
       });
     }
@@ -473,7 +565,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'cuenta_cobro',
           datos: { ...cobro },
           deleted: false,
-          updated_at: cobro.updatedAt || new Date().toISOString()
+          updated_at: cobro.updatedAt || EPOCH_ISO
         });
       });
     }
@@ -487,7 +579,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'cliente',
           datos: { name: client.name, nit: client.nit },
           deleted: false,
-          updated_at: client.updatedAt || new Date().toISOString()
+          updated_at: client.updatedAt || EPOCH_ISO
         });
       });
     }
@@ -501,7 +593,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'informe_tecnico',
           datos: { ...inf },
           deleted: false,
-          updated_at: inf.updatedAt || new Date().toISOString()
+          updated_at: inf.updatedAt || EPOCH_ISO
         });
       });
     }
@@ -515,14 +607,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'plantilla_informe',
           datos: { ...plant },
           deleted: false,
-          updated_at: plant.updatedAt || new Date().toISOString()
+          updated_at: plant.updatedAt || EPOCH_ISO
         });
       });
     }
 
     // 5. Config (Mis datos, Logo y Firma)
     const configId = getConfigId();
-    const configUpdatedAt = getStorage('pr_config_updated_at', new Date().toISOString());
+    const configUpdatedAt = getStorage('pr_config_updated_at', EPOCH_ISO);
     records.push({
       id: configId,
       tipo: 'config',
@@ -533,16 +625,20 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         cobroDefaultNotes: state.cobroDefaultNotes,
         cobroConsecutivoMode: state.cobroConsecutivoMode || 'por_cliente',
         cobroFirma: state.cobroFirma || '',
-        logo: window.PEDRO_ROA_LOGO || '',
         informeConfig: state.informeConfig || {}
       },
       deleted: false,
       updated_at: configUpdatedAt
     });
 
-    // 6. Consecutivos
+    // 6. Consecutivos: la fecha solo avanza cuando los números cambian de verdad
     const consecutivoId = getConsecutivoId();
-    const consecutivoUpdatedAt = getStorage('pr_consecutivo_updated_at', new Date().toISOString());
+    const consecutivoFirma = currentConsecutivoFirma();
+    if (getStorage('pr_consecutivo_firma', null) !== consecutivoFirma) {
+      setStorage('pr_consecutivo_firma', consecutivoFirma);
+      setStorage('pr_consecutivo_updated_at', new Date().toISOString());
+    }
+    const consecutivoUpdatedAt = getStorage('pr_consecutivo_updated_at', EPOCH_ISO);
     records.push({
       id: consecutivoId,
       tipo: 'consecutivo',
@@ -901,6 +997,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           setStorage('pr_informe_num', state.informeNum);
           if ($('inf-num')) $('inf-num').value = getInformeNumberString(state.informeNum);
         }
+        setStorage('pr_consecutivo_firma', currentConsecutivoFirma());
         setStorage('pr_consecutivo_updated_at', updated_at || new Date().toISOString());
         return { success: true, action: 'applied' };
       }
@@ -913,7 +1010,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
   }
 
   // Descarga paginada de filas desde Supabase
-  async function fetchSupabaseRowsWithPagination(filterTypes = null) {
+  async function fetchSupabaseRowsWithPagination(filterTypes = null, columns = 'id, tipo, datos, deleted, updated_at') {
     if (!syncState.client) return [];
     const pageSize = 500;
     let from = 0;
@@ -923,8 +1020,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     while (hasMore) {
       let query = syncState.client
         .from('registros')
-        .select('id, tipo, datos, deleted, updated_at')
+        .select(columns)
         .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
         .range(from, from + pageSize - 1);
 
       if (filterTypes && Array.isArray(filterTypes) && filterTypes.length > 0) {
@@ -948,27 +1046,52 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
     return allRows;
   }
 
-  // Sincronización completa con Supabase
+  // Baja los documentos completos solo de los ids pedidos, en trozos de 50
+  async function fetchSupabaseRowsByIds(ids) {
+    const rows = [];
+    for (let i = 0; i < ids.length; i += 50) {
+      const { data, error } = await syncState.client
+        .from('registros')
+        .select('id, tipo, datos, deleted, updated_at')
+        .in('id', ids.slice(i, i + 50));
+      if (error) throw error;
+      if (data) rows.push(...data);
+    }
+    return rows;
+  }
+
+  // Sincronización con Supabase: primero un índice liviano, luego solo lo que cambió
   async function performSync(options = {}) {
-    if (syncState.isSyncing) return;
+    if (syncState.isSyncing) {
+      // Si llega un cambio mientras se sincroniza, se repite al terminar en vez de perderse hasta el próximo minuto
+      syncState.queued = true;
+      return;
+    }
     if (!navigator.onLine) {
       setSyncStatus('offline', 'Sin conexión a internet. Modo local activo.');
       return;
     }
     if (!syncState.client || !syncState.user) {
-      setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+      setSyncStatus('no-auth', syncState.sessionExpired ? 'Sesión vencida' : 'Modo local · Iniciar sesión para sincronizar');
       return;
     }
 
+    clearTimeout(syncState.retryTimer);
     syncState.isSyncing = true;
+    syncState.queued = false;
+    const changesAtStart = syncState.changeCounter;
+    const startedAt = Date.now();
     setSyncStatus('syncing', 'Sincronizando...');
     updateSyncUI();
 
     const errors = [];
+    let needsRetry = false;
+    let uploadedCount = 0;
+    let downloadedCount = 0;
 
     try {
-      // 1. Descargar registros del usuario en Supabase con paginación
-      const cloudRows = await fetchSupabaseRowsWithPagination();
+      // 1. Índice de la nube (sin el contenido de los documentos)
+      const cloudRows = await fetchSupabaseRowsWithPagination(null, 'id, tipo, deleted, updated_at');
 
       const cloudMap = new Map();
       (cloudRows || []).forEach(row => {
@@ -992,8 +1115,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       });
 
       const toUpload = [];
-      let uploadedCount = 0;
-      let downloadedCount = 0;
 
       // 2. Comparar Local con Nube (subir nuevos o locales más recientes)
       for (const [id, localRec] of localMap.entries()) {
@@ -1017,33 +1138,34 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         }
       }
 
-      // 3. Comparar Nube con Local (descargar registros de la nube)
+      // 3. Comparar Nube con Local: decidir qué hay que bajar y traer solo esos documentos completos
+      const toApply = [];
+      const idsToFetch = [];
       for (const [id, cloudRec] of cloudMap.entries()) {
+        const localRec = localMap.get(id);
+        const isNewer = !localRec ||
+          new Date(cloudRec.updated_at || 0).getTime() > new Date(localRec.updated_at || 0).getTime();
+        if (!isNewer) continue;
+        if (cloudRec.deleted === true || cloudRec.deleted === 'true') {
+          toApply.push(cloudRec); // un borrado se aplica con el solo id, sin bajar el contenido
+        } else {
+          idsToFetch.push(id);
+        }
+      }
+      if (idsToFetch.length > 0) {
+        toApply.push(...await fetchSupabaseRowsByIds(idsToFetch));
+      }
+      for (const cloudRec of toApply) {
         try {
-          const localRec = localMap.get(id);
-          if (!localRec) {
-            const res = applyCloudRecordToLocal(cloudRec);
-            if (res && res.success === false) {
-              errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
-            } else {
-              downloadedCount++;
-            }
+          const res = applyCloudRecordToLocal(cloudRec);
+          if (res && res.success === false) {
+            errors.push({ id: cloudRec.id, tipo: cloudRec.tipo, reason: res.reason });
           } else {
-            const localTime = new Date(localRec.updated_at || 0).getTime();
-            const cloudTime = new Date(cloudRec.updated_at || 0).getTime();
-
-            if (cloudTime > localTime) {
-              const res = applyCloudRecordToLocal(cloudRec);
-              if (res && res.success === false) {
-                errors.push({ id, tipo: cloudRec.tipo, reason: res.reason });
-              } else {
-                downloadedCount++;
-              }
-            }
+            downloadedCount++;
           }
         } catch (errCloud) {
-          console.error(`[Sync] Error procesando nube ID ${id}:`, errCloud);
-          errors.push({ id, tipo: cloudRec.tipo, reason: errCloud.message || String(errCloud) });
+          console.error(`[Sync] Error procesando nube ID ${cloudRec.id}:`, errCloud);
+          errors.push({ id: cloudRec.id, tipo: cloudRec.tipo, reason: errCloud.message || String(errCloud) });
         }
       }
 
@@ -1079,12 +1201,24 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       setStorage('pr_sync_last_time', nowIso);
 
       if (errors.length === 0) {
-        syncState.pendingChanges = false;
-        setStorage('pr_sync_pending', false);
-        setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+        syncState.retryDelay = 0;
+        if (syncState.changeCounter === changesAtStart) {
+          syncState.pendingChanges = false;
+          setStorage('pr_sync_pending', false);
+          setSyncStatus('synced', `Sincronizado (${formatSyncTime(new Date())})`);
+        } else {
+          // Hubo ediciones mientras se sincronizaba: no se marca como al día, se repite enseguida
+          syncState.queued = true;
+        }
       } else {
+        needsRetry = true;
         setSyncStatus('error', `Sincronización con ${errors.length} advertencia(s)`);
       }
+      logSync({
+        ok: errors.length === 0, subidos: uploadedCount, bajados: downloadedCount,
+        ms: Date.now() - startedAt, errores: errors.length,
+        nota: errors.length ? String(errors[0].reason || '').slice(0, 120) : ''
+      });
 
       const firstSyncKey = 'pr_first_sync_done_' + syncState.user.id;
       if (options.isInitial || !getStorage(firstSyncKey, false)) {
@@ -1105,10 +1239,20 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
     } catch (err) {
       console.error('Error durante la sincronización:', err);
-      handleSyncError(err);
+      const fallo = handleSyncError(err);
+      needsRetry = fallo.kind === 'error';
+      if (fallo.kind !== 'auth') {
+        logSync({ ok: false, ms: Date.now() - startedAt, nota: String(fallo.text || '').slice(0, 120) });
+      }
     } finally {
       syncState.isSyncing = false;
       updateSyncUI();
+      if (needsRetry) {
+        scheduleSyncRetry();
+      } else if (syncState.queued && syncState.user) {
+        syncState.queued = false;
+        setTimeout(() => performSync(), 300);
+      }
     }
   }
 
@@ -1178,7 +1322,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'informe_tecnico',
           datos: { ...inf },
           deleted: false,
-          updated_at: inf.updatedAt || new Date().toISOString()
+          updated_at: inf.updatedAt || EPOCH_ISO
         });
       });
 
@@ -1188,7 +1332,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
           tipo: 'plantilla_informe',
           datos: { ...plant },
           deleted: false,
-          updated_at: plant.updatedAt || new Date().toISOString()
+          updated_at: plant.updatedAt || EPOCH_ISO
         });
       });
 
@@ -1748,11 +1892,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
         syncState.client.auth.onAuthStateChange((event, session) => {
           if (session && session.user) {
             syncState.user = session.user;
+            syncState.sessionExpired = false;
             closeAuthModal();
             updateSyncUI();
+          } else if (event === 'SIGNED_OUT' && syncState.user && !syncState.manualSignOut) {
+            expireSession();
           } else {
             syncState.user = null;
-            setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
+            setSyncStatus('no-auth', syncState.sessionExpired ? 'Sesión vencida' : 'Modo local · Iniciar sesión para sincronizar');
           }
         });
       } else {
@@ -1787,7 +1934,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
       // Sincronización continua: cada 60 segundos
       setInterval(() => {
-        if (navigator.onLine && syncState.user && !syncState.isSyncing) {
+        if (document.visibilityState === 'visible' && navigator.onLine && syncState.user && !syncState.isSyncing) {
           performSync();
         }
       }, 60000);
@@ -1884,6 +2031,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
 
           if (data && data.user) {
             syncState.user = data.user;
+            syncState.sessionExpired = false;
             closeAuthModal();
             showToast(`¡Bienvenido! Sesión iniciada como ${data.user.email}`, '✅');
             updateSyncUI();
@@ -1927,6 +2075,20 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       });
     });
 
+    const btnCopiarDiagnostico = $('btn-copiar-diagnostico');
+    if (btnCopiarDiagnostico) {
+      btnCopiarDiagnostico.addEventListener('click', async () => {
+        const texto = diagnosticsText().map(([k, v]) => `${k}: ${v}`).join('\n') +
+          '\n\nÚltimos intentos:\n' + (syncState.log || []).map(e => JSON.stringify(e)).join('\n');
+        try {
+          await navigator.clipboard.writeText(texto);
+          showToast('Diagnóstico copiado', '📋');
+        } catch (e) {
+          showToast('No se pudo copiar. Haz una captura de pantalla del diagnóstico.', '⚠️');
+        }
+      });
+    }
+
     document.querySelectorAll('.btn-repair-informes-sync').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!syncState.user) {
@@ -1941,10 +2103,16 @@ const SUPABASE_ANON_KEY = "sb_publishable_6PcKQ0q8B8dKG-enbClDGg_pYDPwwtG";
       btn.addEventListener('click', async () => {
         if (syncState.user) {
           if (confirm('¿Cerrar sesión en este dispositivo?\n\nTus cotizaciones y cuentas permanecerán guardadas en este equipo, pero no se sincronizarán con la nube hasta que vuelvas a iniciar sesión.')) {
-            if (syncState.client) {
-              await syncState.client.auth.signOut();
+            syncState.manualSignOut = true;
+            try {
+              if (syncState.client) {
+                await syncState.client.auth.signOut();
+              }
+            } finally {
+              syncState.manualSignOut = false;
             }
             syncState.user = null;
+            syncState.sessionExpired = false;
             setSyncStatus('no-auth', 'Modo local · Iniciar sesión para sincronizar');
             showToast('Sesión cerrada. La app continúa en modo local.', 'ℹ️');
           }
