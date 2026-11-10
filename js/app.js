@@ -2720,6 +2720,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garant√≠a ya que el da√
 
     // Notes
     $('preview-notes').textContent = data.notes || '';
+    const firmaCotImg = $('preview-firma-img');
+    if (firmaCotImg && window.PEDRO_ROA_FIRMA) {
+      firmaCotImg.src = window.PEDRO_ROA_FIRMA;
+      firmaCotImg.hidden = false;
+    }
 
     // Update real-time feedback badges
     updatePhoneFeedback();
@@ -3895,7 +3900,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garant√≠a ya que el da√
       previewImg.src = '';
       previewBox.style.display = 'none';
       btnRemove.style.display = 'none';
-      statusText.textContent = 'Sin firma (espacio en blanco)';
+      statusText.textContent = 'Usando la firma de Pedro por defecto';
       statusText.style.color = 'var(--text-muted)';
     }
   }
@@ -4065,7 +4070,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garant√≠a ya que el da√
     }
 
     // 10. "Cordialmente,", la firma, el nombre, C.C., tel√©fono y direcci√≥n
-    const firmaSrc = data.firma || state.cobroFirma;
+    const firmaSrc = data.firma || state.cobroFirma || window.PEDRO_ROA_FIRMA || '';
     if ($('cc-doc-preview-firma-wrap') && $('cc-doc-preview-firma-blank') && $('cc-doc-preview-firma-img')) {
       if (firmaSrc) {
         $('cc-doc-preview-firma-img').src = firmaSrc;
@@ -5813,8 +5818,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garant√≠a ya que el da√
     }).join('');
 
     const elab = data.elaboradoPor || {};
-    const signatureImg = (data.includeFirma !== false && elab.firma)
-      ? `<img src="${elab.firma}" alt="Firma digital" class="doc-informe-firma-img">`
+    const firmaInformeSrc = elab.firma || window.PEDRO_ROA_FIRMA || '';
+    const signatureImg = (data.includeFirma !== false && firmaInformeSrc)
+      ? `<img src="${firmaInformeSrc}" alt="Firma digital" class="doc-informe-firma-img">`
       : '';
 
     return `

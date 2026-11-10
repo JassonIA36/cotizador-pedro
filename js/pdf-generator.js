@@ -310,6 +310,29 @@
       doc.text(splitNotes, margin, totalsStartY + 10);
     }
 
+    // Firma autorizada (solo si cabe sin tocar nada de lo ya dibujado)
+    try {
+      const firmaCot = firmaPorDefecto();
+      if (firmaCot) {
+        const notesEndY = data.notes ? (totalsStartY + 10 + (doc.splitTextToSize(data.notes, notesWidth).length * 3.6)) : 0;
+        const bottomY = Math.max(totalsStartY + totalsHeight, notesEndY);
+        const sigH = 13, sigW = 30;
+        const sigY = bottomY + 5;
+        if (sigY + sigH + 5 < pageHeight - 21) {
+          const sigX = pageWidth - margin - sigW - 22;
+          doc.addImage(firmaCot, 'PNG', sigX, sigY, sigW, sigH);
+          doc.setDrawColor(148, 163, 184);
+          doc.line(totalsX, sigY + sigH + 1, pageWidth - margin, sigY + sigH + 1);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+          doc.text('Pedro Roa · Firma autorizada', pageWidth - margin, sigY + sigH + 4.5, { align: 'right' });
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudo agregar la firma a la cotización:', err);
+    }
+
     // 7. Footer
     const footerY = pageHeight - 14;
     doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
@@ -324,6 +347,11 @@
   }
 
   // Generate File & Blob
+  // Firma por defecto de Pedro (si no subió otra en «Mis datos»)
+  function firmaPorDefecto() {
+    return (typeof window !== 'undefined' && window.PEDRO_ROA_FIRMA) ? window.PEDRO_ROA_FIRMA : '';
+  }
+
   function generatePdfFile(data) {
     const doc = createPdfDocument(data);
     const sanitizedNumber = (data.quoteNumber || 'COT-0001').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -604,11 +632,12 @@
     doc.text('Cordialmente,', margin, yPos);
     yPos += isVeryCompact ? 3.2 : 4;
 
-    if (data.firma) {
+    const firmaCobro = data.firma || firmaPorDefecto();
+    if (firmaCobro) {
       try {
         const signH = isVeryCompact ? 10 : 14;
         const signW = isVeryCompact ? 36 : 45;
-        doc.addImage(data.firma, 'PNG', margin, yPos, signW, signH);
+        doc.addImage(firmaCobro, 'PNG', margin, yPos, signW, signH);
         yPos += signH + 2;
       } catch (err) {
         console.warn('Could not add signature image to PDF:', err);
@@ -1100,11 +1129,12 @@
     doc.setTextColor(15, 23, 42);
     doc.text('Firma:', rightColX, rightY + 9);
 
-    if (data.includeFirma !== false && elab.firma) {
+    const firmaInforme = elab.firma || firmaPorDefecto();
+    if (data.includeFirma !== false && firmaInforme) {
       try {
         const fw = 38;
         const fh = 13;
-        doc.addImage(elab.firma, 'PNG', rightColX + 12, rightY, fw, fh);
+        doc.addImage(firmaInforme, 'PNG', rightColX + 12, rightY, fw, fh);
       } catch (err) {
         console.warn('Could not add signature image to Informe PDF:', err);
       }
@@ -1144,6 +1174,7 @@
   function generateInformePdfFile(data) {
     const doc = createInformePdfDocument(data);
     const sanitizedNumber = (data.informeNumber || 'INF-0001').replace(/[^a-zA-Z0-9_-]/g, '');
+    const clientSlug = (data.clientName || 'Cliente').replace(/\s+/g, '_').substring(0, 15);
     const fileName = `InformeTecnico_${sanitizedNumber}_${clientSlug}.pdf`;
 
     const blob = doc.output('blob');

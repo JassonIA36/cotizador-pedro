@@ -236,7 +236,11 @@
   color: #6b7280;
   gap: 8px;
 }
+.doc-footer-sign-who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.doc-footer-sign-img { height: 46px; width: auto; max-width: 160px; object-fit: contain; display: block; }
+.doc-footer-sign-img[hidden] { display: none; }
 @media (max-width: 520px) {
+  .doc-footer-sign-who { align-items: center; }
   .doc-footer-sign {
     flex-direction: column;
     text-align: center;
