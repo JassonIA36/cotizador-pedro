@@ -1002,7 +1002,9 @@
           yPos += 2;
         }
 
-        const propuestaItems = Array.isArray(sec.propuestaItems) ? sec.propuestaItems : [];
+        const propuestaItems = Array.isArray(sec.propuestaItems) ? sec.propuestaItems
+          : (Array.isArray(sec.items) ? sec.items : (Array.isArray(data.propuestaItems) ? data.propuestaItems : []))
+              .filter(pi => pi && (pi.desc || parseFloat(pi.valor) > 0));
         if (propuestaItems.length > 0) {
           checkPageBreak(25);
 
@@ -1051,9 +1053,9 @@
         }
 
       } else if (sec.type === 'observaciones') {
-        const bullets = Array.isArray(sec.bulletItems)
-          ? sec.bulletItems
-          : (String(sec.content || '').split('\n').filter(b => b.trim()));
+        const bullets = Array.isArray(sec.bulletItems) ? sec.bulletItems
+          : Array.isArray(sec.bullets) ? sec.bullets
+          : String(sec.content || sec.rawText || '').split('\n').filter(b => b.trim());
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.8);

@@ -1,5 +1,5 @@
 // Service Worker for Cotizador Pedro Roa PWA
-const CACHE_NAME = 'pedro-roa-cotizador-v2.9.2';
+const CACHE_NAME = 'pedro-roa-cotizador-v2.9.3';
 
 const ASSETS_TO_CACHE = [
   './',
