@@ -1549,6 +1549,23 @@
             <div id="inf-custom-sections-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
           </div>
 
+          <!-- 3b. Evidencias (fotos) -->
+          <div class="card np" id="inf-evidencias-card">
+            <div class="card-header">
+              <div class="card-title">
+                <span><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg></span> Evidencias <span class="badge-count" id="inf-evid-count">0</span>
+              </div>
+              <button type="button" id="btn-inf-add-evid" class="btn-cyan" style="padding: 6px 12px; font-size: 0.8rem;">
+                + Agregar fotos
+              </button>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+              Fotos o capturas de pantalla que respaldan el informe (hasta 12). Salen en una sección «Evidencias» al final del documento y en el PDF. Se reducen solas para no llenar la memoria del celular.
+            </p>
+            <input type="file" id="inf-evid-input" accept="image/*" multiple hidden>
+            <div id="inf-evid-list" class="evid-list"></div>
+          </div>
+
           <!-- 4. Elaborado por & Opciones del Documento -->
           <div class="card np">
             <div class="card-header">

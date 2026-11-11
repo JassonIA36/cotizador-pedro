@@ -1052,6 +1052,42 @@
           yPos = doc.lastAutoTable.finalY + 6;
         }
 
+      } else if (sec.type === 'evidencias') {
+        const fotos = Array.isArray(sec.items) ? sec.items : [];
+        const colGap = 6;
+        const colW = (contentWidth - colGap) / 2;
+        const maxImgH = 62;
+        for (let i = 0; i < fotos.length; i += 2) {
+          const fila = fotos.slice(i, i + 2);
+          const medidas = fila.map(f => {
+            let w = colW, h = maxImgH;
+            try {
+              const p = doc.getImageProperties(f.src);
+              const ratio = p.width / p.height;
+              w = colW; h = w / ratio;
+              if (h > maxImgH) { h = maxImgH; w = h * ratio; }
+            } catch (e) { /* medidas por defecto */ }
+            return { w, h };
+          });
+          const filaH = Math.max(...medidas.map(m => m.h)) + 9;
+          checkPageBreak(filaH + 2);
+          fila.forEach((f, j) => {
+            const x = margin + j * (colW + colGap);
+            try {
+              doc.addImage(f.src, 'JPEG', x, yPos, medidas[j].w, medidas[j].h);
+            } catch (err) {
+              console.warn('No se pudo agregar una evidencia al PDF:', err);
+            }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.8);
+            doc.setTextColor(71, 85, 105);
+            const pie = doc.splitTextToSize(`Foto ${i + j + 1}${f.caption ? ': ' + f.caption : ''}`, colW);
+            doc.text(pie.slice(0, 2), x, yPos + medidas[j].h + 4);
+          });
+          yPos += filaH + 2;
+        }
+        yPos += 2;
+
       } else if (sec.type === 'observaciones') {
         const bullets = Array.isArray(sec.bulletItems) ? sec.bulletItems
           : Array.isArray(sec.bullets) ? sec.bullets

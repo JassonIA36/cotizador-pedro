@@ -2328,6 +2328,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       { desc: 'Cambio de cabezal, lavado de tanques y suministro de tinta nueva.', valor: 500000 }
     ],
     currentInformeCustomSections: [],
+    currentInformeEvidencias: [],
 
     activeMainSection: getStorage('pr_active_main_section', 'cotizaciones'),
     activeSubviewCot: getStorage('pr_active_subview_cot', 'view-cotizador'),
@@ -5527,6 +5528,68 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     updateMobileStickyBar();
   }
 
+  const EVIDENCIAS_MAX = 12;
+
+  function renderInformeEvidenciasUI() {
+    const list = $('inf-evid-list');
+    const items = Array.isArray(state.currentInformeEvidencias) ? state.currentInformeEvidencias : [];
+    if ($('inf-evid-count')) $('inf-evid-count').textContent = String(items.length);
+    if (!list) return;
+    list.innerHTML = items.map((ev, idx) => `
+      <div class="evid-item" data-index="${idx}">
+        <img src="${ev.src}" alt="Evidencia ${idx + 1}">
+        <input type="text" class="evid-caption" data-index="${idx}" value="${escapeHtml(ev.caption || '')}" placeholder="Descripción" maxlength="140" aria-label="Descripción de la foto ${idx + 1}">
+        <button type="button" class="btn-icon btn-danger evid-del" data-index="${idx}" title="Quitar foto" aria-label="Quitar foto ${idx + 1}"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
+      </div>
+    `).join('');
+  }
+
+  // Reduce la foto (lado mayor 1100 px, JPEG) para que quepa en el celular y en la nube
+  function comprimirImagenEvidencia(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const max = 1100;
+          const escala = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.max(1, Math.round(img.naturalWidth * escala));
+          const h = Math.max(1, Math.round(img.naturalHeight * escala));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+      img.src = url;
+    });
+  }
+
+  async function agregarEvidenciasDesdeArchivos(files) {
+    if (!Array.isArray(state.currentInformeEvidencias)) state.currentInformeEvidencias = [];
+    const lista = Array.from(files || []);
+    let rechazados = 0, sobrantes = 0, agregados = 0;
+    for (const file of lista) {
+      if (state.currentInformeEvidencias.length >= EVIDENCIAS_MAX) { sobrantes++; continue; }
+      if (!/^image\//.test(file.type)) { rechazados++; continue; }
+      try {
+        const src = await comprimirImagenEvidencia(file);
+        state.currentInformeEvidencias.push({ id: generateUUID(), src, caption: '' });
+        agregados++;
+      } catch (e) { rechazados++; }
+    }
+    renderInformeEvidenciasUI();
+    renderInformePreview();
+    if (agregados) { state.informeIsDirty = true; updateFormStatusBadges(); }
+    if (sobrantes) showToast(`Máximo ${EVIDENCIAS_MAX} fotos por informe`, '⚠️');
+    else if (rechazados) showToast('Solo se pueden cargar imágenes (fotos o capturas)', '⚠️');
+    else if (agregados) showToast(agregados === 1 ? 'Foto agregada' : `${agregados} fotos agregadas`, '✅');
+  }
+
   function renderInformeCustomSectionsUI() {
     const container = $('inf-custom-sections-container');
     if (!container) return;
@@ -5656,6 +5719,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       });
     }
 
+    // Evidencias (fotos): sección numerada al final si hay fotos
+    const evidencias = Array.isArray(state.currentInformeEvidencias) ? state.currentInformeEvidencias.filter(e => e && e.src) : [];
+    if (evidencias.length) {
+      sections.push({ num: secCounter++, type: 'evidencias', title: 'Evidencias', items: evidencias });
+    }
+
     const propuestaItems = (state.currentInformePropuestas || []).filter(p => p.desc || parseFloat(p.valor) > 0);
     const propuestaTotal = propuestaItems.reduce((sum, item) => sum + (parseFloat(item.valor) || 0), 0);
 
@@ -5687,6 +5756,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       observaciones: $('inf-sec-obs-text') ? $('inf-sec-obs-text').value : '',
       conclusion: $('inf-sec-conc-text') ? $('inf-sec-conc-text').value.trim() : '',
       customSections: state.currentInformeCustomSections || [],
+      evidencias,
       secMotivoInc: $('inf-sec-motivo-inc') ? $('inf-sec-motivo-inc').checked : true,
       secVerifInc: $('inf-sec-verif-inc') ? $('inf-sec-verif-inc').checked : true,
       secDiagInc: $('inf-sec-diag-inc') ? $('inf-sec-diag-inc').checked : true,
@@ -5789,6 +5859,22 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
                 ` : ''}
               </tbody>
             </table>
+          </div>
+        `;
+      }
+
+      if (sec.type === 'evidencias') {
+        return `
+          <div class="doc-informe-section">
+            <h3 class="doc-informe-sec-title">${sec.num}. ${escapeHtml(sec.title)}</h3>
+            <div class="doc-informe-evid-grid">
+              ${(sec.items || []).map((ev, i) => `
+                <figure class="doc-informe-evid-fig">
+                  <img src="${ev.src}" alt="Evidencia ${i + 1}">
+                  <figcaption>Foto ${i + 1}${ev.caption ? ': ' + escapeHtml(ev.caption) : ''}</figcaption>
+                </figure>
+              `).join('')}
+            </div>
           </div>
         `;
       }
@@ -6071,7 +6157,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     state.currentInformeVerificaciones = [{ title: '', desc: '' }];
     state.currentInformePropuestas = [{ desc: '', valor: 0 }];
     state.currentInformeCustomSections = [];
+    state.currentInformeEvidencias = [];
 
+    renderInformeEvidenciasUI();
     renderInformeVerificacionesUI();
     renderInformePropuestasUI();
     renderInformeCustomSectionsUI();
@@ -6129,7 +6217,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     state.currentInformeVerificaciones = Array.isArray(item.verificaciones) ? JSON.parse(JSON.stringify(item.verificaciones)) : [];
     state.currentInformePropuestas = Array.isArray(item.propuestaItems) ? JSON.parse(JSON.stringify(item.propuestaItems)) : [];
     state.currentInformeCustomSections = Array.isArray(item.customSections) ? JSON.parse(JSON.stringify(item.customSections)) : [];
+    state.currentInformeEvidencias = Array.isArray(item.evidencias) ? JSON.parse(JSON.stringify(item.evidencias)) : [];
 
+    renderInformeEvidenciasUI();
     renderInformeVerificacionesUI();
     renderInformePropuestasUI();
     renderInformeCustomSectionsUI();
@@ -6834,6 +6924,39 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
             renderInformeCustomSectionsUI();
             renderInformePreview();
           }
+        }
+      });
+    }
+
+    // Evidencias (fotos)
+    const evidInput = $('inf-evid-input');
+    if ($('btn-inf-add-evid') && evidInput) {
+      $('btn-inf-add-evid').addEventListener('click', () => evidInput.click());
+      evidInput.addEventListener('change', async () => {
+        const files = Array.from(evidInput.files || []);
+        evidInput.value = '';
+        await agregarEvidenciasDesdeArchivos(files);
+      });
+    }
+    const evidList = $('inf-evid-list');
+    if (evidList) {
+      evidList.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.index, 10);
+        if (e.target.classList.contains('evid-caption') && state.currentInformeEvidencias[idx]) {
+          state.currentInformeEvidencias[idx].caption = e.target.value;
+          renderInformePreview();
+        }
+      });
+      evidList.addEventListener('click', (e) => {
+        const del = e.target.closest('.evid-del');
+        if (!del) return;
+        const idx = parseInt(del.dataset.index, 10);
+        if (state.currentInformeEvidencias[idx]) {
+          state.currentInformeEvidencias.splice(idx, 1);
+          state.informeIsDirty = true;
+          updateFormStatusBadges();
+          renderInformeEvidenciasUI();
+          renderInformePreview();
         }
       });
     }
