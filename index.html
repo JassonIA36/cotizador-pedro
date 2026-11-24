@@ -261,6 +261,10 @@
               </button>
             </div>
 
+            <!-- Opciones de precio (A, B, C...) -->
+            <div id="opt-bar" class="opt-bar"></div>
+            <input type="file" id="line-foto-input" accept="image/*" multiple hidden>
+
             <div class="catalog-add-bar">
               <div class="input-group select-group">
                 <label for="catalog-select">Seleccionar del catálogo de Pedro Roa</label>
@@ -291,6 +295,7 @@
                 <span><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span> Descuentos, Domicilio & Condiciones
               </div>
             </div>
+            <p id="opt-fin-hint" class="opt-fin-hint" hidden></p>
             <div class="form-grid-4">
               <div class="input-group">
                 <label for="q-discount">Descuento (%)</label>
@@ -431,6 +436,10 @@
                     </div>
                   </div>
 
+                  <!-- Varias opciones de precio (se llena desde app.js) -->
+                  <div id="preview-multi" hidden></div>
+
+                  <div id="preview-single">
                   <!-- Tabla de Ítems Responsiva -->
                   <div class="doc-table-responsive">
                     <table class="doc-table">
@@ -468,6 +477,7 @@
                       <span>TOTAL:</span>
                       <span id="preview-total">$0</span>
                     </div>
+                  </div>
                   </div>
 
                   <!-- Notas y Condiciones -->

@@ -822,3 +822,19 @@
 .doc-informe-evid-fig { margin: 0; break-inside: avoid; page-break-inside: avoid; min-width: 0; }
 .doc-informe-evid-fig img { width: 100%; max-height: 260px; object-fit: contain; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; display: block; }
 .doc-informe-evid-fig figcaption { font-size: 0.8rem; color: #475569; margin-top: 4px; overflow-wrap: anywhere; }
+
+/* Fotos de los ítems y varias opciones de precio en el documento */
+.doc-item-fotos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.doc-item-fotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; display: block; }
+.doc-opcion { margin-top: 20px; }
+.doc-opcion:first-child { margin-top: 8px; }
+.doc-opcion-titulo { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 10px; font-size: 0.92rem; font-weight: 700; color: #4c1d95; background: #f5f3ff; border-left: 4px solid #7c3aed; border-radius: 6px; }
+.doc-opcion-letra { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: #7c3aed; color: #fff; font-size: 0.8rem; font-weight: 800; }
+.doc-opcion-nombre { min-width: 0; overflow-wrap: anywhere; }
+.doc-resumen-opciones { margin-top: 22px; }
+.doc-resumen-titulo { background: #1e293b; color: #fff; border-left-color: #7c3aed; }
+.doc-resumen-opciones ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.doc-resumen-opciones li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid #f3f4f6; color: #1f2937; font-size: 0.9rem; }
+.doc-resumen-nombre { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.doc-resumen-opciones li strong { flex: 0 0 auto; white-space: nowrap; }
+

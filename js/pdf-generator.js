@@ -174,150 +174,241 @@
 
     yPos += clientBoxHeight + 8;
 
-    // 5. Items Table (AutoTable)
-    const tableColumns = [
-      { header: 'DESCRIPCIÓN DEL SERVICIO / PRODUCTO', dataKey: 'desc' },
-      { header: 'CANT.', dataKey: 'qty' },
-      { header: 'VR. UNITARIO', dataKey: 'unit' },
-      { header: 'SUBTOTAL', dataKey: 'total' }
-    ];
+    // 5. Opciones de precio. Con una sola, el documento queda como siempre; con varias, una sección por opción.
+    const multi = Array.isArray(data.opciones) && data.opciones.length > 1;
+    const opciones = multi ? data.opciones : [{
+      titulo: '',
+      items: data.items || [],
+      subtotal: data.subtotal,
+      discountPercent: data.discountPercent,
+      discountAmount: data.discountAmount,
+      deliveryAmount: data.deliveryAmount,
+      taxAmount: data.taxAmount,
+      total: data.total
+    }];
 
-    const tableRows = (data.items || []).map(item => ({
-      desc: item.d || 'Servicio / Producto',
-      qty: String(item.q || 1),
-      unit: formatMoney(item.p || 0),
-      total: formatMoney((item.q || 1) * (item.p || 0))
-    }));
+    const FOTO_MM = 22;      // lado del cuadro de cada foto
+    const FOTO_GAP = 3;
+    const PAD = 3.8;
+    const totalsWidth = 75;
+    const totalsX = pageWidth - margin - totalsWidth;
 
-    if (tableRows.length === 0) {
-      tableRows.push({
-        desc: 'Sin ítems registrados',
-        qty: '1',
-        unit: '$0',
-        total: '$0'
+    // Filas de la tabla; si el ítem tiene fotos, la celda de descripción deja espacio abajo para dibujarlas
+    function filasDeItems(items) {
+      const rows = (items || []).map(item => {
+        const fotos = Array.isArray(item.fotos) ? item.fotos.filter(f => typeof f === 'string' && f.indexOf('data:image') === 0) : [];
+        const desc = { content: item.d || 'Servicio / Producto' };
+        if (fotos.length) {
+          desc.styles = { cellPadding: { top: PAD, right: PAD, bottom: PAD + FOTO_MM + 3, left: PAD } };
+          desc._fotos = fotos;
+        }
+        return [desc, String(item.q || 1), formatMoney(item.p || 0), formatMoney((item.q || 1) * (item.p || 0))];
+      });
+      if (rows.length === 0) rows.push(['Sin ítems registrados', '1', '$0', '$0']);
+      return rows;
+    }
+
+    function dibujarFotosCelda(h) {
+      if (h.section !== 'body' || !h.cell.raw || !h.cell.raw._fotos) return;
+      let x = h.cell.x + PAD;
+      const y = h.cell.y + h.cell.height - FOTO_MM - 2.5;
+      h.cell.raw._fotos.forEach(src => {
+        try {
+          const props = doc.getImageProperties(src);
+          const esc = Math.min(FOTO_MM / props.width, FOTO_MM / props.height);
+          const w = props.width * esc;
+          const alto = props.height * esc;
+          doc.addImage(src, 'JPEG', x + (FOTO_MM - w) / 2, y + (FOTO_MM - alto) / 2, w, alto);
+          doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+          doc.rect(x, y, FOTO_MM, FOTO_MM);
+        } catch (err) {
+          console.warn('No se pudo dibujar una foto del ítem:', err);
+        }
+        x += FOTO_MM + FOTO_GAP;
       });
     }
 
-    doc.autoTable({
-      startY: yPos,
-      margin: { left: margin, right: margin },
-      columns: tableColumns,
-      body: tableRows,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
-        fontSize: 8.5,
-        fontStyle: 'bold',
-        halign: 'left',
-        cellPadding: 4
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: darkColor,
-        cellPadding: 3.8
-      },
-      columnStyles: {
-        desc: { cellWidth: 'auto' },
-        qty: { cellWidth: 18, halign: 'center' },
-        unit: { cellWidth: 32, halign: 'right' },
-        total: { cellWidth: 34, halign: 'right', fontStyle: 'bold' }
-      },
-      alternateRowStyles: {
-        fillColor: [250, 250, 252]
+    function tablaDeItems(startY, items) {
+      doc.autoTable({
+        startY: startY,
+        margin: { left: margin, right: margin },
+        head: [['DESCRIPCIÓN DEL SERVICIO / PRODUCTO', 'CANT.', 'VR. UNITARIO', 'SUBTOTAL']],
+        body: filasDeItems(items),
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          fontSize: 8.5,
+          fontStyle: 'bold',
+          halign: 'left',
+          cellPadding: 4
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: darkColor,
+          cellPadding: PAD
+        },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 32, halign: 'right' },
+          3: { cellWidth: 34, halign: 'right', fontStyle: 'bold' }
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 252]
+        },
+        didDrawCell: dibujarFotosCelda
+      });
+      return doc.lastAutoTable.finalY;
+    }
+
+    function alturaTotales(opt) {
+      let h = 24;
+      if (opt.discountAmount > 0) h += 6;
+      if (opt.deliveryAmount > 0) h += 6;
+      if (opt.taxAmount > 0) h += 6;
+      return h;
+    }
+
+    // Cuadro de totales de una opción (devuelve su altura)
+    function dibujarTotales(opt, x, y, w) {
+      const totalsHeight = alturaTotales(opt);
+      doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+      doc.roundedRect(x, y, w, totalsHeight, 3, 3, 'FD');
+
+      let cy = y + 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+
+      doc.text('Subtotal:', x + 6, cy);
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text(formatMoney(opt.subtotal), x + w - 6, cy, { align: 'right' });
+
+      if (opt.discountAmount > 0) {
+        cy += 6;
+        doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+        doc.text('Descuento (' + (opt.discountPercent || 0) + '%):', x + 6, cy);
+        doc.setTextColor(220, 38, 38);
+        doc.text('-' + formatMoney(opt.discountAmount), x + w - 6, cy, { align: 'right' });
       }
+      if (opt.deliveryAmount > 0) {
+        cy += 6;
+        doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+        doc.text('Domicilio / Visita:', x + 6, cy);
+        doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+        doc.text('+' + formatMoney(opt.deliveryAmount), x + w - 6, cy, { align: 'right' });
+      }
+      if (opt.taxAmount > 0) {
+        cy += 6;
+        doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+        doc.text('IVA 19%:', x + 6, cy);
+        doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+        doc.text('+' + formatMoney(opt.taxAmount), x + w - 6, cy, { align: 'right' });
+      }
+
+      cy += 7;
+      doc.setFillColor(124, 58, 237);
+      doc.roundedRect(x + 3, cy - 4.5, w - 6, 8, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text('TOTAL:', x + 7, cy + 1.5);
+      doc.text(formatMoney(opt.total), x + w - 7, cy + 1.5, { align: 'right' });
+      return totalsHeight;
+    }
+
+    // Banda con el nombre de la opción (solo cuando hay varias)
+    function bandaDeOpcion(opt, i, y) {
+      const w = pageWidth - margin * 2;
+      doc.setFillColor(245, 243, 255);
+      doc.roundedRect(margin, y, w, 10, 2, 2, 'F');
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.roundedRect(margin + 2.5, y + 2, 6, 6, 1.2, 1.2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(String.fromCharCode(65 + (i % 26)), margin + 5.5, y + 6.3, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      const nombre = (opt.nombre && opt.nombre.trim()) ? opt.nombre.trim() : 'Opción ' + String.fromCharCode(65 + (i % 26));
+      const linea = doc.splitTextToSize(nombre, w - 20)[0] || '';
+      doc.text(linea, margin + 12, y + 6.5);
+    }
+
+    let totalsStartY = yPos;
+    let totalsHeight = 0;
+
+    opciones.forEach((opt, oi) => {
+      if (multi) {
+        if (yPos > pageHeight - 75) { doc.addPage(); yPos = 18; }
+        bandaDeOpcion(opt, oi, yPos);
+        yPos += 13;
+      }
+      yPos = tablaDeItems(yPos, opt.items) + 8;
+
+      if (yPos + alturaTotales(opt) > pageHeight - 22) { doc.addPage(); yPos = 18; }
+      totalsStartY = yPos;
+      totalsHeight = dibujarTotales(opt, totalsX, totalsStartY, totalsWidth);
+      if (multi) yPos = totalsStartY + totalsHeight + 10;
     });
 
-    yPos = doc.lastAutoTable.finalY + 8;
+    // Resumen para comparar las opciones
+    if (multi) {
+      if (yPos > pageHeight - 60) { doc.addPage(); yPos = 18; }
+      doc.autoTable({
+        startY: yPos,
+        margin: { left: margin, right: margin },
+        head: [['RESUMEN DE OPCIONES', 'ÍTEMS', 'TOTAL']],
+        body: opciones.map((o, i) => [
+          String.fromCharCode(65 + (i % 26)) + ' · ' + ((o.nombre && o.nombre.trim()) ? o.nombre.trim() : 'Opción ' + String.fromCharCode(65 + (i % 26))),
+          String((o.items || []).length),
+          formatMoney(o.total)
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontSize: 8.5, fontStyle: 'bold', halign: 'left', cellPadding: 4 },
+        bodyStyles: { fontSize: 9.5, textColor: darkColor, cellPadding: 3.8 },
+        columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 40, halign: 'right', fontStyle: 'bold' } },
+        alternateRowStyles: { fillColor: [250, 250, 252] }
+      });
+      yPos = doc.lastAutoTable.finalY + 10;
+    }
 
-    // 6. Totals Box & Notes Section
-    const totalsWidth = 75;
-    const totalsX = pageWidth - margin - totalsWidth;
-    const totalsStartY = yPos;
-
-    // Totals card
-    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-    
-    let totalsHeight = 24;
-    if (data.discountAmount > 0) totalsHeight += 6;
-    if (data.deliveryAmount > 0) totalsHeight += 6;
-    if (data.taxAmount > 0) totalsHeight += 6;
-
-    doc.roundedRect(totalsX, totalsStartY, totalsWidth, totalsHeight, 3, 3, 'FD');
-
-    let currentTotalY = totalsStartY + 6;
+    // Notas (a la izquierda del total si hay una sola opción; a lo ancho si hay varias)
+    const notesWidth = multi ? pageWidth - margin * 2 : totalsX - margin - 8;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-
-    // Subtotal
-    doc.text('Subtotal:', totalsX + 6, currentTotalY);
-    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.text(formatMoney(data.subtotal), totalsX + totalsWidth - 6, currentTotalY, { align: 'right' });
-
-    // Descuento
-    if (data.discountAmount > 0) {
-      currentTotalY += 6;
-      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      doc.text('Descuento (' + (data.discountPercent || 0) + '%):', totalsX + 6, currentTotalY);
-      doc.setTextColor(220, 38, 38);
-      doc.text('-' + formatMoney(data.discountAmount), totalsX + totalsWidth - 6, currentTotalY, { align: 'right' });
+    doc.setFontSize(8);
+    const notasLineas = data.notes ? doc.splitTextToSize(data.notes, notesWidth) : [];
+    let notesTop = multi ? yPos : totalsStartY;
+    if (multi && notasLineas.length && notesTop + 10 + notasLineas.length * 3.6 > pageHeight - 22) {
+      doc.addPage();
+      notesTop = 18;
     }
-
-    // Domicilio
-    if (data.deliveryAmount > 0) {
-      currentTotalY += 6;
-      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      doc.text('Domicilio / Visita:', totalsX + 6, currentTotalY);
-      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-      doc.text('+' + formatMoney(data.deliveryAmount), totalsX + totalsWidth - 6, currentTotalY, { align: 'right' });
-    }
-
-    // IVA
-    if (data.taxAmount > 0) {
-      currentTotalY += 6;
-      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      doc.text('IVA 19%:', totalsX + 6, currentTotalY);
-      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-      doc.text('+' + formatMoney(data.taxAmount), totalsX + totalsWidth - 6, currentTotalY, { align: 'right' });
-    }
-
-    // TOTAL Highlighted
-    currentTotalY += 7;
-    doc.setFillColor(124, 58, 237);
-    doc.roundedRect(totalsX + 3, currentTotalY - 4.5, totalsWidth - 6, 8, 2, 2, 'F');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text('TOTAL:', totalsX + 7, currentTotalY + 1.5);
-    doc.text(formatMoney(data.total), totalsX + totalsWidth - 7, currentTotalY + 1.5, { align: 'right' });
-
-    // Notes Box (Left of Totals)
-    const notesWidth = totalsX - margin - 8;
     if (data.notes) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-      doc.text('NOTAS Y CONDICIONES:', margin, totalsStartY + 4);
+      doc.text('NOTAS Y CONDICIONES:', margin, notesTop + 4);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      
-      const splitNotes = doc.splitTextToSize(data.notes, notesWidth);
-      doc.text(splitNotes, margin, totalsStartY + 10);
+      doc.text(notasLineas, margin, notesTop + 10);
     }
 
     // Firma autorizada (solo si cabe sin tocar nada de lo ya dibujado)
     try {
       const firmaCot = firmaPorDefecto();
       if (firmaCot) {
-        const notesEndY = data.notes ? (totalsStartY + 10 + (doc.splitTextToSize(data.notes, notesWidth).length * 3.6)) : 0;
-        const bottomY = Math.max(totalsStartY + totalsHeight, notesEndY);
+        const notesEndY = data.notes ? (notesTop + 10 + (notasLineas.length * 3.6)) : 0;
+        const bottomY = multi ? Math.max(notesEndY, notesTop) : Math.max(totalsStartY + totalsHeight, notesEndY);
         const sigH = 13, sigW = 30;
-        const sigY = bottomY + 5;
+        let sigY = bottomY + 5;
+        if (multi && sigY + sigH + 5 >= pageHeight - 21) {
+          doc.addPage();
+          sigY = 20;
+        }
         if (sigY + sigH + 5 < pageHeight - 21) {
           const sigX = pageWidth - margin - sigW - 22;
           doc.addImage(firmaCot, 'PNG', sigX, sigY, sigW, sigH);
@@ -333,15 +424,23 @@
       console.warn('No se pudo agregar la firma a la cotización:', err);
     }
 
-    // 7. Footer
-    const footerY = pageHeight - 14;
-    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-    doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+    // 7. Footer (en todas las páginas)
+    const totalPaginas = doc.internal.getNumberOfPages();
+    for (let pg = 1; pg <= totalPaginas; pg++) {
+      doc.setPage(pg);
+      const footerY = pageHeight - 14;
+      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+      doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
 
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-    doc.text('Pedro Roa · Soporte Técnico, Reparación y Computadores a Medida · WhatsApp: ' + (data.businessPhone || '+57 302 4555428'), pageWidth / 2, footerY, { align: 'center' });
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+      doc.text('Pedro Roa · Soporte Técnico, Reparación y Computadores a Medida · WhatsApp: ' + (data.businessPhone || '+57 302 4555428'), pageWidth / 2, footerY, { align: 'center' });
+      if (totalPaginas > 1) {
+        doc.setFont('helvetica', 'normal');
+        doc.text('Pág. ' + pg + ' de ' + totalPaginas, pageWidth - margin, footerY + 4.5, { align: 'right' });
+      }
+    }
 
     return doc;
   }

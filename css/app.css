@@ -971,3 +971,35 @@ button.btn-icon { padding: 0; width: 44px; min-width: 44px; height: 44px; }
 .evid-item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 5px; display: block; background: var(--bg-main); }
 .evid-item input { width: 100%; min-width: 0; font-size: 16px; }
 .evid-item .evid-del.btn-icon { position: absolute; top: 10px; right: 10px; min-width: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #b91c1c; border: 1px solid #fca5a5; box-shadow: 0 1px 4px rgba(0,0,0,.35); opacity: 1; }
+
+/* ==========================================================================
+   Opciones de precio y fotos de los ítems
+   ========================================================================== */
+.opt-bar { margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+.opt-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.opt-tabs { display: flex; gap: 8px; overflow-x: auto; max-width: 100%; padding-bottom: 2px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.opt-tab { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "l n" "l t"; column-gap: 8px; align-items: center; min-height: 48px; max-width: 220px; padding: 6px 12px 6px 8px; text-align: left; background: var(--bg-card); color: var(--text-main); border: 1.5px solid var(--border); border-radius: var(--radius-md); cursor: pointer; }
+.opt-tab-letter { grid-area: l; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--bg-sunken); font-weight: 800; font-size: 0.9rem; }
+.opt-tab-name { grid-area: n; font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt-tab-total { grid-area: t; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+.opt-tab.active { border-color: var(--primary); background: var(--primary-soft); }
+.opt-tab.active .opt-tab-letter { background: var(--primary); color: var(--on-primary); }
+.opt-add { flex: 0 0 auto; min-height: 48px; padding: 8px 14px; background: transparent; color: var(--primary); border: 1.5px dashed var(--primary); border-radius: var(--radius-md); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+.opt-add:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.opt-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.opt-name-group { flex: 1 1 100%; min-width: 0; }
+.opt-tools .opt-tool-btn { flex: 1 1 0; }
+@media (min-width: 768px) { .opt-name-group { flex: 1 1 260px; } .opt-tools .opt-tool-btn { flex: 0 0 auto; } }
+.opt-tool-btn { min-height: 44px; padding: 8px 14px; font-size: 0.82rem; }
+.opt-fin-hint { margin: 0 0 10px; font-size: 0.82rem; font-weight: 600; color: var(--primary); }
+
+.line-fotos { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.line-foto { position: relative; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--bg-input); }
+.line-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.line-foto .line-foto-del { position: absolute; top: 0; right: 0; width: 22px; height: 22px; min-width: 0; min-height: 0; display: grid; place-items: center; padding: 0; font-size: 0.65rem; line-height: 1; color: #fff; background: rgba(17, 24, 39, 0.78); border: 0; border-radius: 0 0 0 8px; box-shadow: none; cursor: pointer; }
+.line-foto .line-foto-del::after { content: ""; position: absolute; inset: -12px -12px -12px -12px; }
+.line-foto-add { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 12px; font-size: 0.8rem; font-weight: 600; color: var(--text-dim); background: transparent; border: 1.5px dashed var(--border); border-radius: 8px; cursor: pointer; }
+.line-foto-add .ic { width: 18px; height: 18px; }
+.line-foto-add:hover { color: var(--primary); border-color: var(--primary); }
+@media (max-width: 767px) { .line-fotos { margin-top: -2px; } }
+

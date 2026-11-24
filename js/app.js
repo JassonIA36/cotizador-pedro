@@ -2258,9 +2258,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       clientName: '',
       clientPhone: '',
       equipment: '',
-      items: [],
-      discountPercent: 0,
-      deliveryAmount: 0,
+      // Opciones de precio de la cotización (cada una con sus ítems, descuento, domicilio e IVA).
+      // `items` apunta siempre a los ítems de la opción activa (ver más abajo).
+      opciones: [nuevaOpcion('')],
+      activa: 0,
       validDays: 15,
       hasTax: false,
       notes: ''
@@ -2485,26 +2486,102 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       && String(a.date || '') === String(b.date || '');
   }
 
-  // --- Calculations ---
-  function calculateTotals() {
-    const subtotal = state.currentQuote.items.reduce((acc, it) => acc + (it.q * it.p), 0);
-    const discPercent = parseFloat($('q-discount').value) || 0;
-    const discountAmount = subtotal * (discPercent / 100);
-    const deliveryAmount = parseFloat($('q-delivery').value) || 0;
-    const base = subtotal - discountAmount + deliveryAmount;
-    const taxRate = parseFloat($('q-tax').value) || 0;
-    const taxAmount = base * taxRate;
-    const total = base + taxAmount;
+  // --- Opciones de precio de la cotización ---
+  // Una cotización puede tener varias opciones (A, B, C...). Cada una tiene sus ítems y sus ajustes.
+  // Con una sola opción todo se guarda y se ve exactamente como antes.
+  const OPCIONES_MAX = 6;
+  const FOTOS_POR_ITEM_MAX = 3;
 
-    return {
-      subtotal,
-      discountPercent: discPercent,
-      discountAmount,
-      deliveryAmount,
-      taxRate,
-      taxAmount,
-      total
-    };
+  function letraDeOpcion(i) { return String.fromCharCode(65 + (i % 26)); }
+
+  function nuevaOpcion(nombre) {
+    return { id: generateUUID(), nombre: nombre || '', items: [], discountPercent: 0, deliveryAmount: 0, taxRate: 0 };
+  }
+
+  function opcionActiva() {
+    const q = state.currentQuote;
+    if (!Array.isArray(q.opciones) || q.opciones.length === 0) { q.opciones = [nuevaOpcion('')]; q.activa = 0; }
+    if (!q.opciones[q.activa]) q.activa = 0;
+    return q.opciones[q.activa];
+  }
+
+  // `state.currentQuote.items` siempre son los ítems de la opción activa (el resto del código no cambia).
+  Object.defineProperty(state.currentQuote, 'items', {
+    get() { return opcionActiva().items; },
+    set(v) { opcionActiva().items = Array.isArray(v) ? v : []; },
+    enumerable: false,
+    configurable: true
+  });
+
+  function tituloDeOpcion(opt, i) {
+    return 'Opción ' + letraDeOpcion(i) + (opt && opt.nombre && opt.nombre.trim() ? ' · ' + opt.nombre.trim() : '');
+  }
+
+  // Pasa lo escrito en el formulario (descuento, domicilio, IVA) a la opción activa
+  function syncActiveFromDom() {
+    const o = opcionActiva();
+    if ($('q-discount')) o.discountPercent = parseFloat($('q-discount').value) || 0;
+    if ($('q-delivery')) o.deliveryAmount = parseFloat($('q-delivery').value) || 0;
+    if ($('q-tax')) o.taxRate = parseFloat($('q-tax').value) || 0;
+  }
+
+  // Muestra en el formulario los ajustes de la opción activa
+  function loadActiveToDom() {
+    const o = opcionActiva();
+    if ($('q-discount')) $('q-discount').value = o.discountPercent || 0;
+    if ($('q-delivery')) $('q-delivery').value = o.deliveryAmount || 0;
+    if ($('q-tax')) $('q-tax').value = String(o.taxRate || 0);
+  }
+
+  // Carga las opciones de una cotización guardada (las antiguas, de una sola lista, quedan como una opción)
+  function cargarOpcionesDesde(saved) {
+    const origen = Array.isArray(saved.opciones) && saved.opciones.length
+      ? saved.opciones
+      : [{ items: saved.items, discountPercent: saved.discountPercent, deliveryAmount: saved.deliveryAmount, taxRate: saved.taxRate }];
+    state.currentQuote.opciones = origen.map(o => ({
+      id: o.id || generateUUID(),
+      nombre: o.nombre || '',
+      items: JSON.parse(JSON.stringify(Array.isArray(o.items) ? o.items : [])),
+      discountPercent: parseFloat(o.discountPercent) || 0,
+      deliveryAmount: parseFloat(o.deliveryAmount) || 0,
+      taxRate: parseFloat(o.taxRate) || 0
+    }));
+    state.currentQuote.activa = 0;
+    loadActiveToDom();
+  }
+
+  function resetOpciones() {
+    state.currentQuote.opciones = [nuevaOpcion('')];
+    state.currentQuote.activa = 0;
+    loadActiveToDom();
+  }
+
+  function calcOpcionTotals(opt) {
+    const subtotal = (opt.items || []).reduce((acc, it) => acc + ((it.q || 0) * (it.p || 0)), 0);
+    const discPercent = parseFloat(opt.discountPercent) || 0;
+    const discountAmount = subtotal * (discPercent / 100);
+    const deliveryAmount = parseFloat(opt.deliveryAmount) || 0;
+    const base = subtotal - discountAmount + deliveryAmount;
+    const taxRate = parseFloat(opt.taxRate) || 0;
+    const taxAmount = base * taxRate;
+    return { subtotal, discountPercent: discPercent, discountAmount, deliveryAmount, taxRate, taxAmount, total: base + taxAmount };
+  }
+
+  function cambiarOpcion(i) {
+    const q = state.currentQuote;
+    if (!q.opciones[i]) return;
+    syncActiveFromDom();
+    q.activa = i;
+    loadActiveToDom();
+    renderQuoteItems();
+    renderLivePreview();
+  }
+
+  // --- Calculations ---
+  // Totales de la opción activa
+  function calculateTotals() {
+    syncActiveFromDom();
+    return calcOpcionTotals(opcionActiva());
   }
 
   // Phone Formatting Helpers
@@ -2555,7 +2632,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   }
 
   function getFullQuoteData() {
-    const totals = calculateTotals();
+    syncActiveFromDom();
+    const opcionesQ = state.currentQuote.opciones;
+    // Los datos «de siempre» (ítems y totales) son los de la primera opción: así lo ve también cualquier versión anterior de la app.
+    const totals = calcOpcionTotals(opcionesQ[0]);
     const dates = getDates();
 
     const clientPrefix = $('q-client-prefix') ? $('q-client-prefix').value : '57';
@@ -2580,12 +2660,22 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       clientPhoneRaw: clientPhoneRaw,
       clientPrefix: clientPrefix,
       equipment: ($('q-equipment') && $('q-equipment').value.trim()) || '',
-      items: state.currentQuote.items,
+      items: opcionesQ[0].items,
       issueDate: dates.issue,
       expireDate: dates.expire,
       notes: ($('q-notes') && $('q-notes').value.trim()) || '',
       ...totals
     };
+
+    if (opcionesQ.length > 1) {
+      quoteData.opciones = opcionesQ.map((o, i) => ({
+        id: o.id,
+        nombre: o.nombre || '',
+        titulo: tituloDeOpcion(o, i),
+        items: o.items,
+        ...calcOpcionTotals(o)
+      }));
+    }
 
     quoteData.fullMessageText = generatePlainText(quoteData);
     return quoteData;
@@ -2613,7 +2703,65 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     select.innerHTML = html;
   }
 
+  // Barra de opciones de precio (A, B, C...) encima de los ítems
+  function renderOpcionesBar() {
+    const bar = $('opt-bar');
+    if (!bar) return;
+    const q = state.currentQuote;
+    const multi = q.opciones.length > 1;
+    const tabs = multi ? `<div class="opt-tabs" role="tablist" aria-label="Opciones de precio">${q.opciones.map((o, i) => `
+        <button type="button" role="tab" class="opt-tab${i === q.activa ? ' active' : ''}" data-opt="${i}" aria-selected="${i === q.activa}">
+          <span class="opt-tab-letter">${letraDeOpcion(i)}</span>
+          <span class="opt-tab-name">${escapeHtml(o.nombre && o.nombre.trim() ? o.nombre.trim() : 'Opción ' + letraDeOpcion(i))}</span>
+          <span class="opt-tab-total">${formatMoney(calcOpcionTotals(o).total)}</span>
+        </button>`).join('')}</div>` : '';
+    const puedeAgregar = q.opciones.length < OPCIONES_MAX;
+    const agregar = puedeAgregar
+      ? `<button type="button" class="opt-add" data-action="add-opt">+ ${multi ? 'Opción' : 'Dar otra opción de precio'}</button>`
+      : '';
+    const herramientas = multi ? `
+      <div class="opt-tools">
+        <div class="input-group opt-name-group">
+          <label for="opt-name">Nombre de la Opción ${letraDeOpcion(q.activa)}</label>
+          <input id="opt-name" type="text" maxlength="40" value="${escapeHtml(opcionActiva().nombre || '')}" placeholder="Ej. Económica, Original, Con garantía">
+        </div>
+        <button type="button" class="btn-secondary opt-tool-btn" data-action="dup-opt">Duplicar</button>
+        <button type="button" class="btn-danger opt-tool-btn" data-action="del-opt">Quitar</button>
+      </div>` : '';
+    bar.innerHTML = `<div class="opt-row">${tabs}${agregar}</div>${herramientas}`;
+    bar.classList.toggle('opt-multi', multi);
+    const hint = $('opt-fin-hint');
+    if (hint) {
+      hint.hidden = !multi;
+      hint.textContent = multi ? `Descuento, domicilio e IVA de la ${tituloDeOpcion(opcionActiva(), q.activa)}. La vigencia y las notas son para toda la cotización.` : '';
+    }
+  }
+
+  // Actualiza nombres y totales de las pestañas sin volver a dibujarlas (para no perder el foco al escribir)
+  function actualizarPestanasOpciones() {
+    const q = state.currentQuote;
+    document.querySelectorAll('#opt-bar .opt-tab').forEach(tab => {
+      const i = parseInt(tab.dataset.opt);
+      const o = q.opciones[i];
+      if (!o) return;
+      const nom = tab.querySelector('.opt-tab-name');
+      const tot = tab.querySelector('.opt-tab-total');
+      if (nom) nom.textContent = o.nombre && o.nombre.trim() ? o.nombre.trim() : 'Opción ' + letraDeOpcion(i);
+      if (tot) tot.textContent = formatMoney(calcOpcionTotals(o).total);
+    });
+  }
+
+  function fotosDeItemHtml(it, idx) {
+    const fotos = Array.isArray(it.fotos) ? it.fotos : [];
+    const nombre = escapeHtml(it.d || 'ítem');
+    return `<div class="line-fotos">${fotos.map((f, fi) => `
+        <div class="line-foto"><img src="${f}" alt="Foto ${fi + 1} de ${nombre}"><button type="button" class="line-foto-del" data-action="del-foto" data-foto="${fi}" aria-label="Quitar foto ${fi + 1}">✕</button></div>`).join('')}
+        ${fotos.length < FOTOS_POR_ITEM_MAX ? `<button type="button" class="line-foto-add" data-action="add-foto" aria-label="Agregar foto al ítem ${idx + 1}"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>Foto ${fotos.length}/${FOTOS_POR_ITEM_MAX}</span></button>` : ''}
+      </div>`;
+  }
+
   function renderQuoteItems() {
+    renderOpcionesBar();
     const container = $('quote-lines');
     if (state.currentQuote.items.length === 0) {
       container.innerHTML = `
@@ -2646,8 +2794,56 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           </div>
           <button class="btn-danger btn-icon line-del-btn" data-action="remove-line" title="Eliminar ítem">✕</button>
         </div>
+        ${fotosDeItemHtml(it, idx)}
       </div>
     `).join('');
+  }
+
+  function fotosPreviewHtml(it) {
+    const fotos = Array.isArray(it.fotos) ? it.fotos : [];
+    return fotos.length ? `<div class="doc-item-fotos">${fotos.map(f => `<img src="${f}" alt="">`).join('')}</div>` : '';
+  }
+
+  function filaPreviewItemHtml(it) {
+    return `
+        <tr>
+          <td>${escapeHtml(it.d || 'Servicio / Producto')}${fotosPreviewHtml(it)}</td>
+          <td class="text-right">${it.q}</td>
+          <td class="text-right">${formatMoney(it.p)}</td>
+          <td class="text-right" style="font-weight: 700;">${formatMoney(it.q * it.p)}</td>
+        </tr>`;
+  }
+
+  // Varias opciones: cada una con su tabla y su total, y al final un resumen para comparar
+  function opcionesPreviewHtml(opciones) {
+    const bloques = opciones.map((o, i) => {
+      const filas = o.items.length
+        ? o.items.map(filaPreviewItemHtml).join('')
+        : `<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 16px;">Sin ítems</td></tr>`;
+      return `
+        <section class="doc-opcion">
+          <h3 class="doc-opcion-titulo"><span class="doc-opcion-letra">${letraDeOpcion(i)}</span><span class="doc-opcion-nombre">${escapeHtml(o.nombre && o.nombre.trim() ? o.nombre.trim() : 'Opción ' + letraDeOpcion(i))}</span></h3>
+          <div class="doc-table-responsive">
+            <table class="doc-table">
+              <thead><tr><th>Descripción del Servicio o Producto</th><th class="text-right">Cant.</th><th class="text-right">Vr. Unitario</th><th class="text-right">Total</th></tr></thead>
+              <tbody>${filas}</tbody>
+            </table>
+          </div>
+          <div class="doc-totals-box">
+            <div class="doc-total-row"><span>Subtotal:</span><span>${formatMoney(o.subtotal)}</span></div>
+            ${o.discountAmount > 0 ? `<div class="doc-total-row" style="color: #dc2626;"><span>Descuento (${o.discountPercent}%):</span><span>-${formatMoney(o.discountAmount)}</span></div>` : ''}
+            ${o.deliveryAmount > 0 ? `<div class="doc-total-row"><span>Domicilio / Visita:</span><span>+${formatMoney(o.deliveryAmount)}</span></div>` : ''}
+            ${o.taxAmount > 0 ? `<div class="doc-total-row"><span>IVA 19%:</span><span>+${formatMoney(o.taxAmount)}</span></div>` : ''}
+            <div class="doc-total-grand"><span>TOTAL:</span><span>${formatMoney(o.total)}</span></div>
+          </div>
+        </section>`;
+    }).join('');
+    const resumen = `
+        <section class="doc-resumen-opciones">
+          <h3 class="doc-opcion-titulo doc-resumen-titulo">Resumen de opciones</h3>
+          <ul>${opciones.map((o, i) => `<li><span class="doc-opcion-letra">${letraDeOpcion(i)}</span><span class="doc-resumen-nombre">${escapeHtml(o.nombre && o.nombre.trim() ? o.nombre.trim() : 'Opción ' + letraDeOpcion(i))}</span><strong>${formatMoney(o.total)}</strong></li>`).join('')}</ul>
+        </section>`;
+    return bloques + resumen;
   }
 
   function renderLivePreview() {
@@ -2672,18 +2868,17 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
 
     // Rows
+    const multi = Array.isArray(data.opciones) && data.opciones.length > 1;
+    if ($('preview-single')) $('preview-single').hidden = multi;
+    if ($('preview-multi')) {
+      $('preview-multi').hidden = !multi;
+      $('preview-multi').innerHTML = multi ? opcionesPreviewHtml(data.opciones) : '';
+    }
     const tableBody = $('preview-table-body');
     if (data.items.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 16px;">Sin ítems</td></tr>`;
     } else {
-      tableBody.innerHTML = data.items.map(it => `
-        <tr>
-          <td>${escapeHtml(it.d || 'Servicio / Producto')}</td>
-          <td class="text-right">${it.q}</td>
-          <td class="text-right">${formatMoney(it.p)}</td>
-          <td class="text-right" style="font-weight: 700;">${formatMoney(it.q * it.p)}</td>
-        </tr>
-      `).join('');
+      tableBody.innerHTML = data.items.map(filaPreviewItemHtml).join('');
     }
 
     // Totals
@@ -2715,9 +2910,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
     $('preview-total').textContent = formatMoney(data.total);
 
-    // Sticky mobile total bar
-    $('sticky-total').textContent = formatMoney(data.total);
-    $('sticky-count').textContent = data.items.length + (data.items.length === 1 ? ' ítem' : ' ítems');
+    // Sticky mobile total bar (muestra la opción que se está editando)
+    const activaQ = state.currentQuote;
+    const totalActivo = calcOpcionTotals(opcionActiva()).total;
+    const nActivo = activaQ.items.length;
+    $('sticky-total').textContent = formatMoney(totalActivo);
+    $('sticky-count').textContent = (multi ? 'Opc. ' + letraDeOpcion(activaQ.activa) + ' · ' : '') + nActivo + (nActivo === 1 ? ' ítem' : ' ítems');
+    actualizarPestanasOpciones();
 
     // Notes
     $('preview-notes').textContent = data.notes || '';
@@ -2815,12 +3014,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
     $('q-client-phone').value = formatLocalPhone(saved.clientPhoneRaw || saved.clientPhone || '', $('q-client-prefix') ? $('q-client-prefix').value : '57');
     $('q-equipment').value = saved.equipment || '';
-    $('q-discount').value = saved.discountPercent || 0;
-    $('q-delivery').value = saved.deliveryAmount || 0;
-    $('q-tax').value = saved.taxRate || 0;
     $('q-notes').value = saved.notes || state.business.terms;
 
-    state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
+    cargarOpcionesDesde(saved);
     
     state.editingQuote = { id: saved.id, number: saved.quoteNumber, client: saved.clientName };
     state.quoteIsDirty = false;
@@ -2845,12 +3041,9 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     }
     $('q-client-phone').value = formatLocalPhone(saved.clientPhoneRaw || saved.clientPhone || '', $('q-client-prefix') ? $('q-client-prefix').value : '57');
     $('q-equipment').value = saved.equipment || '';
-    $('q-discount').value = saved.discountPercent || 0;
-    $('q-delivery').value = saved.deliveryAmount || 0;
-    $('q-tax').value = saved.taxRate || 0;
     $('q-notes').value = saved.notes || state.business.terms;
 
-    state.currentQuote.items = JSON.parse(JSON.stringify(saved.items || []));
+    cargarOpcionesDesde(saved);
     
     state.editingQuote = null;
     state.quoteIsDirty = true;
@@ -2965,8 +3158,10 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       const st = item.status || 'Borrador';
       const badgeClass = st === 'Enviada' ? 'badge-enviada' : (st === 'Aprobada' ? 'badge-aprobada' : (st === 'Rechazada' ? 'badge-rechazada' : 'badge-borrador'));
       const itemsCount = (item.items && item.items.length) || 0;
+      const nOpciones = Array.isArray(item.opciones) ? item.opciones.length : 0;
+      const totalesOpc = nOpciones > 1 ? item.opciones.map(o => o.total || 0) : [];
       const repeatedHtml = isRepeated ? '<div class="dup-alert">⚠️ Otra cotización tiene este mismo número. Usa «Renumerar» en una de las dos.</div>' : '';
-      const detailHtml = repeatedHtml + `<div><strong>${itemsCount} ${itemsCount === 1 ? 'ítem cotizado' : 'ítems cotizados'}</strong>${item.equipment ? ' · 💻 ' + escapeHtml(item.equipment) : ''}</div>${item.notes ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim);">' + escapeHtml(item.notes.substring(0, 100)) + '</div>' : ''}`;
+      const detailHtml = repeatedHtml + `<div><strong>${nOpciones > 1 ? nOpciones + ' opciones de precio' : itemsCount + ' ' + (itemsCount === 1 ? 'ítem cotizado' : 'ítems cotizados')}</strong>${item.equipment ? ' · 💻 ' + escapeHtml(item.equipment) : ''}</div>${item.notes ? '<div style="margin-top:2px; font-size:0.78rem; color:var(--text-dim);">' + escapeHtml(item.notes.substring(0, 100)) + '</div>' : ''}`;
 
       return renderUnifiedHistoryCardHtml({
         type: 'cotizacion',
@@ -2980,8 +3175,8 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
         clientName: item.clientName || 'Cliente General',
         clientNit: item.clientPhone ? 'Tel: ' + item.clientPhone : '',
         detailHtml: detailHtml,
-        amountLabel: 'TOTAL',
-        amountVal: formatMoney(item.total),
+        amountLabel: nOpciones > 1 ? 'DESDE' : 'TOTAL',
+        amountVal: formatMoney(nOpciones > 1 ? Math.min(...totalesOpc) : item.total),
         amountClass: 'text-primary',
         actions: [
           { accion: 'abrir', label: 'Abrir', icon: '✏️', variant: 'primary', data: { index: originalIdx } },
@@ -3373,7 +3568,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   function hasUnsavedQuoteChanges() {
     if (state.quoteIsDirty) return true;
     if (!state.editingQuote) {
-      const hasItems = state.currentQuote && state.currentQuote.items && state.currentQuote.items.length > 0;
+      const hasItems = state.currentQuote && state.currentQuote.opciones && state.currentQuote.opciones.some(o => o.items.length > 0);
       const client = $('q-client-name') ? $('q-client-name').value.trim() : '';
       const equip = $('q-equipment') ? $('q-equipment').value.trim() : '';
       return hasItems || client.length > 0 || equip.length > 0;
@@ -3465,14 +3660,11 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     setStorage('pr_quote_num', state.quoteNumber);
     triggerIncrementalSync();
 
-    state.currentQuote.items = [];
+    resetOpciones();
     if ($('q-client-name')) $('q-client-name').value = '';
     if ($('q-client-prefix')) $('q-client-prefix').value = '57';
     if ($('q-client-phone')) $('q-client-phone').value = '';
     if ($('q-equipment')) $('q-equipment').value = '';
-    if ($('q-discount')) $('q-discount').value = 0;
-    if ($('q-delivery')) $('q-delivery').value = 0;
-    if ($('q-tax')) $('q-tax').value = 0;
     if ($('q-notes')) $('q-notes').value = (state.business && state.business.terms) ? state.business.terms : '';
 
     renderQuoteItems();
@@ -3553,7 +3745,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
 
   // --- Save / History Helpers ---
   function saveCurrentToHistory(auto = false) {
-    if (state.currentQuote.items.length === 0) return;
+    if (!state.currentQuote.opciones.some(o => o.items.length > 0)) return;
 
     // Se actualiza SOLO la cotización que se está editando (por su id). Nunca se reemplaza otra por tener el mismo número.
     const editingId = state.editingQuote && state.editingQuote.id ? state.editingQuote.id : null;
@@ -3598,6 +3790,12 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   }
 
   function validateHasItems() {
+    const vacia = state.currentQuote.opciones.findIndex(o => o.items.length === 0);
+    if (vacia >= 0 && state.currentQuote.opciones.length > 1) {
+      cambiarOpcion(vacia);
+      showToast(`La ${tituloDeOpcion(opcionActiva(), vacia)} no tiene ítems. Agrégale uno o quítala.`, '⚠️');
+      return false;
+    }
     if (state.currentQuote.items.length === 0) {
       showToast('Agrega al menos un producto o servicio para cotizar.', '⚠️');
       $('catalog-select').focus();
@@ -3613,6 +3811,23 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     t += `📅 *Fecha:* ${data.issueDate}\n`;
     t += `👤 *Cliente:* ${data.clientName || 'General'}\n`;
     if (data.equipment) t += `💻 *Equipo:* ${data.equipment}\n`;
+    if (Array.isArray(data.opciones) && data.opciones.length > 1) {
+      t += `\n*TE DOY ${data.opciones.length} OPCIONES DE PRECIO:*\n`;
+      data.opciones.forEach(o => {
+        t += `\n*${o.titulo.toUpperCase()}*\n`;
+        o.items.forEach(i => {
+          t += `• ${i.q}x ${i.d} — ${formatMoney(i.q * i.p)}\n`;
+        });
+        if (o.discountAmount > 0) t += `Descuento (${o.discountPercent}%): -${formatMoney(o.discountAmount)}\n`;
+        if (o.deliveryAmount > 0) t += `Domicilio / Visita: +${formatMoney(o.deliveryAmount)}\n`;
+        if (o.taxAmount > 0) t += `IVA 19%: +${formatMoney(o.taxAmount)}\n`;
+        t += `💰 *Total ${o.titulo.split(' · ')[0]}: ${formatMoney(o.total)}*\n`;
+      });
+      t += `\n⏰ *Válida hasta:* ${data.expireDate}\n\n`;
+      if (data.notes) t += `📝 *Condiciones:*\n${data.notes}\n\n`;
+      t += `Contacto WhatsApp: ${data.businessPhone || '3024555428'}`;
+      return t;
+    }
     t += `\n*DETALLE DE SERVICIOS / PRODUCTOS:*\n`;
     data.items.forEach(i => {
       t += `• ${i.q}x ${i.d} — ${formatMoney(i.q * i.p)}\n`;
@@ -5545,13 +5760,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
   }
 
   // Reduce la foto (lado mayor 1100 px, JPEG) para que quepa en el celular y en la nube
-  function comprimirImagenEvidencia(file) {
+  function comprimirImagenEvidencia(file, ladoMax, calidad) {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
         try {
-          const max = 1100;
+          const max = ladoMax || 1100;
           const escala = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
           const w = Math.max(1, Math.round(img.naturalWidth * escala));
           const h = Math.max(1, Math.round(img.naturalHeight * escala));
@@ -5561,7 +5776,7 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, w, h);
           ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.72));
+          resolve(canvas.toDataURL('image/jpeg', calidad || 0.72));
         } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
@@ -6338,24 +6553,13 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
     const quoteItems = items.length > 0
       ? items.map(p => {
           const val = parseFloat(p.valor) || 0;
-          return {
-            category: 'Servicio Técnico',
-            name: p.desc,
-            qty: 1,
-            price: val,
-            subtotal: val
-          };
+          return { d: p.desc, q: 1, p: val };
         })
-      : [{
-          category: 'Servicio Técnico',
-          name: `Reparación y mantenimiento de ${inf.equipment || 'equipo'}`,
-          qty: 1,
-          price: inf.propuestaTotal || 0,
-          subtotal: inf.propuestaTotal || 0
-        }];
+      : [{ d: `Reparación y mantenimiento de ${inf.equipment || 'equipo'}`, q: 1, p: inf.propuestaTotal || 0 }];
 
     state.currentQuote.clientName = inf.clientName || '';
     state.currentQuote.equipment = inf.equipment || '';
+    resetOpciones();
     state.currentQuote.items = quoteItems;
 
     if ($('q-client-name')) $('q-client-name').value = inf.clientName || '';
@@ -7841,13 +8045,112 @@ El cabezal que se suministro el pasado 1 de julio pierde garantía ya que el da�
       renderLivePreview();
     });
 
+    let fotoDestino = -1;
     $('quote-lines').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action="remove-line"]');
-      if (!btn) return;
-      const row = btn.closest('.line-item');
+      const row = e.target.closest('.line-item');
+      if (!row) return;
       const idx = parseInt(row.dataset.index);
-      state.currentQuote.items.splice(idx, 1);
-      renderQuoteItems();
+      const item = state.currentQuote.items[idx];
+      if (!item) return;
+
+      if (e.target.closest('[data-action="add-foto"]')) {
+        fotoDestino = idx;
+        const entrada = $('line-foto-input');
+        if (entrada) entrada.click();
+        return;
+      }
+      const quitarFoto = e.target.closest('[data-action="del-foto"]');
+      if (quitarFoto) {
+        const fi = parseInt(quitarFoto.dataset.foto);
+        if (Array.isArray(item.fotos)) item.fotos.splice(fi, 1);
+        if (item.fotos && item.fotos.length === 0) delete item.fotos;
+        state.quoteIsDirty = true;
+        renderQuoteItems();
+        renderLivePreview();
+        updateFormStatusBadges();
+        return;
+      }
+      if (e.target.closest('[data-action="remove-line"]')) {
+        state.currentQuote.items.splice(idx, 1);
+        renderQuoteItems();
+        renderLivePreview();
+      }
+    });
+
+    // Fotos pequeñas por ítem (hasta 3), reducidas para que quepan en el celular y en la nube
+    if ($('line-foto-input')) {
+      $('line-foto-input').addEventListener('change', async (e) => {
+        const archivos = Array.from(e.target.files || []);
+        e.target.value = '';
+        const item = state.currentQuote.items[fotoDestino];
+        if (!item || archivos.length === 0) return;
+        if (!Array.isArray(item.fotos)) item.fotos = [];
+        let agregadas = 0, rechazadas = 0, sobrantes = 0;
+        for (const file of archivos) {
+          if (item.fotos.length >= FOTOS_POR_ITEM_MAX) { sobrantes++; continue; }
+          if (!/^image\//.test(file.type)) { rechazadas++; continue; }
+          try {
+            item.fotos.push(await comprimirImagenEvidencia(file, 560, 0.62));
+            agregadas++;
+          } catch (err) { rechazadas++; }
+        }
+        if (item.fotos.length === 0) delete item.fotos;
+        renderQuoteItems();
+        renderLivePreview();
+        if (agregadas) { state.quoteIsDirty = true; updateFormStatusBadges(); }
+        if (sobrantes) showToast(`Máximo ${FOTOS_POR_ITEM_MAX} fotos por ítem`, '⚠️');
+        else if (rechazadas) showToast('Solo se pueden cargar imágenes (fotos o capturas)', '⚠️');
+        else if (agregadas) showToast(agregadas === 1 ? 'Foto agregada' : `${agregadas} fotos agregadas`, '✅');
+      });
+    }
+
+    // Opciones de precio (A, B, C...)
+    const marcarCambio = () => { state.quoteIsDirty = true; updateFormStatusBadges(); };
+    $('opt-bar').addEventListener('click', (e) => {
+      const tab = e.target.closest('.opt-tab');
+      if (tab) { cambiarOpcion(parseInt(tab.dataset.opt)); return; }
+      const q = state.currentQuote;
+      if (e.target.closest('[data-action="add-opt"]')) {
+        if (q.opciones.length >= OPCIONES_MAX) return;
+        syncActiveFromDom();
+        const base = opcionActiva();
+        const nueva = nuevaOpcion('');
+        nueva.deliveryAmount = base.deliveryAmount;
+        nueva.taxRate = base.taxRate;
+        q.opciones.push(nueva);
+        q.activa = q.opciones.length - 1;
+        loadActiveToDom();
+        renderQuoteItems(); renderLivePreview(); marcarCambio();
+        showToast(`${tituloDeOpcion(nueva, q.activa)} creada. Agrega sus ítems.`, '➕');
+        return;
+      }
+      if (e.target.closest('[data-action="dup-opt"]')) {
+        if (q.opciones.length >= OPCIONES_MAX) { showToast(`Máximo ${OPCIONES_MAX} opciones por cotización`, '⚠️'); return; }
+        syncActiveFromDom();
+        const copia = JSON.parse(JSON.stringify(opcionActiva()));
+        copia.id = generateUUID();
+        copia.nombre = copia.nombre ? copia.nombre + ' (copia)' : '';
+        q.opciones.splice(q.activa + 1, 0, copia);
+        q.activa += 1;
+        loadActiveToDom();
+        renderQuoteItems(); renderLivePreview(); marcarCambio();
+        showToast('Opción duplicada. Cambia solo lo que sea distinto.', '📑');
+        return;
+      }
+      if (e.target.closest('[data-action="del-opt"]')) {
+        if (q.opciones.length < 2) return;
+        const o = opcionActiva();
+        if (o.items.length > 0 && !confirm(`¿Quitar la ${tituloDeOpcion(o, q.activa)} con sus ${o.items.length} ítems?`)) return;
+        q.opciones.splice(q.activa, 1);
+        q.activa = Math.min(q.activa, q.opciones.length - 1);
+        loadActiveToDom();
+        renderQuoteItems(); renderLivePreview(); marcarCambio();
+      }
+    });
+    $('opt-bar').addEventListener('input', (e) => {
+      if (e.target.id !== 'opt-name') return;
+      opcionActiva().nombre = e.target.value;
+      actualizarPestanasOpciones();
       renderLivePreview();
     });
 
